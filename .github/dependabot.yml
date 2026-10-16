@@ -6,6 +6,10 @@ updates:
     target-branch: dev
     schedule:
       interval: weekly
+    # Wait 7 days before proposing a newly published version, so a hijacked
+    # release (like the March 2026 trivy-action incident) is caught before we adopt it.
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
@@ -17,9 +21,11 @@ updates:
   #   directory: /
   #   target-branch: dev
   #   schedule: { interval: weekly }
+  #   cooldown: { default-days: 7 }
   #   commit-message: { prefix: "chore(deps)" }
   # - package-ecosystem: npm
   #   directory: /web
   #   target-branch: dev
   #   schedule: { interval: weekly }
+  #   cooldown: { default-days: 7 }
   #   commit-message: { prefix: "chore(deps)" }

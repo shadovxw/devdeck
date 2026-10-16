@@ -35,19 +35,34 @@ var NAV = [
   ]],
 ];
 
+// Built with DOM methods and textContent (no document.write / innerHTML), so nothing is parsed as HTML.
 (function () {
   var here = location.pathname.split("/").pop() || "index.html";
   var parent = document.body.getAttribute("data-parent"); // detail pages highlight their list page
-  var html = '<nav class="sidebar"><h2>devdeck</h2>';
-  html += '<p class="small">workspace: <b>infrabot</b> &#9662;</p>';
+
+  function el(tag, text, cls) {
+    var node = document.createElement(tag);
+    if (text) node.textContent = text;
+    if (cls) node.className = cls;
+    return node;
+  }
+
+  var nav = el("nav", null, "sidebar");
+  nav.appendChild(el("h2", "devdeck"));
+  nav.appendChild(el("p", "workspace: infrabot ▾", "small"));
   NAV.forEach(function (group) {
-    html += "<h4>" + group[0] + "</h4><ul>";
+    nav.appendChild(el("h4", group[0]));
+    var ul = el("ul");
     group[1].forEach(function (item) {
-      var active = item[0] === here || item[0] === parent;
-      html += '<li><a href="' + item[0] + '"' + (active ? ' class="active"' : "") + ">" + item[1] + "</a></li>";
+      var a = el("a", item[1], item[0] === here || item[0] === parent ? "active" : null);
+      a.href = item[0];
+      var li = el("li");
+      li.appendChild(a);
+      ul.appendChild(li);
     });
-    html += "</ul>";
+    nav.appendChild(ul);
   });
-  html += '<hr><p class="small">Open in VS Code &#8599;</p></nav>';
-  document.write(html);
+  nav.appendChild(el("hr"));
+  nav.appendChild(el("p", "Open in VS Code ↗", "small"));
+  document.body.insertBefore(nav, document.body.firstChild);
 })();
