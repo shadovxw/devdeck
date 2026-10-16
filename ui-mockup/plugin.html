@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Plugin · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body data-parent="plugins.html"><script src="nav.js"></script><main>
+<p class="small"><a href="plugins.html">Plugins</a> / sonarqube</p>
+<h1>Plugin: sonarqube</h1>
+<p>[Start local server] [Open dashboard ↗] [Check] [View manifest]</p>
+
+<div class="row">
+  <div class="box"><b>Status</b><br>server: stopped (docker container sonarqube)<br>scanner: sonarsource/sonar-scanner-cli image</div>
+  <div class="box"><b>Connections using it</b><br><a href="connection.html">sonarqube-local</a> (http://localhost:9000)</div>
+  <div class="box"><b>VS Code</b><br>SonarQube for IDE extension → connected mode to sonarqube-local</div>
+</div>
+
+<h3>manifest.yaml</h3>
+<pre>id: sonarqube
+category: quality
+needs:
+  - docker
+connection_type:
+  id: sonarqube
+  fields:
+    url:   { type: string, default: "http://localhost:9000" }
+    token: { type: secret }
+data_sources:
+  projects: list Sonar projects (for repo settings dropdown)
+actions:
+  scan:
+    inputs:  { repo_path: path, project_key: string, branch: string }
+    outputs: { task_id: string, dashboard_url: string }
+  quality_gate:
+    inputs:  { task_id: string }
+    outputs: { status: OK|ERROR, bugs: int, vulnerabilities: int }
+    fail_when: status == ERROR
+  issues:
+    inputs:  { project_key: string }
+    outputs: { findings: findings[] }      # goes to the Findings page</pre>
+
+<h3>Actions</h3>
+<table>
+  <tr><th>Action</th><th>Used in flows</th></tr>
+  <tr><td>scan</td><td>pre-pr-check</td></tr>
+  <tr><td>quality_gate</td><td>pre-pr-check</td></tr>
+  <tr><td>issues</td><td>pre-pr-check</td></tr>
+</table>
+</main></body></html>

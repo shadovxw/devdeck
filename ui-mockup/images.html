@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Images · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Images &amp; Tags</h1>
+<p>One row per repo that has a Dockerfile. "Latest" is read from Docker Hub (and local images); "Next" is the latest with the patch number bumped.</p>
+<p>Registry connection: <b>dockerhub-citiuscloud</b> · bump: [patch ▾] · platforms: [linux/amd64 ▾]</p>
+<table>
+  <tr><th>Repo</th><th>Image</th><th>Latest on hub</th><th>Latest local</th><th>Next</th><th>Last built</th><th></th></tr>
+  <tr><td>infrabot-ticket-service</td><td>citiuscloud/infrabot-ticket-service</td><td>v1.4.7</td><td>v1.4.8 (not pushed)</td><td>v1.4.9</td><td>yesterday</td><td>[Build] [Push] [Build+Push]</td></tr>
+  <tr><td>infrabot-catalog-service</td><td>citiuscloud/infrabot-catalog-service</td><td>v2.0.3</td><td>v2.0.3</td><td>v2.0.4</td><td>3 days</td><td>[Build] [Push] [Build+Push]</td></tr>
+  <tr><td>infrabot-frontend</td><td>citiuscloud/infrabot-frontend</td><td>v0.9.12</td><td>none</td><td>v0.9.13</td><td></td><td>[Build] [Push] [Build+Push]</td></tr>
+</table>
+
+<h3>What "Build+Push" runs (the build-and-push flow)</h3>
+<pre>regctl tag ls citiuscloud/infrabot-ticket-service   → v1.4.7 highest
+next = v1.4.8 (or override: [______])
+docker buildx build -t citiuscloud/infrabot-ticket-service:v1.4.8 .
+trivy image citiuscloud/infrabot-ticket-service:v1.4.8   (fail on CRITICAL)
+docker push …:v1.4.8
+git tag v1.4.8 &amp;&amp; git push --tags                  (with the repo's account)</pre>
+</main></body></html>

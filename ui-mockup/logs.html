@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Logs · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Logs</h1>
+
+<div class="box">
+  Services: ☑ all ☐ auth ☑ ticket ☑ catalog ☐ frontend …<br>
+  Level: [error ▾] &nbsp; Regex: [ /workflow|advance/ ] &nbsp; Field: [ ticket_id ] = [ 1234 ] &nbsp; Since: [15m ▾]<br>
+  [Live ▶ / Pause ⏸] [Clear] [Save filter as…]<br>
+  Saved filters: <u>errors only</u> · <u>workflow engine</u> · <u>auth failures</u>
+</div>
+
+<div class="row">
+  <div class="box" style="flex:3">
+    <b>Stream</b> (zerolog JSON is shown as columns; raw text lines are shown as-is)
+    <table>
+      <tr><th>Time</th><th>Service</th><th>Level</th><th>Message</th><th>Fields</th><th>Where</th></tr>
+      <tr><td>10:42:11</td><td>catalog</td><td>error</td><td>failed to connect to postgres</td><td>err="connection refused"</td><td><a href="#">db.go:41</a></td></tr>
+      <tr><td>10:41:58</td><td>ticket</td><td>error</td><td>workflow advance: node not found</td><td>ticket_id=1234 node=EXE_02</td><td><a href="#">engine.go:212</a></td></tr>
+      <tr><td>10:41:57</td><td>ticket</td><td>info</td><td>advance workflow</td><td>ticket_id=1234</td><td></td></tr>
+    </table>
+    <p class="small">Click a row to see the full JSON. Click Where to open the file at that line in VS Code.</p>
+  </div>
+  <div class="box" style="flex:1">
+    <b>Errors (grouped)</b>
+    <ul>
+      <li>catalog · failed to connect to postgres ×2</li>
+      <li>ticket · node not found ×5</li>
+    </ul>
+    [Send to Problems panel in VS Code]<br>
+    [Ask Claude about this error]
+  </div>
+</div>
+</main></body></html>

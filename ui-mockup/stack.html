@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Stack · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body data-parent="stacks.html"><script src="nav.js"></script><main>
+<p class="small"><a href="stacks.html">Stacks</a> / full</p>
+<h1>Stack: full (running)</h1>
+<p>[Stop all] [Restart all] [Edit file] [Open Tilt UI ↗]</p>
+
+<h3>Pre-start checks</h3>
+<p>Docker running ✔ · go 1.24 ✔ · node 22 ✔ · ports free ✔ · .env.local present ✔</p>
+
+<h3>Services</h3>
+<table>
+  <tr><th>Service</th><th>Kind</th><th>Status</th><th>Port</th><th>Uptime</th><th>Errors</th><th>Last error</th><th></th></tr>
+  <tr><td>postgres</td><td>compose</td><td>up</td><td>5432</td><td>2h</td><td>0</td><td></td><td>[restart] [logs]</td></tr>
+  <tr><td>keycloak</td><td>compose</td><td>up</td><td>8080</td><td>2h</td><td>0</td><td></td><td>[restart] [logs]</td></tr>
+  <tr><td>infrabot-auth-service</td><td>go</td><td>up</td><td>8081</td><td>2h</td><td>0</td><td></td><td>[restart] [logs] [debug]</td></tr>
+  <tr><td>infrabot-catalog-service</td><td>go</td><td><b>crashed</b></td><td>8082</td><td></td><td>2</td><td>failed to connect to postgres</td><td>[restart] [logs] [debug]</td></tr>
+  <tr><td>infrabot-ticket-service</td><td>go</td><td>up</td><td>8083</td><td>1h</td><td>5</td><td>workflow advance: node not found</td><td>[restart] [logs] [debug]</td></tr>
+  <tr><td>infrabot-frontend</td><td>node</td><td>up</td><td>5173</td><td>2h</td><td>0</td><td></td><td>[restart] [logs] [open]</td></tr>
+  <tr><td colspan="8" class="small">… 8 more</td></tr>
+</table>
+<p class="small">[debug] restarts that Go service under the VS Code debugger (Delve) instead of plain go run.</p>
+</main></body></html>

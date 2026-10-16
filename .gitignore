@@ -1,0 +1,26 @@
+# Go
+/bin/
+*.exe
+*.test
+*.out
+
+# Frontend
+node_modules/
+web/dist/
+.vite/
+
+# Wails / build output
+build/bin/
+
+# Local state and secrets
+.env
+.env.*
+!.env.example
+.devdeck/
+*.db
+*.log
+
+# Editors / OS
+.idea/
+.DS_Store
+Thumbs.db

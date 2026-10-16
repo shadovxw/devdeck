@@ -1,0 +1,51 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Flow builder · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body data-parent="flows.html"><script src="nav.js"></script><main>
+<p class="small"><a href="flows.html">Flows</a> / pre-pr-check</p>
+<h1>Flow builder: pre-pr-check</h1>
+<p>[Save] [Run now] [View YAML] [Validate]</p>
+
+<div class="row">
+  <div class="box" style="flex:1">
+    <b>Step palette</b> (from installed plugins, grouped like infrabot's node menu)
+    <p><b>Triggers</b><br>Manual · Work item stage · Git push/commit · File saved · Schedule</p>
+    <p><b>Code checks</b><br>golangci-lint · eslint · go test · npm test</p>
+    <p><b>Security</b><br>gitleaks · trivy fs · trivy image · semgrep · govulncheck · megalinter</p>
+    <p><b>Quality</b><br>sonarqube scan · sonarqube quality gate</p>
+    <p><b>Build &amp; ship</b><br>next image tag · docker buildx · docker push · git tag</p>
+    <p><b>Database</b><br>run saved script · migrate · migration status · snapshot schema · reset DB</p>
+    <p><b>Git / GitHub</b><br>pull · push · create branch · create PR</p>
+    <p><b>AI</b><br>claude review · claude fix findings · claude PR summary</p>
+    <p><b>Control</b><br>Gate (condition) · Approval (me) · Parallel · Stop</p>
+    <p><b>Utilities</b><br>Run script · Notify (Windows toast / VS Code)</p>
+  </div>
+
+  <div class="box" style="flex:2">
+    <b>Canvas</b> (a plain list for the mockup; the real thing could be a node graph)
+<pre>[Trigger: Work item stage = "Checks"]
+        │
+[golangci-lint]   [eslint]        ← parallel, per repo type
+        │
+[go test]  [npm test]
+        │
+[gitleaks] [trivy fs] [semgrep]   ← parallel
+        │
+[sonarqube scan] → [sonarqube quality gate]
+        │
+[Gate: no critical findings AND quality gate = OK]
+   │ yes                         │ no
+[claude review]           [claude fix findings] → [Stop: failed]
+   │
+[Notify: "ready for PR"]</pre>
+  </div>
+
+  <div class="box" style="flex:1">
+    <b>Step settings: trivy fs</b> (form generated from the plugin's input schema)<br><br>
+    Target: [ {{repo.path}} ]<br>
+    Severity: ☑ CRITICAL ☑ HIGH ☐ MEDIUM<br>
+    Ignore unfixed: ☑<br>
+    Fail step if findings ≥ [1]<br><br>
+    <b>Outputs</b> (usable by later steps)<br>
+    <code>findings_count</code>, <code>report_path</code>
+  </div>
+</div>
+</main></body></html>

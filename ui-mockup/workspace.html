@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Workspace · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body data-parent="workspaces.html"><script src="nav.js"></script><main>
+<p class="small"><a href="workspaces.html">Workspaces</a> / infrabot</p>
+<h1>Workspace: infrabot</h1>
+<p>[Open in VS Code] [Pull all] [Start stack ▾] [Edit YAML]</p>
+
+<h3>Files that define this workspace</h3>
+<pre>workspaces/infrabot/
+  workspace.yaml        name, folder, default account, repo list
+  stacks/*.yaml         one file per stack (full, backend-only, frontend-only, db-only)
+  flows/*.yaml          pre-pr-check, build-and-push, release
+  infrabot.code-workspace  generated VS Code multi-root workspace</pre>
+
+<h3>Repos</h3>
+<table>
+  <tr><th>Repo</th><th>Account</th><th>Type</th><th>In stacks</th></tr>
+  <tr><td><a href="repo.html">infrabot-frontend</a></td><td>github-group</td><td>node</td><td>full, frontend-only</td></tr>
+  <tr><td>infrabot-ticket-service</td><td>github-group</td><td>go</td><td>full, backend-only</td></tr>
+  <tr><td>infrabot-catalog-service</td><td>github-group</td><td>go</td><td>full, backend-only</td></tr>
+  <tr><td>infrabot-automation-scripts</td><td>github-group</td><td>ansible</td><td>none</td></tr>
+  <tr><td colspan="4" class="small">… 12 more</td></tr>
+</table>
+
+<h3>Account rule</h3>
+<p>Repos under <code>github.com/citiuscloud-services/*</code> → <b>github-group</b>. Anything else → <b>github-work</b>. <a href="connections.html">Change rules</a></p>
+
+<h3>Stacks</h3>
+<p><a href="stack.html">full</a> · backend-only · frontend-only · db-only</p>
+
+<h3>Flows</h3>
+<p><a href="flow.html">pre-pr-check</a> · build-and-push · release</p>
+</main></body></html>

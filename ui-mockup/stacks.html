@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Stacks · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Stacks</h1>
+<p>A stack is a named file listing which services to start and how. Make as many as you like and start whichever one you need.</p>
+<p>[+ New stack] [Duplicate] </p>
+<table>
+  <tr><th>Stack</th><th>File</th><th>Services</th><th>Status</th><th></th></tr>
+  <tr><td><a href="stack.html">full</a></td><td>stacks/full.yaml</td><td>2 compose + 10 go + 2 node</td><td>running 12/14</td><td>[Stop] [Restart]</td></tr>
+  <tr><td>backend-only</td><td>stacks/backend-only.yaml</td><td>2 compose + 10 go</td><td>stopped</td><td>[Start]</td></tr>
+  <tr><td>frontend-only</td><td>stacks/frontend-only.yaml</td><td>frontend (points at dev API)</td><td>stopped</td><td>[Start]</td></tr>
+  <tr><td>db-only</td><td>stacks/db-only.yaml</td><td>postgres, keycloak</td><td>stopped</td><td>[Start]</td></tr>
+</table>
+
+<h3>Example stack file</h3>
+<pre>name: backend-only
+checks: [docker, go]               # Doctor checks run before start; stop with a clear message if missing
+compose: docker-compose.deps.yml   # started first
+services:
+  - repo: infrabot-auth-service
+    run: go run ./cmd/server
+    port: 8081
+    ready: http://localhost:8081/health
+    logs: zerolog                  # log parser plugin → levels, fields, file:line
+  - repo: infrabot-ticket-service
+    run: go run ./cmd/server
+    port: 8083
+    after: [infrabot-auth-service]
+    env_file: .env.local</pre>
+<p class="small">Under the hood this can be turned into a Tiltfile (or process-compose file). The stack YAML is what you edit.</p>
+</main></body></html>

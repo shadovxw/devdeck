@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Run · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body data-parent="runs.html"><script src="nav.js"></script><main>
+<p class="small"><a href="runs.html">Runs</a> / #41</p>
+<h1>Run #41: pre-pr-check (failed)</h1>
+<p>For: work item <a href="work-item.html">ocp-vm-provision</a> · repos: frontend, catalog, automation-scripts</p>
+<p>[Re-run] [Re-run from failed step] [Ask Claude to fix] [Cancel]</p>
+
+<table>
+  <tr><th>Step</th><th>Plugin</th><th>Repo</th><th>Status</th><th>Time</th><th>Output</th></tr>
+  <tr><td>golangci-lint</td><td>golang</td><td>catalog</td><td>pass</td><td>22s</td><td>0 issues</td></tr>
+  <tr><td>eslint</td><td>node</td><td>frontend</td><td>pass</td><td>15s</td><td>0 issues</td></tr>
+  <tr><td>go test</td><td>golang</td><td>catalog</td><td>pass</td><td>48s</td><td>112 tests</td></tr>
+  <tr><td>gitleaks</td><td>gitleaks</td><td>automation-scripts</td><td><b>fail</b></td><td>4s</td><td>findings_count=1</td></tr>
+  <tr><td>trivy fs</td><td>trivy</td><td>all</td><td>pass</td><td>31s</td><td>0 HIGH/CRITICAL</td></tr>
+  <tr><td>sonarqube scan</td><td>sonarqube</td><td>catalog</td><td>pass</td><td>1m 10s</td><td>dashboard ↗</td></tr>
+  <tr><td>quality gate</td><td>sonarqube</td><td>catalog</td><td>fail</td><td>2s</td><td>1 bug</td></tr>
+  <tr><td>gate</td><td>core</td><td></td><td>no → stop</td><td></td><td></td></tr>
+</table>
+
+<h3>Step log: gitleaks</h3>
+<pre>Finding:     password: "Xyz…"
+Secret:      REDACTED
+RuleID:      generic-api-key
+File:        ansible-playbooks/ocp/vars.yml:14
+Commit:      (uncommitted)</pre>
+<p><a href="#">Open vars.yml:14 in VS Code</a></p>
+</main></body></html>

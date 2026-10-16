@@ -1,0 +1,71 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Sitemap · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Sitemap</h1>
+<p class="small">Implementation plan: <code>devdeck/dev-plans/00-implementation-plan.md</code></p>
+<p>Every page in the mockup and what it is for. Pages marked <i>(detail)</i> open from a row on the list page above them.</p>
+
+<h3>Overview</h3>
+<ul>
+  <li><a href="index.html">Home</a>: today's view of the current workspace: stack status, errors, running pipelines, open work items, git sync state.</li>
+</ul>
+
+<h3>Code</h3>
+<ul>
+  <li><a href="workspaces.html">Workspaces</a>: one per codebase (infrabot, aws-central-portal, …). Create one, or clone one onto a new PC.
+    <ul><li><a href="workspace.html">Workspace detail</a> <i>(detail)</i>: repos, stacks, flows, account rules, VS Code workspace file.</li></ul></li>
+  <li><a href="repos.html">Repositories</a>: every repo with <b>which GitHub account it belongs to</b>, branch, ahead/behind, pull/push.
+    <ul><li><a href="repo.html">Repo detail</a> <i>(detail)</i>: branches, changes, commits, PRs, account binding, runs for this repo.</li></ul></li>
+  <li><a href="work-items.html">Work Items</a>: one per feature or bug fix (= one <code>dev-plans/</code> folder). Stage tracker: plan → code → checks → review → PR.
+    <ul><li><a href="work-item.html">Work item detail</a> <i>(detail)</i>: plan, changes, scan report, review, PR summary tabs.</li></ul></li>
+</ul>
+
+<h3>Run locally</h3>
+<ul>
+  <li><a href="stacks.html">Stacks</a>: named stack files (full, backend-only, …), each with a Start/Stop button.
+    <ul><li><a href="stack.html">Stack live view</a> <i>(detail)</i>: per-service status, ports, restart, last error.</li></ul></li>
+  <li><a href="logs.html">Logs</a>: all service output; filter by service, level, regex or JSON field; error list; saved filters.</li>
+  <li><a href="resources.html">Resources</a>: CPU history, RAM per service, disk used by Docker, caches and node_modules; stop idle services, clean up disk. Summary also on Home.</li>
+</ul>
+
+<h3>Data (Postgres first)</h3>
+<ul>
+  <li><a href="databases.html">Databases</a>: Postgres servers per environment, which service uses which DB, migration status, what Claude can see.
+    <ul><li><a href="db.html">Database explorer</a> <i>(detail)</i>: tables, columns, data preview, DDL, where it's defined and used in code.</li></ul></li>
+  <li><a href="migrations.html">Migrations</a>: points at each repo's SQL migration folder; pending vs applied, dry run, run (built-in or your existing .ps1/.sh scripts), sync to eks_deployment, new migration written by Claude.</li>
+  <li><a href="sql.html">SQL Console</a>: editor or psql terminal, results, export, history, environment safety rules.</li>
+  <li><a href="db-scripts.html">Saved Scripts</a>: your recurring SQL as .sql files with parameters; run from UI or as a flow step.</li>
+</ul>
+
+<h3>Pipelines</h3>
+<ul>
+  <li><a href="flows.html">Flows</a>: pipelines built from plugin steps (like infrabot workflows).
+    <ul><li><a href="flow.html">Flow builder</a> <i>(detail)</i>: trigger → steps → gates; each step's settings come from its plugin.</li></ul></li>
+  <li><a href="runs.html">Runs</a>: every flow run, its status and duration.
+    <ul><li><a href="run.html">Run detail</a> <i>(detail)</i>: step-by-step result, logs, outputs passed to the next step.</li></ul></li>
+  <li><a href="findings.html">Findings</a>: all scanner + SonarQube + review issues in one list, with open-in-VS-Code links.</li>
+  <li><a href="images.html">Images &amp; Tags</a>: docker image per service, latest tag on Docker Hub, next tag, build/push.</li>
+</ul>
+
+<h3>Platform</h3>
+<ul>
+  <li><a href="plugins.html">Plugins</a>: every tool devdeck can use (git, github, docker, tilt, sonarqube, gitleaks, trivy, claude, …), installed version and health.
+    <ul><li><a href="plugin.html">Plugin detail</a> <i>(detail)</i>: manifest: actions it provides, inputs/outputs, required binary, connection type.</li></ul></li>
+  <li><a href="connections.html">Connections &amp; Accounts</a>: GitHub work account, GitHub group account, Docker Hub, SonarQube… plus rules that map repos to accounts.
+    <ul><li><a href="connection.html">Add / edit connection</a> <i>(detail)</i>: form rendered from the plugin's connection schema.</li></ul></li>
+  <li><a href="doctor.html">Doctor</a>: machine checks (Docker, Go, Node, tools, ports, git identity) and "set up this PC" bootstrap.</li>
+  <li><a href="settings.html">Settings</a>: VS Code integration, paths, defaults.</li>
+</ul>
+
+<h3>How it maps to infrabot</h3>
+<table>
+  <tr><th>infrabot</th><th>devdeck</th></tr>
+  <tr><td>Tenant</td><td>Workspace</td></tr>
+  <tr><td>Provider type / instance</td><td>Connection type (from a plugin) / Connection</td></tr>
+  <tr><td>Workflow template (nodes + edges)</td><td>Flow</td></tr>
+  <tr><td>Workflow execution</td><td>Run</td></tr>
+  <tr><td>Ticket</td><td>Work Item</td></tr>
+  <tr><td>Executor / node plugin</td><td>Plugin action (a step)</td></tr>
+  <tr><td>Form data source</td><td>Plugin data source (branches, repos, tags…)</td></tr>
+  <tr><td>Trigger (operation selected, schedule…)</td><td>Trigger (manual, git push, work-item stage, schedule)</td></tr>
+</table>
+</main></body></html>

@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Migrations · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Migrations</h1>
+<p>Points at the SQL files already in your repos (<code>schema/postgres/V0NN__*.sql</code>, <code>NNN_*.sql</code>…) and runs them for you, either with devdeck's own runner or with your existing scripts (<code>apply-postgres-schema.ps1</code>, <code>run_migrations.sh</code>).</p>
+<p>Server: [postgres-local ▾] <span class="small">env: LOCAL</span> &nbsp; [+ New migration with Claude] [Run all pending] [Sync all to eks_deployment]</p>
+
+<h3>Per service</h3>
+<table>
+  <tr><th>Service</th><th>Database</th><th>Folder · naming</th><th>In repo</th><th>In eks_deployment copy</th><th>Applied here</th><th>Pending</th><th></th></tr>
+  <tr><td><a href="#catalog">infrabot-catalog-service</a></td><td>infrabot_catalog_db</td><td>schema/postgres · V{n}__name.sql</td><td>56 (last V054)</td><td><b>46 (last V046) ⚠</b></td><td>V052</td><td><b>2</b></td><td>[open] [run pending]</td></tr>
+  <tr><td>infrabot-ticket-service</td><td>infrabot_ticket_db</td><td>schema/postgres · V{n}__name.sql</td><td>15 (last V015)</td><td><b>9 (last V009) ⚠</b></td><td>V015</td><td>0</td><td>[open]</td></tr>
+  <tr><td>infrabot-automation-service</td><td>infrabot_automation</td><td>schema/postgres · {nnn}_name.sql</td><td>16 (last 016)</td><td><b>13 (last 013) ⚠</b></td><td>016</td><td>0</td><td>[open]</td></tr>
+  <tr><td>infrabot-backend-service</td><td>infrabot_backend_db</td><td>schema/postgres</td><td>8</td><td><b>7 ⚠</b></td><td>all</td><td>0</td><td>[open]</td></tr>
+  <tr><td>infrabot-analytics-service</td><td>analytics_db</td><td>schema/postgres · V{n}__name.sql</td><td>3</td><td>3 ✔</td><td>V003</td><td>0</td><td>[open]</td></tr>
+  <tr><td>infrabot-ipam-service</td><td>infrabot_ipam_db</td><td>schema/postgres</td><td>5</td><td>5 ✔</td><td>all</td><td>0</td><td>[open]</td></tr>
+  <tr><td>infrabot-auth-service</td><td>infrabot_auth_db</td><td><i>not set</i> · eks copy uses {nn}_name.sql</td><td>?</td><td>37</td><td>?</td><td>?</td><td>[set folder]</td></tr>
+</table>
+<p class="small">⚠ = the deployment copy in <code>eks_deployment/infrabot-migration/&lt;service&gt;/</code> is behind the repo. These counts are real numbers read from your folders today.</p>
+
+<h3 id="catalog">infrabot-catalog-service → infrabot_catalog_db</h3>
+<p>Runner:
+  (•) devdeck built-in (psql, one transaction per file, stop on first error) &nbsp;
+  ( ) repo script: [scripts/schema/apply-postgres-schema.ps1 -DockerContainer infrabot-postgres] &nbsp;
+  ( ) deployment script: [eks_deployment/infrabot-migration/catalog-service/run_migrations.sh] PSQL_MODE: [local ▾ / k8s]
+</p>
+<table>
+  <tr><th>☐</th><th>File</th><th>Status here</th><th>Checks</th><th>In eks copy</th><th>Author</th><th></th></tr>
+  <tr><td>☐</td><td>V051__…sql</td><td>applied 2026-10-02</td><td>ok</td><td>no</td><td>git</td><td>[view]</td></tr>
+  <tr><td>☐</td><td>V052__workflow_node_report_script.sql</td><td>applied 2026-10-14</td><td>ok</td><td>no</td><td>git</td><td>[view]</td></tr>
+  <tr><td>☑</td><td>V053__workflow_node_report_script_unique.sql</td><td><b>pending</b></td><td>⚠ no IF NOT EXISTS (re-run will fail)</td><td>no</td><td>git</td><td>[view] [open in VS Code]</td></tr>
+  <tr><td>☑</td><td>V054__workflow_node_report_script_names.sql</td><td><b>pending</b></td><td>ok</td><td>no</td><td>Claude (uncommitted)</td><td>[view] [open in VS Code]</td></tr>
+</table>
+<p>[Dry run selected] [Run selected] [Mark selected as applied] [Copy selected to eks_deployment] [Generate rollback SQL with Claude]</p>
+<p class="small">Dry run = run inside BEGIN … ROLLBACK, so you see errors and row counts without changing anything.</p>
+
+<h3>Output</h3>
+<pre>==> postgres-local / infrabot_catalog_db (docker exec infrabot-postgres)
+    [DRY RUN] V053__workflow_node_report_script_unique.sql ... ok (ALTER TABLE, CREATE INDEX)
+    [DRY RUN] V054__workflow_node_report_script_names.sql  ... ok (UPDATE 12 rows)
+==> rolled back. Nothing changed.  [Run for real]</pre>
+
+<h3>New migration with Claude</h3>
+<div class="box">
+  Service: [infrabot-catalog-service ▾] &nbsp; Work item: [ocp-vm-provision ▾]<br>
+  What should change: [add column vm_instance_id text to provider_instance, nullable, with index]<br>
+  Next file name: <code>V055__provider_instance_vm_instance_id.sql</code> (numbered and named to match this repo's pattern)<br>
+  ☑ write it idempotent (IF NOT EXISTS) &nbsp; ☑ also write a rollback note in changes.md &nbsp; ☑ copy to eks_deployment folder after it runs on local<br>
+  [Ask Claude to write it] → opens the file in VS Code for review → then Dry run → Run → it's included in the PR
+</div>
+
+<h3>How "applied" is known</h3>
+<p class="small">Today the scripts run every file in order with no history table, so re-running fails on files without IF NOT EXISTS. devdeck keeps a record of what ran where (file, checksum, time, who):
+  Store it in: (•) devdeck's own local store &nbsp; ( ) a <code>devdeck_schema_history</code> table in each database (shared with teammates on dev/uat).<br>
+  First use on an existing DB: [Baseline: mark files up to … as already applied]. If an applied file's content changes later, it's flagged.</p>
+
+<h3>Config for this (in workspace YAML)</h3>
+<pre>repos:
+  infrabot-catalog-service:
+    migrations:
+      folder: schema/postgres
+      pattern: "V{version}__{name}.sql"
+      database: infrabot_catalog_db
+      copy_to: ../eks_deployment/infrabot-migration/catalog-service
+      runner: builtin          # or: script: "scripts/schema/apply-postgres-schema.ps1 -DockerContainer {container}"</pre>
+</main></body></html>

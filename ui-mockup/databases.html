@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Databases · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Databases</h1>
+<p>Postgres servers this workspace uses (local compose, dev, UAT…). devdeck connects with a normal Postgres driver; no pgAdmin needed. Credentials live in <a href="connections.html">Connections</a>.</p>
+<p>[+ Add server] [Open in pgweb ↗] [Open in pgAdmin ↗] &nbsp; Env: [all ▾]</p>
+
+<table>
+  <tr><th>Server (connection)</th><th>Env</th><th>Host</th><th>Access</th><th>Status</th><th>Databases</th></tr>
+  <tr><td><a href="db.html">postgres-local</a></td><td>local</td><td>localhost:5432 (compose)</td><td>read/write</td><td>up</td><td>9</td></tr>
+  <tr><td>postgres-dev</td><td>dev</td><td>via port-forward :15432</td><td>read/write, confirm on DELETE/UPDATE</td><td>tunnel off [connect]</td><td>9</td></tr>
+  <tr><td>postgres-uat</td><td>uat</td><td>via port-forward :25432</td><td><b>read-only</b></td><td>tunnel off [connect]</td><td>9</td></tr>
+</table>
+
+<h3>Which service uses which database (postgres-local)</h3>
+<p class="small">Read from each repo's .env / docker-compose. Migration status compares <code>schema/postgres/V*.sql</code> in the repo with what is applied in the DB.</p>
+<table>
+  <tr><th>Service repo</th><th>Database</th><th>Migrations in repo</th><th>Applied</th><th>Status</th><th></th></tr>
+  <tr><td>infrabot-ticket-service</td><td><a href="db.html">infrabot_ticket_db</a></td><td>15</td><td>15</td><td>up to date</td><td>[explore] [console]</td></tr>
+  <tr><td>infrabot-catalog-service</td><td>infrabot_catalog_db</td><td>56</td><td>54</td><td><b>2 pending</b></td><td><a href="migrations.html#catalog">[migrate]</a> [explore] [console]</td></tr>
+  <tr><td>infrabot-automation-service</td><td>infrabot_automation</td><td>16</td><td>16</td><td>up to date</td><td>[explore] [console]</td></tr>
+  <tr><td>infrabot-auth-service</td><td>infrabot_auth_db</td><td>…</td><td>…</td><td>up to date</td><td>[explore] [console]</td></tr>
+  <tr><td>infrabot-analytics-service</td><td>analytics_db</td><td>3</td><td>3</td><td>up to date</td><td>[explore] [console]</td></tr>
+  <tr><td>keycloak</td><td>keycloak</td><td>managed by keycloak</td><td></td><td></td><td>[explore]</td></tr>
+  <tr><td colspan="6" class="small">… ipam, backend, license-validator</td></tr>
+</table>
+<p class="small">⚠ The same DB has different names in different env files (e.g. catalog / catalog_db / infrabot_catalog_db). devdeck shows which name each file uses so mismatches are visible.</p>
+
+<h3>What Claude can see</h3>
+<div class="box">
+  Instead of reading 56 migration files across 9 repos, Claude reads what devdeck already knows:
+  <ul>
+    <li><b>Schema snapshots</b>: <code>.devdeck/context/db/&lt;database&gt;.md</code> (tables, columns, FKs, which service owns it, which file defines it). Refreshed after every migrate.</li>
+    <li><b>devdeck MCP server</b> (read-only DB role): tools like <code>list_tables</code>, <code>describe_table</code>, <code>run_select</code>, <code>run_saved_script</code>. Write scripts still need your click.</li>
+  </ul>
+  Claude access: ☑ local ☑ dev ☐ uat &nbsp; [Refresh snapshots]
+</div>
+
+<h3>Quick actions</h3>
+<p>[Snapshot all schemas for Claude] [Backup local (pg_dump)] [Restore…] [Reset a DB from migrations…]</p>
+</main></body></html>

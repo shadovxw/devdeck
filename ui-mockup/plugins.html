@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Plugins · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Plugins (tools)</h1>
+<p>Every tool is a plugin. A plugin says what <b>actions</b> (flow steps) it offers, what <b>inputs/outputs</b> they have, which <b>binary</b> it needs, and which <b>connection type</b> it uses. Code is static, but adding a tool is one folder + one line in a registry.</p>
+<p>[Check all] [Install missing] &nbsp; Filter: [category ▾]</p>
+<table>
+  <tr><th>Plugin</th><th>Category</th><th>Needs</th><th>Installed</th><th>Connection</th><th>Actions</th><th>Health</th></tr>
+  <tr><td>git</td><td>source</td><td>git</td><td>2.47</td><td>none</td><td>pull, push, branch, status, tag</td><td>ok</td></tr>
+  <tr><td>github</td><td>source</td><td>gh</td><td>missing</td><td>github (multi-account)</td><td>clone, create PR, list PRs, checks</td><td>install</td></tr>
+  <tr><td>docker</td><td>build</td><td>docker</td><td>27.x</td><td>registry</td><td>buildx, push, compose up/down</td><td>ok</td></tr>
+  <tr><td>regctl</td><td>build</td><td>regctl</td><td>missing</td><td>registry</td><td>list tags, next tag</td><td>install</td></tr>
+  <tr><td>tilt</td><td>run</td><td>tilt</td><td>missing</td><td>none</td><td>up stack, down, restart service, status</td><td>install</td></tr>
+  <tr><td>zerolog</td><td>logs</td><td>none</td><td>built-in</td><td>none</td><td>parse log line → level, msg, fields, file:line</td><td>ok</td></tr>
+  <tr><td>golang</td><td>code</td><td>go, golangci-lint</td><td>1.24 / missing</td><td>none</td><td>build, test, lint, govulncheck</td><td>partial</td></tr>
+  <tr><td>node</td><td>code</td><td>node, npm</td><td>22</td><td>none</td><td>install, test, lint, audit</td><td>ok</td></tr>
+  <tr><td>postgres</td><td>data</td><td>none (Go driver); psql optional</td><td>built-in</td><td>postgres</td><td>run sql, run saved script, describe schema, snapshot schema, migration status, migrate, dump/restore</td><td>ok</td></tr>
+  <tr><td><a href="plugin.html">sonarqube</a></td><td>quality</td><td>docker</td><td>server not running</td><td>sonarqube</td><td>scan, quality gate, issues</td><td>start</td></tr>
+  <tr><td>gitleaks</td><td>security</td><td>gitleaks</td><td>missing</td><td>none</td><td>scan secrets</td><td>install</td></tr>
+  <tr><td>trivy</td><td>security</td><td>trivy</td><td>missing</td><td>none</td><td>scan fs, scan image, scan IaC</td><td>install</td></tr>
+  <tr><td>semgrep</td><td>security</td><td>semgrep (docker)</td><td>missing</td><td>none</td><td>scan code</td><td>install</td></tr>
+  <tr><td>claude</td><td>ai</td><td>claude</td><td>installed</td><td>none</td><td>review, fix findings, write changes.md, PR summary</td><td>ok</td></tr>
+  <tr><td>vscode</td><td>editor</td><td>code</td><td>installed</td><td>none</td><td>open file:line, open workspace, debug service</td><td>ok</td></tr>
+  <tr><td>system-metrics</td><td>utility</td><td>none (gopsutil + Docker API)</td><td>built-in</td><td>none</td><td>machine CPU/RAM/disk, per-service usage, disk usage, clean-ups</td><td>ok</td></tr>
+  <tr><td>notify</td><td>utility</td><td>none</td><td>built-in</td><td>none</td><td>Windows toast, VS Code message</td><td>ok</td></tr>
+</table>
+
+<h3>Adding a new tool (e.g. hadolint)</h3>
+<pre>plugins/hadolint/
+  manifest.yaml     id, category, needs: [hadolint], install: winget/scoop/mise cmd, actions + their inputs/outputs
+  hadolint.go       implements the Plugin interface: Check(), Actions(), Run(action, inputs) → outputs, findings
+registry.go         + register(hadolint.New())     ← the only line touched outside the folder</pre>
+</main></body></html>
