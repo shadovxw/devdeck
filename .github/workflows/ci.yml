@@ -1,0 +1,135 @@
+# Code checks: build, test, lint and dependency vulnerabilities for Go and the web app.
+# Jobs for a language are skipped until that code exists (go.mod / web/package.json),
+# so this workflow is green on the docs-only repo and starts checking as soon as code lands.
+#
+# Branch rulesets should require only the final "CI passed" job.
+#
+# Third-party actions are pinned to full commit SHAs (tag in the comment). Dependabot
+# keeps them updated. See https://www.aquasec.com/blog/trivy-supply-chain-attack-what-you-need-to-know
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: Detect code
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.detect.outputs.go }}
+      web: ${{ steps.detect.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: detect
+        run: |
+          echo "go=$([ -f go.mod ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "web=$([ -f web/package.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  go-test:
+    name: "Go: build & test"
+    needs: detect
+    if: needs.detect.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+
+  go-lint:
+    name: "Go: lint (golangci-lint)"
+    needs: detect
+    if: needs.detect.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+
+  govulncheck:
+    name: "Go: govulncheck"
+    needs: detect
+    if: needs.detect.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  web:
+    name: "Web: lint, typecheck, test & build"
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm run typecheck --if-present
+      - run: npm test --if-present
+      - run: npm run build
+
+  npm-audit:
+    name: "Web: npm audit"
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: npm audit --audit-level=high --omit=dev
+
+  ci-ok:
+    name: CI passed
+    if: always()
+    needs: [detect, go-test, go-lint, govulncheck, web, npm-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any check failed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+      - run: echo "All CI checks passed or were skipped (no code yet for that language)."
