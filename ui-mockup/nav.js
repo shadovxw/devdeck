@@ -30,6 +30,7 @@ var NAV = [
   ["Platform", [
     ["plugins.html", "Plugins (tools)"],
     ["connections.html", "Connections & Accounts"],
+    ["notifications.html", "Notifications"],
     ["doctor.html", "Doctor (machine setup)"],
     ["settings.html", "Settings"],
   ]],
