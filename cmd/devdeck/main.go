@@ -73,6 +73,7 @@ func run() error {
 		Workspaces: &workspace.Manager{
 			Dir:         cfg.WorkspacesDir,
 			ExamplesDir: cfg.ExamplesDir,
+			ScanRoots:   cfg.ScanRoots,
 			Plugins:     func() []string { return pluginIDs(registry) },
 		},
 	})

@@ -21,6 +21,9 @@ type Config struct {
 	WorkspacesDir string
 	// ExamplesDir optionally holds read-only sample workspaces.
 	ExamplesDir string
+	// ScanRoots are the folders the workspace scanner may look inside. Empty means
+	// the user's home folder.
+	ScanRoots []string
 	// LogLevel is the zerolog level for devdeck's own log.
 	LogLevel zerolog.Level
 	// ExtraOrigins are additional browser origins allowed to call the API,
@@ -39,6 +42,7 @@ const (
 //	DEVDECK_DATA_DIR       data directory (default <user config dir>/devdeck)
 //	DEVDECK_WORKSPACES_DIR workspaces folder (default <data dir>/workspaces)
 //	DEVDECK_EXAMPLES_DIR   sample workspaces folder (default none)
+//	DEVDECK_SCAN_ROOTS     comma-separated folders the workspace scanner may look inside (default your home folder)
 //	DEVDECK_LOG_LEVEL      zerolog level (default info)
 //	DEVDECK_EXTRA_ORIGINS  comma-separated extra allowed origins
 func Load(getenv func(string) string) (Config, error) {
@@ -66,7 +70,8 @@ func Load(getenv func(string) string) (Config, error) {
 		DataDir:       dataDir,
 		WorkspacesDir: orDefault(getenv("DEVDECK_WORKSPACES_DIR"), filepath.Join(dataDir, "workspaces")),
 		ExamplesDir:   getenv("DEVDECK_EXAMPLES_DIR"),
-		LogLevel:      level,
+		ScanRoots:     splitList(getenv("DEVDECK_SCAN_ROOTS")),
+		LogLevel:     level,
 		ExtraOrigins:  splitList(getenv("DEVDECK_EXTRA_ORIGINS")),
 	}, nil
 }

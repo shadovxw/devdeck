@@ -30,8 +30,11 @@ func TestWorkspaceDirs(t *testing.T) {
 	if cfg.WorkspacesDir != filepath.Join("/data", "workspaces") || cfg.ExamplesDir != "" {
 		t.Fatalf("defaults: %+v", cfg)
 	}
-	cfg, err = Load(env(map[string]string{"DEVDECK_DATA_DIR": "/data", "DEVDECK_WORKSPACES_DIR": "/ws", "DEVDECK_EXAMPLES_DIR": "/ex"}))
-	if err != nil || cfg.WorkspacesDir != "/ws" || cfg.ExamplesDir != "/ex" {
+	if len(cfg.ScanRoots) != 0 {
+		t.Fatalf("scan roots should default to none (home folder): %+v", cfg.ScanRoots)
+	}
+	cfg, err = Load(env(map[string]string{"DEVDECK_DATA_DIR": "/data", "DEVDECK_WORKSPACES_DIR": "/ws", "DEVDECK_EXAMPLES_DIR": "/ex", "DEVDECK_SCAN_ROOTS": "/a, /b"}))
+	if err != nil || cfg.WorkspacesDir != "/ws" || cfg.ExamplesDir != "/ex" || len(cfg.ScanRoots) != 2 || cfg.ScanRoots[1] != "/b" {
 		t.Fatalf("overrides: %+v %v", cfg, err)
 	}
 }

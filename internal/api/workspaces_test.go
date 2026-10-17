@@ -34,6 +34,8 @@ func workspaceServer(t *testing.T) *echo.Echo {
 		Workspaces: &workspace.Manager{
 			Dir:         filepath.Join(t.TempDir(), "workspaces"),
 			ExamplesDir: "../../examples/workspaces",
+			// every t.TempDir() of this test lives under the same parent
+			ScanRoots: []string{filepath.Dir(t.TempDir())},
 		},
 	})
 	return e
@@ -118,7 +120,8 @@ func TestScanEndpoint(t *testing.T) {
 		t.Fatalf("scan: %d %s", rec.Code, rec.Body)
 	}
 
-	for body, want := range map[string]int{"": 400, "   ": 400, "relative/dir": 400, filepath.Join(root, "missing"): 422} {
+	outside := filepath.VolumeName(root) + string(filepath.Separator) // the top of the disk is not an allowed scan root
+	for body, want := range map[string]int{"": 400, "   ": 400, "relative/dir": 400, filepath.Join(root, "missing"): 422, outside: 422} {
 		if rec := postJSON(e, http.MethodPost, "/api/v1/workspaces/scan", scanRequest{Root: body}); rec.Code != want {
 			t.Errorf("scan %q = %d, want %d (%s)", body, rec.Code, want, rec.Body)
 		}

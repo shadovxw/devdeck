@@ -37,6 +37,8 @@ type Manager struct {
 	Dir string
 	// ExamplesDir optionally holds read-only sample workspaces.
 	ExamplesDir string
+	// ScanRoots are the folders a scan may look inside. Empty means the user's home folder.
+	ScanRoots []string
 	// Plugins returns installed plugin ids, so flows naming others get a warning.
 	Plugins func() []string
 }
@@ -207,4 +209,10 @@ func (s *Manager) Create(yamlText string) (*Summary, []Issue, error) {
 }
 
 // Scan makes a draft workspace from a folder of repositories. It saves nothing.
-func (s *Manager) Scan(root string) (*ScanResult, error) { return Scan(root) }
+func (s *Manager) Scan(root string) (*ScanResult, error) {
+	checked, err := s.checkScanRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	return Scan(checked)
+}

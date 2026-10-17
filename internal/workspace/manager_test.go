@@ -144,3 +144,47 @@ func TestSchemasAreServedForEditors(t *testing.T) {
 		}
 	}
 }
+
+func TestScanStaysInsideAllowedRoots(t *testing.T) {
+	base := t.TempDir()
+	inside := filepath.Join(base, "code")
+	must(t, os.MkdirAll(filepath.Join(inside, "api", ".git"), 0o755))
+	m := &Manager{ScanRoots: []string{base}}
+
+	if res, err := m.Scan(inside); err != nil || len(res.Repos) != 1 {
+		t.Fatalf("inside: %+v %v", res, err)
+	}
+	if _, err := m.Scan(base); err != nil {
+		t.Fatalf("the allowed root itself should be scannable: %v", err)
+	}
+
+	other := t.TempDir() // a sibling folder, not under base
+	if _, err := m.Scan(other); !errors.Is(err, ErrOutsideScanRoots) {
+		t.Errorf("outside: err = %v", err)
+	}
+	if _, err := m.Scan(filepath.Join(inside, "..", "..")); !errors.Is(err, ErrOutsideScanRoots) {
+		t.Errorf("dot-dot escape: err = %v", err)
+	}
+	if _, err := m.Scan(filepath.Join(inside, "missing")); err == nil || errors.Is(err, ErrOutsideScanRoots) {
+		t.Errorf("missing folder: err = %v", err)
+	}
+
+	// a link inside the allowed folder that points outside must not be followed out
+	link := filepath.Join(base, "escape")
+	if err := os.Symlink(other, link); err == nil {
+		if _, err := m.Scan(link); !errors.Is(err, ErrOutsideScanRoots) {
+			t.Errorf("symlink escape: err = %v", err)
+		}
+	}
+}
+
+func TestScanDefaultsToTheHomeFolder(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home folder")
+	}
+	// the top of the disk is never inside home
+	if _, err := (&Manager{}).Scan(filepath.VolumeName(home) + string(filepath.Separator)); !errors.Is(err, ErrOutsideScanRoots) {
+		t.Errorf("err = %v", err)
+	}
+}

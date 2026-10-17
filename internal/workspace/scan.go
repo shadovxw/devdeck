@@ -37,6 +37,43 @@ var (
 	nonID     = regexp.MustCompile(`[^a-z0-9]+`)
 )
 
+// ErrOutsideScanRoots means the folder is not inside any folder devdeck may scan.
+var ErrOutsideScanRoots = errors.New("that folder is outside the folders devdeck may scan (your home folder unless DEVDECK_SCAN_ROOTS says otherwise)")
+
+// allowedScanRoots are the folders a scan may look inside: the configured ones,
+// or the user's home folder when none are set.
+func (s *Manager) allowedScanRoots() []string {
+	if len(s.ScanRoots) > 0 {
+		return s.ScanRoots
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		return []string{home}
+	}
+	return nil
+}
+
+// checkScanRoot resolves symlinks in root and returns it only when it is inside
+// an allowed scan root, so a scan can't be pointed at system folders or escape
+// through a link.
+func (s *Manager) checkScanRoot(root string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(filepath.Clean(root))
+	if err != nil {
+		return "", errors.New("that folder doesn't exist")
+	}
+	for _, allowed := range s.allowedScanRoots() {
+		base, err := filepath.EvalSymlinks(filepath.Clean(allowed))
+		if err != nil {
+			continue
+		}
+		rel, err := filepath.Rel(base, resolved)
+		if err != nil || filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		return resolved, nil
+	}
+	return "", ErrOutsideScanRoots
+}
+
 // Scan looks at the folders directly inside root and treats each one that is a
 // git repository as a repo. It never runs git and never changes anything: it
 // reads folder names, a few marker files and .git/config.
