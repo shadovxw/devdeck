@@ -10,9 +10,15 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/sdk"
 )
 
 func newTestServer(t *testing.T) *echo.Echo {
+	t.Helper()
+	return newTestServerWith(t, sdk.NewRegistry())
+}
+
+func newTestServerWith(t *testing.T, reg *sdk.Registry) *echo.Echo {
 	t.Helper()
 	bus := events.NewBus()
 	guard, err := NewGuard("127.0.0.1:7070", nil)
@@ -25,6 +31,7 @@ func newTestServer(t *testing.T) *echo.Echo {
 		Bus:     bus,
 		Guard:   guard,
 		Hub:     NewHub(bus, guard.OriginHosts(), zerolog.Nop()),
+		Plugins: reg,
 	})
 	return e
 }

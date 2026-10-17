@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/sdk"
 )
 
 // HealthResponse is returned by GET /api/v1/health.
@@ -21,6 +22,7 @@ type Deps struct {
 	Bus     *events.Bus
 	Guard   *Guard
 	Hub     *Hub
+	Plugins *sdk.Registry
 }
 
 // Register mounts the API and WebSocket routes on e. Every route sits behind
@@ -34,4 +36,5 @@ func Register(e *echo.Echo, d Deps) {
 	v1.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, HealthResponse{Status: "ok", Version: d.Version})
 	})
+	registerPlugins(v1, d.Plugins)
 }
