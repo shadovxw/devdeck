@@ -71,7 +71,7 @@ func Load(getenv func(string) string) (Config, error) {
 		WorkspacesDir: orDefault(getenv("DEVDECK_WORKSPACES_DIR"), filepath.Join(dataDir, "workspaces")),
 		ExamplesDir:   getenv("DEVDECK_EXAMPLES_DIR"),
 		ScanRoots:     splitList(getenv("DEVDECK_SCAN_ROOTS")),
-		LogLevel:     level,
+		LogLevel:      level,
 		ExtraOrigins:  splitList(getenv("DEVDECK_EXTRA_ORIGINS")),
 	}, nil
 }

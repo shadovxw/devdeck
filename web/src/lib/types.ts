@@ -69,3 +69,28 @@ export type WorkspaceDetail = Omit<WorkspaceSummary, "stacks" | "flows"> & {
 export type ScanResult = { root: string; name: string; repos: Repo[]; yaml: string; truncated?: boolean };
 
 export type Validation = { valid: boolean; issues: Issue[] };
+
+// Doctor (internal/doctor).
+
+export type CheckStatus = "ok" | "warn" | "fail";
+
+export type DoctorCheck = {
+  id: string;
+  group: "tools" | "repos" | "stacks" | "git";
+  title: string;
+  status: CheckStatus;
+  detail?: string;
+  /** What to do about it: commands to run, a link, or a sentence. */
+  fix?: string[];
+  stack?: string;
+};
+
+export type DoctorReport = {
+  workspace: string;
+  stack?: string;
+  checks: DoctorCheck[];
+  passed: number;
+  warnings: number;
+  failures: number;
+  checked_at: string;
+};

@@ -17,7 +17,7 @@ describe("nav config", () => {
       if (item.path === "/plugins") continue;
       expect(item.empty, item.path).toBeDefined();
       expect(item.empty!.headline.length, item.path).toBeGreaterThan(0);
-      if (item.path !== "/workspaces") expect(item.phase, item.path).toBeDefined();
+      if (item.path !== "/workspaces" && item.path !== "/doctor") expect(item.phase, item.path).toBeDefined();
       const to = item.empty!.cta?.to;
       if (to) expect(paths.has(to), `${item.path} -> ${to}`).toBe(true);
     }
