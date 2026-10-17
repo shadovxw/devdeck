@@ -615,21 +615,33 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 
 ---
 
-### Phase 14A: Manage the dev server from your laptop (L, can start right after Phase 3)
-devdeck stays on the laptop and manages the dev EC2 through AWS: no devdeck on the server, nothing new exposed to the internet, no manual AWS sign-in + SSM shell per task. "Local" and "dev" become two environments in the same UI, with the same pages (status, logs, restart, tags, flow trace, DB, Garage, Vault).
+### Phase 14A: Dev environments from your laptop (L, can start right after Phase 3)
+devdeck stays on the laptop and manages the **dev environment of a codebase, whatever it runs on**: Docker or Compose on a host, or Kubernetes (EKS, NKP, OpenShift). Nothing is installed in the environment, nothing new is exposed, and you never log in to it yourself. "Local" and "dev" are environments in the same UI with the same pages (status, logs, restart, deploy / tags, flow trace, DB, NATS, Vault, Garage).
 
-How it reaches the server: your own AWS sign-in (an SSO / named profile in the AWS CLI), SSM Run Command for one-off commands, and SSM sessions for streaming and tunnels. devdeck runs these for you; you never open a shell. Needs the AWS CLI and the Session Manager plugin on the laptop, and permission to send commands and start sessions on that instance.
+**Runtime adapters.** Every page talks to one small interface, so it does not care what sits underneath. An adapter implements: list workloads and their status, stream logs, restart, change image tag (and roll back), open a tunnel to a service, and run a read-only health check.
 
-- **14A.1 Environments**: an `environments` block in the workspace YAML: name, AWS profile, region, instance id, Compose project folder, the file that holds tags and secrets, and which keys are tags. No credentials in YAML; devdeck uses the AWS CLI's own sign-in and shows "sign in expired" with a one-click `aws sso login`.
-- **14A.2 Status and control**: `docker compose ps` as the status table (running / unhealthy / restarting, image tag, uptime); start, stop, restart one service or all. Destructive actions need a confirmation naming the environment.
-- **14A.3 Live logs**: stream `docker compose logs -f` through an SSM session into the Logs page (same filters, JSON fields and `file:line` links as local). Redaction runs on the laptop before anything is shown, stored or handed to Claude.
-- **14A.4 Tags in one UI**: the file mixes tags and secrets, so devdeck only touches the tag keys and **never downloads that file**. A small command on the server changes one `*_TAG` key (with a timestamped backup), then `docker compose pull <service>` and `up -d <service>`, then waits for health. The previous tag is kept in devdeck's local history for one-click rollback. Secret values are never read, shown, logged or sent anywhere.
-- **14A.5 Flow trace across services**: follow one request through the API logs and NATS messages by request / trace id, across services on the server, with the same trace view as local. Needs services to log a correlation id (a rule in the plugin docs).
-- **14A.6 NATS, Vault, Garage**: devdeck opens SSM port-forward tunnels (to the container ports, not public) and points the existing plugins at `localhost`. NATS: connections, subjects, stream and consumer state from its monitoring endpoint. Vault: status, seal state, masked secret listing (values stay hidden). Garage: buckets, keys (masked), usage. Tunnels close when you switch environment or quit.
-- **14A.7 Claude access (opt-in)**: a read-only MCP server that gives Claude redacted logs, container status and flow traces for an environment you switch on, and nothing else. Claude never gets AWS credentials, a shell, a secret value or write actions. Off by default, per environment, with a visible indicator when on.
-- **14A.8 Safety**: every change (restart, tag change, rollback) is recorded in a local audit log and in AWS CloudTrail; "dev" is clearly coloured so it cannot be mistaken for local; no prod environment type exists in v1.
+| Adapter | Reaches the environment with | Restart | Change tag |
+|---|---|---|---|
+| **local-docker** | the local Docker engine | `docker restart` / compose | compose override |
+| **docker-over-ssm** | AWS CLI + Session Manager (Run Command, sessions, port-forward) | `compose up -d <service>` | change one tag key on the host, then `up -d` |
+| **kubernetes** (EKS, NKP) | a kubeconfig context (token from `aws eks get-token` or OIDC) | rollout restart | patch the image on the Deployment |
+| **openshift** | `oc` / kubeconfig, same API as Kubernetes plus Routes and DeploymentConfigs if used | rollout restart | patch the image |
 
-**Done when**: from your laptop, with one AWS sign-in, you see dev container status, stream logs, restart a service, change an image tag and roll it back, follow a request across services, and open NATS / Vault / Garage views, without ever opening an SSM shell, and Claude can read the redacted logs when you allow it.
+If the cluster API is private, the environment's `reach` setting says how to get to it: `direct`, `ssm-tunnel` (port-forward through an instance) or `bastion` (SSH tunnel). devdeck opens and closes that tunnel itself. For you: the AWS environment has no VPN, so it uses `ssm-tunnel` (an SSM port-forward to a host inside the VPC, to the Docker host or to the private cluster API, with the kubeconfig pointed at `localhost` and the real server name kept for TLS); the NKP and OpenShift environments are behind a VPN, so they use `direct`.
+
+**Signing in from devdeck.** Each environment has a **Connect** button; devdeck runs the right sign-in (`aws sso login`, `oc login`, an OIDC flow) and keeps the session. When it expires, devdeck signs in again by itself where that is possible: with a saved username and password (kept only in the OS keyring, passed to the tool through stdin or environment, never on a command line, in YAML, SQLite or logs) or with a refresh token. Where the identity provider needs MFA or a browser, devdeck cannot replay it: it shows "session expired" and opens the sign-in page for one click. Use a least-privilege dev account for this, since anyone with access to the laptop's keyring could use it.
+
+- **14A.1 Environments**: an `environments` block in the workspace YAML: name, adapter, reach, and the adapter's own settings (AWS profile + instance id, or kubeconfig context + namespace, or compose folder + the file that holds tags). Which workloads belong to which repo. No credentials in YAML.
+- **14A.2 Status and control**: one status table for any adapter (running / unhealthy / restarting, image tag, restarts, age). Start, stop, restart one workload or all. Destructive actions confirm and name the environment.
+- **14A.3 Live logs**: stream logs through the adapter into the Logs page (same filters, JSON fields and `file:line` links as local). Redaction runs on the laptop before anything is shown, stored or handed to Claude. A bounded local buffer (size and age limits) keeps recent lines so search and tracing work after a stream drops.
+- **14A.4 Deploy and tags in one UI**: pick a workload and a tag (tags listed from the registry, Phase 9), see old tag → new tag, confirm. Where tags and secrets share one file, devdeck only touches the tag key on the host and **never downloads that file**; a timestamped backup is made first. The previous tag is kept locally for one-click rollback. Secret values are never read, shown, logged or sent anywhere.
+- **14A.5 Flow trace across services**: follow one request through API logs and NATS messages by request / trace id across workloads, with the same trace view as local. Needs services to log a correlation id (a rule in the plugin docs).
+- **14A.6 NATS, Vault, Garage**: devdeck opens tunnels to the services (never public) and points the existing plugins at `localhost`. NATS: connections, subjects, stream and consumer state from its monitoring endpoint. Vault: status, seal state, masked secret listing. Garage: buckets, keys (masked), usage. Tunnels close when you switch environment or quit.
+- **14A.7 Claude access (opt-in)**: a read-only MCP server that gives Claude redacted logs, workload status and flow traces for an environment you switch on, and nothing else. Claude never gets cloud or cluster credentials, a shell, a secret value or write actions. Off by default, per environment, with a visible indicator when on.
+- **14A.8 Safety**: every change (restart, tag change, rollback) goes in a local audit log (and the cloud / cluster's own audit trail); dev is clearly coloured so it cannot be mistaken for local; no prod environment type exists in v1.
+- **14A.9 Install a codebase on an environment**: an **install flow** defined in the workspace (not built into devdeck): pull images, apply the compose files / manifests / charts, wait for health, run migrations, then show the status table. It reuses the flow engine (Phase 7) and the same adapters. Steps that need first-time secrets (for example initialising or unsealing Vault) stop and ask you, and never store the values in devdeck. infrabot's own install flow lives in the private workspaces repo, not in devdeck.
+
+**Done when**: from your laptop, with a sign-in done inside devdeck, you see dev status for a Docker host and for a Kubernetes cluster through the same page, stream logs, restart a workload, change an image tag and roll it back, follow a request across services, open NATS / Vault / Garage views and run an install flow, without opening a shell on the environment, and Claude can read the redacted logs when you allow it.
 
 ---
 
@@ -665,7 +677,7 @@ Run devdeck as a container on the dev server, next to the app containers, so the
 | **M4 Pipeline** | 7, 8, 9 | run pre-PR checks, see findings, build and push images |
 | **M5 Ship** | 10, 11 | go from work item to PRs with Claude, inside VS Code |
 | **M6 App** | 12, 13 | install devdeck as a desktop app on any PC |
-| **M7 Dev server** | 14A (then optional 14B) | from your laptop, watch and manage the dev server's containers, tags, logs, flows and data without an SSM shell; 14B adds a hosted, shared version |
+| **M7 Dev environments** | 14A (then optional 14B) | from your laptop, watch and manage a dev environment on Docker or Kubernetes (status, logs, tags, flow trace, data, install) without logging in to it; 14B adds a hosted, shared version |
 
 Suggested order of work: 0 → 1 (in parallel with 2 → 3) → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12. Phase 1's later parts (signature visuals per page) are built together with each page's phase.
 
