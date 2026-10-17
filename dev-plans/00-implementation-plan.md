@@ -41,7 +41,7 @@ A personal **developer cockpit** that runs on this Windows machine, works for **
 - A UI that feels like a **3D, animated, crafted product**, not a plain SaaS admin panel.
 - Ships as a **desktop app** (`.exe` + installer) in the final phase.
 
-**Non-goals for v1**: remote/dev environments, deploying to dev, teammates/multi-user, prod access. (See §12.)
+**Non-goals for v1 (phases 0–13)**: remote/dev environments, deploying to dev, teammates/multi-user, prod access. Managing the dev server from the laptop is planned as Phase 14A, and a hosted devdeck as 14B. (See §12.)
 
 ---
 
@@ -308,6 +308,8 @@ Follow the dataviz rules: one y-axis per chart, a single hue for magnitude, stat
 
 Size key: **S** ≈ 1–2 days · **M** ≈ 3–5 days · **L** ≈ 1–2 weeks · **XL** ≈ 2–3 weeks (focused work, Claude-assisted).
 Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md` describing what was built.
+
+**Phase wrap-up routine (every phase, before starting the next):** merge the phase's PRs and confirm CI is green, update the phase notes and the memory file, then run **`/compact`** in the Claude session so the next phase starts with a short context. Do the same at the end of any long part inside a phase.
 
 ---
 
@@ -613,6 +615,58 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 
 ---
 
+### Phase 14A: Dev environments from your laptop (L, can start right after Phase 3)
+devdeck stays on the laptop and manages the **dev environment of a codebase, whatever it runs on**: Docker or Compose on a host, or Kubernetes (EKS, NKP, OpenShift). Nothing is installed in the environment, nothing new is exposed, and you never log in to it yourself. "Local" and "dev" are environments in the same UI with the same pages (status, logs, restart, deploy / tags, flow trace, DB, NATS, Vault, Garage).
+
+**Runtime adapters.** Every page talks to one small interface, so it does not care what sits underneath. An adapter implements: list workloads and their status, stream logs, restart, change image tag (and roll back), open a tunnel to a service, and run a read-only health check.
+
+| Adapter | Reaches the environment with | Restart | Change tag |
+|---|---|---|---|
+| **local-docker** | the local Docker engine | `docker restart` / compose | compose override |
+| **docker-over-ssm** | AWS CLI + Session Manager (Run Command, sessions, port-forward) | `compose up -d <service>` | change one tag key on the host, then `up -d` |
+| **kubernetes** (EKS, NKP) | a kubeconfig context (token from `aws eks get-token` or OIDC) | rollout restart | patch the image on the Deployment |
+| **openshift** | `oc` / kubeconfig, same API as Kubernetes plus Routes and DeploymentConfigs if used | rollout restart | patch the image |
+
+If the cluster API is private, the environment's `reach` setting says how to get to it: `direct`, `ssm-tunnel` (port-forward through an instance) or `bastion` (SSH tunnel). devdeck opens and closes that tunnel itself. For you: the AWS environment has no VPN, so it uses `ssm-tunnel` (an SSM port-forward to a host inside the VPC, to the Docker host or to the private cluster API, with the kubeconfig pointed at `localhost` and the real server name kept for TLS); the NKP and OpenShift environments are behind a VPN, so they use `direct`.
+
+**Signing in from devdeck.** Each environment has a **Connect** button; devdeck runs the right sign-in (`aws sso login`, `oc login`, an OIDC flow) and keeps the session. When it expires, devdeck signs in again by itself where that is possible: with a saved username and password (kept only in the OS keyring, passed to the tool through stdin or environment, never on a command line, in YAML, SQLite or logs) or with a refresh token. Where the identity provider needs MFA or a browser, devdeck cannot replay it: it shows "session expired" and opens the sign-in page for one click. Use a least-privilege dev account for this, since anyone with access to the laptop's keyring could use it.
+
+- **14A.1 Environments**: an `environments` block in the workspace YAML: name, adapter, reach, and the adapter's own settings (AWS profile + instance id, or kubeconfig context + namespace, or compose folder + the file that holds tags). Which workloads belong to which repo. No credentials in YAML.
+- **14A.2 Status and control**: one status table for any adapter (running / unhealthy / restarting, image tag, restarts, age). Start, stop, restart one workload or all. Destructive actions confirm and name the environment.
+- **14A.3 Live logs**: stream logs through the adapter into the Logs page (same filters, JSON fields and `file:line` links as local). Redaction runs on the laptop before anything is shown, stored or handed to Claude. A bounded local buffer (size and age limits) keeps recent lines so search and tracing work after a stream drops.
+- **14A.4 Deploy and tags in one UI**: pick a workload and a tag (tags listed from the registry, Phase 9), see old tag → new tag, confirm. Where tags and secrets share one file, devdeck only touches the tag key on the host and **never downloads that file**; a timestamped backup is made first. The previous tag is kept locally for one-click rollback. Secret values are never read, shown, logged or sent anywhere.
+- **14A.5 Flow trace across services**: follow one request through API logs and NATS messages by request / trace id across workloads, with the same trace view as local. Needs services to log a correlation id (a rule in the plugin docs).
+- **14A.6 NATS, Vault, Garage**: devdeck opens tunnels to the services (never public) and points the existing plugins at `localhost`. NATS: connections, subjects, stream and consumer state from its monitoring endpoint. Vault: status, seal state, masked secret listing. Garage: buckets, keys (masked), usage. Tunnels close when you switch environment or quit.
+- **14A.7 Claude access (opt-in)**: a read-only MCP server that gives Claude redacted logs, workload status and flow traces for an environment you switch on, and nothing else. Claude never gets cloud or cluster credentials, a shell, a secret value or write actions. Off by default, per environment, with a visible indicator when on.
+- **14A.8 Safety**: every change (restart, tag change, rollback) goes in a local audit log (and the cloud / cluster's own audit trail); dev is clearly coloured so it cannot be mistaken for local; no prod environment type exists in v1.
+- **14A.9 Install a codebase on an environment**: an **install flow** defined in the workspace (not built into devdeck): pull images, apply the compose files / manifests / charts, wait for health, run migrations, then show the status table. It reuses the flow engine (Phase 7) and the same adapters. Steps that need first-time secrets (for example initialising or unsealing Vault) stop and ask you, and never store the values in devdeck. infrabot's own install flow lives in the private workspaces repo, not in devdeck.
+
+**Done when**: from your laptop, with a sign-in done inside devdeck, you see dev status for a Docker host and for a Kubernetes cluster through the same page, stream logs, restart a workload, change an image tag and roll it back, follow a request across services, open NATS / Vault / Garage views and run an install flow, without opening a shell on the environment, and Claude can read the redacted logs when you allow it.
+
+---
+
+### Phase 14B: Hosted dev server (EC2) (XL, later; only if you want a shared view or no AWS sign-in)
+Run devdeck as a container on the dev server, next to the app containers, so the dev environment can be watched and managed from a browser. Same app, a second mode. It is only started once the local phases are done, and it **must not be reachable without a login**, because devdeck can restart containers, run SQL and read secrets.
+
+- **14.1 Server mode**: `DEVDECK_MODE=server`. Configurable listen address, no Windows-only features, runs as a non-root user with a read-only filesystem and one data volume (`state.db`, workspaces). Health endpoint for the container runtime.
+- **14.2 Safe Docker access**: never mount the raw Docker socket (it is root on the host). Put a socket proxy in front that allows only list, inspect, logs, stats, start, stop and restart. Deploys (14.10) also need image pull and container create / remove, so those are allowed only for services listed in the environment's YAML, with no privileged mode, host networking or host-path mounts. No exec and no image push unless turned on per environment. devdeck's own container is excluded so it cannot stop or replace itself.
+- **14.3 Login and roles**: sign-in with an OIDC provider, or a local admin account (strong hash + TOTP) as the fallback. Roles viewer / developer / admin. Session cookie (`HttpOnly`, `SameSite=Strict`, `Secure`), CSRF token on writes, rate-limited sign-in. Every write needs a role.
+- **14.4 Audit log**: who / what / when for restarts, SQL writes, migrations, secret reveals and role changes. Append-only, shown on its own page.
+- **14.5 TLS and network**: the dev server has a **private IP**, so devdeck is private by design and never gets a public port. You reach it from your laptop through whatever private path already works for the dev network: VPN into the VPC, an SSM Session Manager port-forward (no inbound ports), or an SSH tunnel through a bastion. **Preferred path: the existing load balancer.** devdeck gets its own host name and target group behind it, with the certificate on the load balancer (so no proxy of our own). Requirements: WebSocket support and an idle timeout long enough for live logs (for example 300 s, with the UI reconnecting); health check on devdeck's health endpoint; the Host / Origin allow-list set to the real host name; devdeck's own login stays on even when the load balancer also authenticates. **The load balancer is internet-facing, so these are required before devdeck is exposed (three layers, none optional):** (1) an **IP allow-list** on the load balancer's security group (and the WAF, if used): only known office / VPN / home ranges, never `0.0.0.0/0`; (2) **OIDC sign-in on the load balancer** (authenticate action on the listener rule) or a **WAF** with rate limiting and managed rule sets, so unauthenticated traffic never reaches devdeck; (3) **devdeck's own login, roles and audit log** (14.3, 14.4). The devdeck target group accepts traffic only from the load balancer's security group. HTTP is redirected to HTTPS. devdeck in server mode refuses to start without its own login and an allowed-host list configured; the first two layers are AWS settings, so they are a checked item in the deploy checklist (14.12).
+
+**Fallback, before the load balancer is set up:** AWS sign-in then SSM, so the first version uses one SSM port-forward (`aws ssm start-session` with the port-forwarding document, wrapped in a small script) to open devdeck in the browser: one command per sitting, instead of a shell session per task. To drop the AWS sign-in step later, put devdeck behind a VPN, a mesh VPN agent on the server (outbound only), or an internal load balancer with OIDC sign-in, each needing approval from whoever owns the network. Optionally an internal reverse proxy (Caddy or nginx) adds HTTPS for people on that network. The security group allows only that proxy / devdeck port from the VPN or bastion range. Because the laptop cannot reach the server directly, devdeck must run **on** the server (this phase), not drive it remotely from the laptop. Outbound internet (GitHub, registries) needs a NAT gateway or VPC endpoints; features that need it are optional on the server.
+- **14.6 Secrets on Linux**: there is no OS keyring on the server. Store connection secrets encrypted at rest with a key supplied outside the data volume (secrets manager or environment at start). Same rules as local: masked in the UI, never in YAML, SQLite, logs or Claude context.
+- **14.7 Environments in workspaces**: a workspace gets an `environment` (local or dev). On dev, a repo maps to a container or compose service, not a folder. Stacks and flows stay the same files. Schemas and the validator learn the new fields.
+- **14.8 What you can do there**: container status and restart, live logs, flow runs and their trace, Postgres explorer (read-only by default), Garage buckets, Vault status (read-only first).
+- **14.9 Safe defaults**: destructive actions off by default in server mode, confirmation + audit when turned on; migrations never auto-run.
+- **14.10 Deploy from the UI**: pick an app and an image tag (tags listed from the registry, see Phase 9), see what is running now, and deploy. devdeck pulls the image, recreates that one container with the same settings and the new tag, waits for the health check, and keeps the previous tag for a one-click rollback. Developer role or higher, a confirmation showing old tag → new tag, and an audit entry for every deploy. The deploy definition (image, ports, environment variable names, health check) lives in the environment's YAML; secret values are never in it. The apps run as **Docker Compose** containers on the same host as devdeck, so devdeck works on those Compose projects directly: the tag lives in an override / env file that devdeck owns (the app repos' own Compose files are never rewritten), and a deploy is "pull the image, then `up` that one service". devdeck never deploys itself; its own update stays a manual / CI step. Helm / Kubernetes is out of scope.
+- **14.11 Two modes, one view**: the same devdeck runs in **local mode** (your laptop: VS Code integration, CI/CD and review pipeline, local stacks) and **server mode** (the dev server: dev containers, deploys, logs, data). Version one is two separate instances, each with its own UI. Next step: the local devdeck adds the dev server as a remote environment (API address + access token kept in the keyring) so one UI switches between "local" and "dev" and shows all repos in both places. The two instances run the same version, checked on connect.
+- **14.12 Ship it**: multi-stage Dockerfile, compose snippet, image built in CI and pushed to the registry, upgrade steps, nightly backup of the data volume.
+
+**Done when**: from a browser you sign in, see every dev container's status, restart one, change its image tag and roll it back, read its logs, follow a flow run, and open the DB and Garage views, with HTTPS on, no anonymous access, and every write in the audit log. A request from outside the allow-list, or without the load balancer's sign-in, never reaches devdeck (checked from a non-allowed address).
+
+---
+
 ## 9. Milestones
 
 | Milestone | Phases | You can… |
@@ -623,6 +677,7 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 | **M4 Pipeline** | 7, 8, 9 | run pre-PR checks, see findings, build and push images |
 | **M5 Ship** | 10, 11 | go from work item to PRs with Claude, inside VS Code |
 | **M6 App** | 12, 13 | install devdeck as a desktop app on any PC |
+| **M7 Dev environments** | 14A (then optional 14B) | from your laptop, watch and manage a dev environment on Docker or Kubernetes (status, logs, tags, flow trace, data, install) without logging in to it; 14B adds a hosted, shared version |
 
 Suggested order of work: 0 → 1 (in parallel with 2 → 3) → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12. Phase 1's later parts (signature visuals per page) are built together with each page's phase.
 
@@ -661,6 +716,7 @@ Suggested order of work: 0 → 1 (in parallel with 2 → 3) → 4 → 5 → 6 �
 
 ## 12. Later (out of scope for v1)
 
+- **Dev server from the laptop**: planned as Phase 14A (AWS CLI + SSM, nothing installed on the server). **Hosted dev server**: planned as Phase 14B (devdeck as a container on the dev EC2, with login, HTTPS and audit). The items below are the other ways to reach a remote environment.
 - **Remote environments (dev)**: environment switcher; Docker over SSH (`docker context`), Kubernetes via kubeconfig (logs, exec, port-forward), Postgres through tunnels; then an optional devdeck agent on the dev host.
 - **Deploy to dev**: bump `image.tag` in Helm values → `helm upgrade` → rollout + health check → rollback.
 - **Authentication** (see §6.1 "Deferred"): session token + cookie, token file for the VS Code extension/CLI, audit log, and Keycloak OIDC login with roles once devdeck is deployed or shared.

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../../internal/workspace/schemas/workspace.schema.json
+version: 1
+name: acme-shop
+description: A demo shop made of an API, a web app and its infrastructure.
+
+# The folder that holds the repositories: absolute, starting with ~, or relative to this file.
+root: ~/code/acme-shop
+
+# Used by repos that match no account rule.
+default_connection: github-main
+
+repos:
+  - id: api
+    path: api
+    type: go
+    remote: github.com/acme/shop-api
+  - id: web
+    path: web
+    type: node
+    remote: github.com/acme/shop-web
+  - id: infra
+    path: infra
+    type: docker
+    remote: github.com/acme/shop-infra
+
+# Accounts and services. Tokens and passwords never go here: devdeck keeps them in your OS keychain.
+connections:
+  - id: github-main
+    type: github
+    identity:
+      name: Alex Example
+      email: alex@example.com
+
+# Which connection owns which remote.
+account_rules:
+  - match: github.com/acme/*
+    connection: github-main

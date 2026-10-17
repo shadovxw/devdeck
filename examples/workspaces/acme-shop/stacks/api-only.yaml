@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../../../internal/workspace/schemas/stack.schema.json
+version: 1
+name: api-only
+description: Just the database and the API, for backend work.
+
+compose:
+  repo: infra
+  file: docker-compose.yml
+  services: [db]
+
+services:
+  - id: api
+    repo: api
+    kind: go
+    cmd: ./cmd/api
+    port: 8080
+    env_file: .env
+    ready:
+      http: http://127.0.0.1:8080/health
+      timeout: 30s
+    log_parser: zerolog

@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/sdk"
 )
 
@@ -23,6 +24,8 @@ type Deps struct {
 	Guard   *Guard
 	Hub     *Hub
 	Plugins *sdk.Registry
+	// Workspaces is optional: without it the workspace routes aren't mounted.
+	Workspaces *workspace.Manager
 }
 
 // Register mounts the API and WebSocket routes on e. Every route sits behind
@@ -37,4 +40,7 @@ func Register(e *echo.Echo, d Deps) {
 		return c.JSON(http.StatusOK, HealthResponse{Status: "ok", Version: d.Version})
 	})
 	registerPlugins(v1, d.Plugins)
+	if d.Workspaces != nil {
+		registerWorkspaces(v1, d.Workspaces)
+	}
 }

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devdeck.local/schemas/stack.schema.json",
+  "title": "devdeck stack",
+  "description": "stacks/<name>.yaml: the services that start together, and in what order.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "name", "services"],
+  "properties": {
+    "version": { "const": 1, "description": "Schema version. Always 1 for now." },
+    "name": { "$ref": "#/$defs/id" },
+    "description": { "type": "string", "maxLength": 200 },
+    "compose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "file"],
+      "description": "A Docker Compose file that provides the dependencies (databases, queues).",
+      "properties": {
+        "repo": { "type": "string", "description": "Id of the repo that holds the file." },
+        "file": { "type": "string", "minLength": 1 },
+        "services": { "type": "array", "items": { "type": "string" }, "description": "Only start these compose services. Empty means all." }
+      }
+    },
+    "services": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/service" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,39}$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[0-9]+(ms|s|m)$",
+      "description": "A duration such as 500ms, 30s or 2m."
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "repo", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "repo": { "type": "string", "description": "Id of the repo this service runs from." },
+        "kind": { "enum": ["go", "node", "python", "command"] },
+        "cmd": { "type": "string", "description": "What to run: a Go package or a shell command, depending on kind." },
+        "dir": { "type": "string", "description": "Folder inside the repo to run from." },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "env_file": { "type": "string" },
+        "env": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Plain values only. Secrets come from the keychain." },
+        "after": { "type": "array", "uniqueItems": true, "items": { "type": "string" }, "description": "Ids of services that must be ready first." },
+        "ready": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "description": "How devdeck knows the service is ready: exactly one of http, tcp or log.",
+          "properties": {
+            "http": { "type": "string", "description": "A URL that answers with success." },
+            "tcp": { "type": "string", "description": "host:port that accepts connections." },
+            "log": { "type": "string", "description": "A text that appears in the logs." },
+            "timeout": { "$ref": "#/$defs/duration" }
+          }
+        },
+        "log_parser": { "$ref": "#/$defs/id", "description": "Which log parser plugin reads this service's output." },
+        "restart": { "enum": ["never", "on-failure", "always"] }
+      }
+    }
+  }
+}

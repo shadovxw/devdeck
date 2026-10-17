@@ -6,6 +6,7 @@ import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { Placeholder } from "../pages/Placeholder";
 import { PluginsPage } from "../pages/PluginsPage";
+import { WorkspacesPage } from "../pages/WorkspacesPage";
 import { FatalError, PageError } from "./ErrorPages";
 import { NAV_ITEMS } from "./nav";
 import { Shell } from "./Shell";
@@ -13,6 +14,7 @@ import { Shell } from "./Shell";
 // Pages that are built. Every other nav entry gets a placeholder until its phase.
 const built: Record<string, ReactElement> = {
   "/plugins": <PluginsPage />,
+  "/workspaces": <WorkspacesPage />,
 };
 
 function NotFound() {
