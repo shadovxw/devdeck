@@ -1,0 +1,102 @@
+/* Quiet Instrument tokens (dev-plans/02-frontend-design-system.md). Dark is the
+   default theme; light is complete and equal. Components use these variables,
+   and Tailwind utilities read them through @theme below. */
+:root {
+  --bg: #0c1012;
+  --surface-1: #151c20;
+  --surface-2: #1b2428;
+  --fill: #1f292d;
+  --fill-hover: #273338;
+  --surface-inset: #090c0e;
+  --line: rgba(170, 215, 225, 0.09);
+  --line-strong: rgba(170, 215, 225, 0.18);
+  --ink: #e6edef;
+  --ink-2: #a7b4b8;
+  --ink-3: #788890;
+  --accent: #53d3e6;
+  --accent-soft: rgba(83, 211, 230, 0.14);
+  --on-accent: #04252b;
+  --scrim: rgba(3, 6, 8, 0.45);
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --neutral: #788890;
+  --mark-prompt: #4ee8b5;
+  --mark-under: #2aeab4;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* The dock is dark in both themes. */
+  --dock-bg: #0a1013;
+  --dock-ink: #8fa1a7;
+  --dock-line: rgba(255, 255, 255, 0.08);
+  --dock-hover: rgba(83, 211, 230, 0.1);
+  --dock-active: rgba(83, 211, 230, 0.16);
+  --dock-accent: #53d3e6;
+
+  /* Empty-state illustration. */
+  --tile-top: #243239;
+  --tile-side: #172228;
+  --tile-line: rgba(83, 211, 230, 0.32);
+  --tile-icon: #cfe6ea;
+  --tile-shadow: rgba(0, 0, 0, 0.35);
+  --center-top: #0e1d21;
+  --center-side: #060d10;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f3f6f6;
+    --surface-1: #fbfcfc;
+    --surface-2: #ffffff;
+    --fill: #e9eff0;
+    --fill-hover: #dde6e8;
+    --surface-inset: #e4eaec;
+    --line: rgba(12, 40, 48, 0.1);
+    --line-strong: rgba(12, 40, 48, 0.2);
+    --ink: #0d1517;
+    --ink-2: #3d4b50;
+    --ink-3: #5f6f75;
+    --accent: #0a7c8f;
+    --accent-soft: rgba(10, 124, 143, 0.1);
+    --on-accent: #ffffff;
+    --scrim: rgba(13, 21, 23, 0.18);
+    --neutral: #5f6f75;
+    --mark-prompt: #0b0f12;
+    --mark-under: #0b0f12;
+    --tile-top: #ffffff;
+    --tile-side: #cde3e5;
+    --tile-line: #b7d4d7;
+    --tile-icon: #17323a;
+    --tile-shadow: rgba(16, 50, 58, 0.18);
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #f3f6f6;
+  --surface-1: #fbfcfc;
+  --surface-2: #ffffff;
+  --fill: #e9eff0;
+  --fill-hover: #dde6e8;
+  --surface-inset: #e4eaec;
+  --line: rgba(12, 40, 48, 0.1);
+  --line-strong: rgba(12, 40, 48, 0.2);
+  --ink: #0d1517;
+  --ink-2: #3d4b50;
+  --ink-3: #5f6f75;
+  --accent: #0a7c8f;
+  --accent-soft: rgba(10, 124, 143, 0.1);
+  --on-accent: #ffffff;
+  --scrim: rgba(13, 21, 23, 0.18);
+  --neutral: #5f6f75;
+  --mark-prompt: #0b0f12;
+  --mark-under: #0b0f12;
+  --tile-top: #ffffff;
+  --tile-side: #cde3e5;
+  --tile-line: #b7d4d7;
+  --tile-icon: #17323a;
+  --tile-shadow: rgba(16, 50, 58, 0.18);
+  color-scheme: light;
+}

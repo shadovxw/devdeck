@@ -26,9 +26,9 @@ The plan is in [`dev-plans/00-implementation-plan.md`](dev-plans/00-implementati
 
 ## Keep the product generic
 
-- This repo is public. New code, docs, tests, fixtures and sample data must not mention infrabot or its services, databases and ticket systems, the company's GitHub org, Docker Hub namespace, domains, hostnames, IPs or emails. Use neutral demo names (`acme`, `demo-api`, `example.com`).
-- Real workspace config (repos, stacks, connections for the user's own systems) belongs in a separate private repo, never here. Plan §13 question 2.
-- `dev-plans/`, `ui-mockup/` and `ui-design/` still mention infrabot from before this rule. Do not copy that content into code; the mockups are deleted once the product is nearly done.
+- This repo is public. New code, docs, tests, fixtures and sample data must not mention the owner's employer, the internal product devdeck is first used on, or anything specific to it: service, database and ticket-system names, the GitHub org, Docker Hub namespace, domains, hostnames, IPs or emails. Use neutral demo names (`acme`, `demo-api`, `example.com`).
+- Real workspace config (repos, stacks, connections for the owner's own systems) belongs in a separate private repo, never here. Plan §13 question 2.
+- Some older files under `dev-plans/`, `ui-mockup/` and `ui-design/` predate this rule. Do not copy their specifics into code; the mockups are deleted once the product is nearly done.
 
 ## UI
 

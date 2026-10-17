@@ -55,8 +55,15 @@ func send(t *testing.T, conn *websocket.Conn, op, topic string) {
 
 // listen reads the connection in one goroutine. A read that times out would
 // close the connection, so tests wait on the returned channel instead.
-func listen(conn *websocket.Conn) <-chan events.Event {
-	ch := make(chan events.Event, 16)
+// message is what the hub pushes to clients.
+type message struct {
+	Topic string `json:"topic"`
+	Data  any    `json:"data"`
+	Sub   string `json:"sub"`
+}
+
+func listen(conn *websocket.Conn) <-chan message {
+	ch := make(chan message, 16)
 	go func() {
 		defer close(ch)
 		for {
@@ -64,7 +71,7 @@ func listen(conn *websocket.Conn) <-chan events.Event {
 			if err != nil {
 				return
 			}
-			var ev events.Event
+			var ev message
 			if json.Unmarshal(data, &ev) == nil {
 				ch <- ev
 			}
@@ -75,7 +82,7 @@ func listen(conn *websocket.Conn) <-chan events.Event {
 
 // publishUntil retries because the subscribe message is handled
 // asynchronously by the server.
-func publishUntil(t *testing.T, bus *events.Bus, topic string, data any, msgs <-chan events.Event) events.Event {
+func publishUntil(t *testing.T, bus *events.Bus, topic string, data any, msgs <-chan message) message {
 	t.Helper()
 	deadline := time.After(3 * time.Second)
 	for {
@@ -114,8 +121,8 @@ func TestHubWildcardAndUnsubscribe(t *testing.T) {
 	msgs := listen(conn)
 
 	send(t, conn, "subscribe", "logs.*")
-	if ev := publishUntil(t, bus, "logs.demo", "line", msgs); ev.Topic != "logs.demo" {
-		t.Fatalf("topic = %q", ev.Topic)
+	if ev := publishUntil(t, bus, "logs.demo", "line", msgs); ev.Topic != "logs.demo" || ev.Sub != "logs.*" {
+		t.Fatalf("topic = %q, sub = %q; want logs.demo via logs.*", ev.Topic, ev.Sub)
 	}
 
 	send(t, conn, "unsubscribe", "logs.*")

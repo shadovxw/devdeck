@@ -1,0 +1,37 @@
+/* Maps the CSS variables in tokens.css to Tailwind utilities (bg-surface-1, text-ink-3, ...). */
+@theme inline {
+  --font-sans: "Geist Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-fill: var(--fill);
+  --color-fill-hover: var(--fill-hover);
+  --color-inset: var(--surface-inset);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-good: var(--good);
+  --color-warning: var(--warning);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --color-neutral: var(--neutral);
+
+  --color-dock-bg: var(--dock-bg);
+  --color-dock-ink: var(--dock-ink);
+  --color-dock-line: var(--dock-line);
+  --color-dock-hover: var(--dock-hover);
+  --color-dock-active: var(--dock-active);
+  --color-dock-accent: var(--dock-accent);
+
+  --radius-tag: 3px;
+  --radius-ctl: 4px;
+  --radius-card: 4px;
+  --radius-sheet: 6px;
+}

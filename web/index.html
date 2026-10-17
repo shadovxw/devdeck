@@ -3,10 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/design/boot.css" />
     <title>devdeck</title>
+    <script>
+      // Apply the saved theme before first paint so there is no flash.
+      try {
+        var t = localStorage.getItem("devdeck.theme");
+        if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Boot splash: shown until React mounts. Same markup as src/design/Splash.tsx. -->
+      <div class="splash" role="status" aria-live="polite">
+        <svg class="mark" viewBox="-8 -8 336 336" role="img" aria-label="devdeck" xmlns="http://www.w3.org/2000/svg">
+          <title>devdeck</title>
+          <defs>
+            <linearGradient id="bs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#054d58" /><stop offset=".42" stop-color="#02b3ae" /><stop offset="1" stop-color="#02f1c9" /></linearGradient>
+            <linearGradient id="bu" x1="12" y1="0" x2="320" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#01d4d0" /><stop offset=".45" stop-color="#23ecca" /><stop offset=".8" stop-color="#68fbc9" /><stop offset="1" stop-color="#71fbb6" /></linearGradient>
+            <linearGradient id="bl" x1="12" y1="0" x2="320" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00efc7" /><stop offset=".45" stop-color="#01c1ac" /><stop offset=".72" stop-color="#048e8d" /><stop offset=".88" stop-color="#05545d" /><stop offset="1" stop-color="#0a6a70" /></linearGradient>
+            <clipPath id="bc"><path d="M12 0H195Q215 0 229 15L298 90Q320 115 320 165C320 250 260 320 185 320H12L92 244H185C250 244 280 190 270 173L175 76H92Z" /></clipPath>
+          </defs>
+          <path d="M0 8L80 84V236L0 312Z" fill="url(#bs)" />
+          <path d="M12 0H195Q215 0 229 15L298 90Q320 115 320 165C320 250 260 320 185 320H12L92 244H185C250 244 280 190 270 173L175 76H92Z" fill="url(#bu)" />
+          <g clip-path="url(#bc)"><path d="M0 212L262 168L320 138H340V340H0Z" fill="url(#bl)" /><path d="M262 168L320 138" stroke="#ffffff" stroke-opacity=".28" stroke-width="2" /></g>
+          <path d="M118 128L152 160L118 192" fill="none" stroke="var(--mark-prompt)" stroke-width="17" stroke-linecap="square" />
+          <rect class="mark-under" x="166" y="186" width="54" height="16" rx="2" fill="var(--mark-under)" />
+        </svg>
+        <div class="bar"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

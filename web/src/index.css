@@ -1,46 +1,30 @@
-:root {
-  --bg: #0b0d10;
-  --fg: #e6e8eb;
-  --muted: #8b929b;
-  color-scheme: dark;
-}
+@import "tailwindcss";
+@import "./design/theme.css";
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f6f7f8;
-    --fg: #14171a;
-    --muted: #5d646d;
-    color-scheme: light;
+/* Tokens and the loading page come from boot.css, linked in index.html. */
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
   }
-}
 
-* {
-  box-sizing: border-box;
-}
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/20px var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: system-ui, sans-serif;
-}
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 
-main {
-  display: grid;
-  place-content: center;
-  gap: 4px;
-  min-height: 100vh;
-  text-align: center;
-}
-
-h1 {
-  margin: 0;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
+  button {
+    cursor: pointer;
+  }
 }

@@ -35,9 +35,14 @@ run = "go build -o bin/devdeck.exe ./cmd/devdeck"
 description = "Go tests (CI adds -race on Linux; it needs a C compiler, which Windows lacks)"
 run = "go test -count=1 ./..."
 
+[tasks."test:web"]
+description = "Vitest for the web app"
+dir = "web"
+run = "npm test"
+
 [tasks.test]
 description = "All tests"
-depends = ["test:go"]
+depends = ["test:go", "test:web"]
 
 [tasks."lint:go"]
 description = "go vet and golangci-lint"
