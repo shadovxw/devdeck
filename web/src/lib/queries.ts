@@ -57,6 +57,14 @@ export function useWorkspace(id: string | undefined) {
   });
 }
 
+/**
+ * Opens the system's folder dialog on this computer and resolves with the chosen
+ * folder, or undefined when the dialog was closed without choosing one.
+ */
+export function usePickFolder() {
+  return useMutation({ mutationFn: () => api.post<{ path: string } | undefined>("/system/pick-folder") });
+}
+
 /** Looks at a folder of repositories and drafts a workspace. Saves nothing. */
 export function useScanFolder() {
   return useMutation({ mutationFn: (root: string) => api.post<ScanResult>("/workspaces/scan", { root }) });
@@ -69,6 +77,18 @@ export function useValidateWorkspace(yaml: string) {
     queryFn: ({ signal }) => api.post<Validation>("/workspaces/validate", { kind: "workspace", yaml }, signal),
     enabled: yaml.trim() !== "",
     placeholderData: (previous) => previous,
+  });
+}
+
+/** Deletes one of the user's own workspaces. Its files move to a trash folder; the repositories are untouched. */
+export function useDeleteWorkspace() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/workspaces/${encodeURIComponent(id)}`),
+    onSuccess: (_none, id) => {
+      qc.removeQueries({ queryKey: keys.workspace(id) });
+      return qc.invalidateQueries({ queryKey: keys.workspaces });
+    },
   });
 }
 

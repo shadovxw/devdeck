@@ -16,6 +16,7 @@ import (
 
 	"github.com/shadovxw/devdeck/internal/api"
 	"github.com/shadovxw/devdeck/internal/config"
+	"github.com/shadovxw/devdeck/internal/dialog"
 	"github.com/shadovxw/devdeck/internal/events"
 	"github.com/shadovxw/devdeck/internal/store"
 	"github.com/shadovxw/devdeck/internal/supervisor"
@@ -28,6 +29,12 @@ import (
 var version = "dev"
 
 func main() {
+	// devdeck --pick-folder shows one folder dialog and exits. The server starts
+	// itself this way, so the dialog can always be closed by ending the process.
+	if len(os.Args) > 1 && os.Args[1] == dialog.ChildArg {
+		os.Exit(dialog.RunChild(os.Args[2:], os.Stdout, os.Stderr, dialog.Native))
+	}
+
 	log.Logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.TimeOnly}).With().Timestamp().Logger()
 
 	if err := run(); err != nil {
@@ -72,12 +79,13 @@ func run() error {
 	e.HideBanner = true
 	e.HidePort = true
 	api.Register(e, api.Deps{
-		Version:    version,
-		Bus:        bus,
-		Guard:      guard,
-		Hub:        api.NewHub(bus, guard.OriginHosts(), log.Logger),
-		Plugins:    registry,
-		Supervisor: sup,
+		Version:      version,
+		Bus:          bus,
+		Guard:        guard,
+		Hub:          api.NewHub(bus, guard.OriginHosts(), log.Logger),
+		Plugins:      registry,
+		Supervisor:   sup,
+		FolderPicker: dialog.PickFolder,
 		Workspaces: &workspace.Manager{
 			Dir:         cfg.WorkspacesDir,
 			ExamplesDir: cfg.ExamplesDir,
