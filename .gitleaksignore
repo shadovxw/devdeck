@@ -1,0 +1,5 @@
+# Known false positives, one gitleaks fingerprint per line (commit:file:rule:line).
+# Add an entry only after checking the value is fake; real secrets get rotated, not ignored.
+
+# Fake OpenSSH key placeholder in the Secrets design sample (replaced with plain text afterwards).
+29842ba5708076f1e33f1ace20ad08e1feb0d087:ui-design/secrets.html:private-key:99

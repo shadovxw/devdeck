@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>devdeck Storage</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22-8%20-8%20336%20336%22%3E%20%3Cstyle%3E.p%7Bstroke%3A%230b0f12%7D.u%7Bfill%3A%230b0f12%7D%40media%20(prefers-color-scheme%3A%20dark)%7B.p%7Bstroke%3A%234ee8b5%7D.u%7Bfill%3A%232aeab4%7D%7D%3C%2Fstyle%3E%20%3Cdefs%3E%3ClinearGradient%20id%3D%22fs%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23054d58%22%2F%3E%3Cstop%20offset%3D%22.42%22%20stop-color%3D%22%2302b3ae%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2302f1c9%22%2F%3E%3C%2FlinearGradient%3E%20%3ClinearGradient%20id%3D%22fu%22%20x1%3D%2212%22%20y1%3D%220%22%20x2%3D%22320%22%20y2%3D%220%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2301d4d0%22%2F%3E%3Cstop%20offset%3D%22.45%22%20stop-color%3D%22%2323ecca%22%2F%3E%3Cstop%20offset%3D%22.8%22%20stop-color%3D%22%2368fbc9%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2371fbb6%22%2F%3E%3C%2FlinearGradient%3E%20%3ClinearGradient%20id%3D%22fl%22%20x1%3D%2212%22%20y1%3D%220%22%20x2%3D%22320%22%20y2%3D%220%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2300efc7%22%2F%3E%3Cstop%20offset%3D%22.45%22%20stop-color%3D%22%2301c1ac%22%2F%3E%3Cstop%20offset%3D%22.72%22%20stop-color%3D%22%23048e8d%22%2F%3E%3Cstop%20offset%3D%22.88%22%20stop-color%3D%22%2305545d%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%230a6a70%22%2F%3E%3C%2FlinearGradient%3E%20%3CclipPath%20id%3D%22fc%22%3E%3Cpath%20d%3D%22M12%200H195Q215%200%20229%2015L298%2090Q320%20115%20320%20165C320%20250%20260%20320%20185%20320H12L92%20244H185C250%20244%20280%20190%20270%20173L175%2076H92Z%22%2F%3E%3C%2FclipPath%3E%3C%2Fdefs%3E%20%3Cpath%20d%3D%22M0%208L80%2084V236L0%20312Z%22%20fill%3D%22url(%23fs)%22%2F%3E%3Cpath%20d%3D%22M12%200H195Q215%200%20229%2015L298%2090Q320%20115%20320%20165C320%20250%20260%20320%20185%20320H12L92%20244H185C250%20244%20280%20190%20270%20173L175%2076H92Z%22%20fill%3D%22url(%23fu)%22%2F%3E%20%3Cg%20clip-path%3D%22url(%23fc)%22%3E%3Cpath%20d%3D%22M0%20212L262%20168L320%20138H340V340H0Z%22%20fill%3D%22url(%23fl)%22%2F%3E%3C%2Fg%3E%20%3Cpath%20class%3D%22p%22%20d%3D%22M118%20128L152%20160L118%20192%22%20fill%3D%22none%22%20stroke-width%3D%2220%22%20stroke-linecap%3D%22square%22%2F%3E%3Crect%20class%3D%22u%22%20x%3D%22166%22%20y%3D%22184%22%20width%3D%2256%22%20height%3D%2219%22%20rx%3D%222%22%2F%3E%3C%2Fsvg%3E">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="quiet.css">
+<style>
+/* Layout: page header with KPIs → buckets + access keys (left) | object browser with detail panel (right). */
+.browser { display: flex; flex-direction: column; min-height: 560px; }
+.toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 12px 16px 0; }
+.filter { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; background: var(--fill); border-radius: var(--r-ctl); color: var(--ink-3); width: 180px; }
+.filter svg { width: 14px; height: 14px; flex: none; }
+.filter input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 12px var(--font-mono); }
+.bbody { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: 10px; position: relative; }
+.bbody.with-detail { grid-template-columns: minmax(0, 1fr) 340px; }
+.objtable td.namecell { max-width: 0; width: 100%; }
+.objtable td .nm { display: flex; align-items: center; gap: 8px; font: 500 13px var(--font-mono); min-width: 0; }
+.objtable td .nm .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.objtable td .nm svg { width: 15px; height: 15px; color: var(--ink-3); flex: none; }
+.objtable tr[data-kind="dir"] td .nm svg { color: var(--accent); }
+/* the detail panel shows the type, so drop that column while it's open */
+.bbody.with-detail .objtable th:nth-child(3), .bbody.with-detail .objtable td:nth-child(3) { display: none; }
+.rowact { display: inline-flex; gap: 2px; opacity: 0; transition: opacity 100ms; }
+tbody tr:hover .rowact, tbody tr:focus-within .rowact, tbody tr.sel .rowact { opacity: 1; }
+.empty { padding: 40px 16px; text-align: center; color: var(--ink-3); display: grid; gap: 10px; justify-items: center; }
+.empty svg { width: 28px; height: 28px; color: var(--ink-3); }
+.newrow td { background: var(--accent-soft); }
+.newrow .input { height: 28px; width: 260px; }
+.detail { background: var(--surface-2); padding: 14px; display: grid; gap: 12px; align-content: start; min-width: 0; border-radius: 0 0 var(--r-card) 0; }
+.detail-h { display: flex; align-items: center; gap: 8px; }
+.detail-h .ttl { font: 600 13px var(--font-mono); overflow-wrap: anywhere; flex: 1; min-width: 0; }
+.preview-img { width: 100%; max-width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r-ctl); background: var(--surface-inset); display: grid; place-items: center; overflow: hidden; }
+.preview-img img { max-width: 100%; max-height: 100%; }
+.nopreview { padding: 18px; border-radius: var(--r-ctl); background: var(--surface-inset); color: var(--ink-3); text-align: center; font-size: 12px; }
+.acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.drop { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; border-radius: var(--r-card); background: color-mix(in srgb, var(--accent) 12%, var(--surface-1)); outline: 2px dashed var(--accent); outline-offset: -8px; color: var(--ink); font-weight: 600; pointer-events: none; }
+.perm { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 34px); gap: 2px; align-items: center; }
+.perm .h { font-size: 11px; color: var(--ink-3); text-align: center; }
+.perm .b { font: 12px var(--font-mono); padding: 6px 8px; background: var(--fill); border-radius: var(--r-tag) 0 0 var(--r-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perm label { display: grid; place-items: center; height: 30px; background: var(--fill); cursor: pointer; }
+.perm input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+.secret { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; background: var(--fill); border-radius: var(--r-ctl); font: 12px var(--font-mono); min-width: 0; }
+.secret span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.form-inline { display: flex; gap: 6px; padding: 8px 16px 0; }
+.form-inline .input { height: 30px; }
+.hint-err { padding: 4px 16px 0; font-size: 12px; color: var(--critical); }
+@media (max-width: 1100px) { .bbody.with-detail { grid-template-columns: minmax(0, 1fr); } .detail { border-radius: 0 0 var(--r-card) var(--r-card); } }
+@media (max-width: 640px) { .filter { width: 100%; order: 9; } .objtable th:nth-child(3), .objtable td:nth-child(3), .objtable th:nth-child(4), .objtable td:nth-child(4) { display: none; } }
+</style>
+</head>
+<body data-page="Storage">
+<div class="app">
+  <nav class="dock" id="dock" aria-label="Main"></nav>
+  <div class="main">
+    <header class="strip" id="strip" aria-label="Status"></header>
+
+    <section class="card phead" style="--i:0" aria-label="Storage">
+      <h1>Storage</h1>
+      <span class="tag" title="devdeck talks to Garage from this PC (S3 :3900, admin :3903). Nothing is opened to the network.">garage-local · 127.0.0.1</span>
+      <span id="health"></span>
+      <span class="spacer"></span>
+      <div class="kpis" id="kpis"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card s3" style="--i:1" aria-labelledby="t-buckets">
+        <div class="card-h"><h2 class="grow" id="t-buckets">Buckets</h2><button class="iconbtn sm" type="button" id="new-bucket" title="New bucket" aria-label="New bucket"></button></div>
+        <form class="form-inline" id="bucket-form" hidden><label class="sr" for="bucket-name">Bucket name</label><input class="input mono" id="bucket-name" placeholder="bucket-name" autocomplete="off" spellcheck="false"><button class="btn sm primary" type="submit">Create</button></form>
+        <div class="hint-err" id="bucket-err" hidden></div>
+        <ul class="list" id="buckets"></ul>
+        <div class="sub-h"><span class="grow">Access keys</span><button class="iconbtn sm" type="button" id="new-key" title="New access key" aria-label="New access key"></button></div>
+        <ul class="list" id="keys"></ul>
+      </section>
+
+      <section class="card s9 browser" style="--i:2" aria-label="Objects" id="browser">
+        <div class="toolbar">
+          <nav class="crumbs grow" id="crumbs" aria-label="Path"></nav>
+          <label class="filter" for="obj-q"><span id="q-ic"></span><input id="obj-q" type="text" placeholder="Filter" autocomplete="off" spellcheck="false"></label>
+          <button class="btn sm" type="button" id="new-folder"></button>
+          <label class="btn sm primary" for="upload-input" id="upload-btn" tabindex="0"></label>
+          <input type="file" id="upload-input" multiple hidden>
+        </div>
+        <div class="bbody" id="bbody">
+          <div class="twrap" id="objwrap"></div>
+          <aside class="detail" id="detail" hidden></aside>
+          <div class="drop" id="drop" hidden></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="shell.js"></script>
+<script>
+(() => {
+  "use strict";
+  const { $, esc, si, pill, svg, I, toast, confirmClick, copy, fmtBytes } = window.DD;
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const day = 864e5, NOW = Date.now();
+  const ago = (ms) => { const d = Math.round((NOW - ms) / 6e4); return d < 1 ? "just now" : d < 60 ? `${d} min ago` : d < 1440 ? `${Math.round(d / 60)} h ago` : `${Math.round(d / 1440)} d ago`; };
+
+  // ---------- sample data (what devdeck would read via the S3 API + Garage admin API) ----------
+  const YAML = `- name: Provision OCP VM\n  hosts: localhost\n  gather_facts: false\n  vars:\n    vm_name: "{{ form.vm_name }}"\n    namespace: "{{ form.namespace }}"\n  tasks:\n    - name: Create VirtualMachine\n      kubernetes.core.k8s:\n        state: present\n        definition: "{{ lookup('template', 'vm.yaml.j2') }}"`;
+  const JSONR = `{\n  "ticket_id": 1204,\n  "playbook": "os-hardening-rhel9",\n  "status": "failed",\n  "hosts": { "target-07": "unreachable" },\n  "started": "2026-10-17T10:42:02Z",\n  "duration_s": 39.2\n}`;
+  const CSV = `hostname,ip,os,owner\ntarget-03,10.20.4.13,rhel9,acme-ops\ntarget-07,10.20.4.17,rhel9,acme-ops\ntarget-11,10.20.4.21,ubuntu22,acme-dev`;
+  const IMG = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90"><rect width="160" height="90" fill="#0a7c8f"/><text x="80" y="54" font-family="sans-serif" font-size="28" font-weight="700" fill="#fff" text-anchor="middle">acme</text></svg>');
+  const randHex = (bytes) => Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+  const o = (key, size, type, daysAgo, extra) => Object.assign({ key, size, type, mod: NOW - daysAgo * day, etag: Math.random().toString(16).slice(2, 10) }, extra || {});
+  const BUCKETS = {
+    "infrabot-artifacts": { created: NOW - 76 * day, total: 1272, bytes: 3.31e9, objects: [
+      o("playbooks/os-hardening-rhel9.tar.gz", 49400, "application/gzip", 3),
+      o("playbooks/os-hardening-ubuntu22.tar.gz", 47100, "application/gzip", 3),
+      o("playbooks/ocp-vm-provision.yml", 6300, "application/yaml", 1, { text: YAML }),
+      o("playbooks/cis-benchmark.yml", 12800, "application/yaml", 9, { text: "- name: CIS benchmark\n  hosts: all\n  roles:\n    - cis_rhel9" }),
+      o("reports/2026-10-17/TCK-1204-hardening.json", 3100, "application/json", .05, { text: JSONR }),
+      o("reports/2026-10-17/TCK-1190-hardening.html", 220400, "text/html", .3),
+      o("reports/2026-10-16/TCK-1172-provision.json", 2900, "application/json", 1.2, { text: '{\n  "ticket_id": 1172,\n  "status": "completed"\n}' }),
+      o("uploads/acme/1729150000-7f3c-inventory.csv", 12200, "text/csv", .2, { text: CSV }),
+      o("uploads/acme/1729149000-91ab-logo.svg", 860, "image/svg+xml", 2, { img: IMG }),
+      o("uploads/globex/1729100000-0c2e-hosts.csv", 8800, "text/csv", 4, { text: "hostname,ip\nweb-01,10.40.1.10" }),
+      o("terraform/modules/vpc.zip", 1150000, "application/zip", 12),
+      o("terraform/modules/eks-nodegroup.zip", 2310000, "application/zip", 12),
+    ] },
+    "infrabot-reports": { created: NOW - 40 * day, total: 12, bytes: 8.4e7, objects: [
+      o("monthly/2026-09/acme-compliance.pdf", 2400000, "application/pdf", 16),
+      o("monthly/2026-09/globex-compliance.pdf", 2100000, "application/pdf", 16),
+    ] },
+    "devdeck-scratch": { created: NOW - 2 * day, total: 0, bytes: 0, objects: [] },
+  };
+  const KEYS = [
+    { name: "dev-infrabot", id: "GK3a9f5c1e0d7b42a6c8e1f0aa", secret: "4f1c…dev-only", perms: { "infrabot-artifacts": "RW", "infrabot-reports": "RW" }, note: "backend-service" },
+    { name: "devdeck-ro", id: "GKb71e44d09c3a5b8f2e6d1c0b", secret: "9a0e…ro", perms: { "infrabot-artifacts": "R", "infrabot-reports": "R", "devdeck-scratch": "RW" }, note: "this app" },
+    { name: "ci-uploader", id: "GK5d20c8e3a1f94b7e6c0d2f1a", secret: "c3d7…ci", perms: { "infrabot-artifacts": "W" }, note: "GitHub Actions" },
+  ];
+  let bucket = "infrabot-artifacts", prefix = "", selected = null, panel = null, q = "";
+
+  // ---------- header ----------
+  function renderHead() {
+    $("#health").innerHTML = pill("good", "Healthy · 1 node", "Garage v0.9.4 · layout v1 · replication none · admin API v1");
+    const objs = Object.values(BUCKETS).reduce((a, b) => a + b.total, 0), bytes = Object.values(BUCKETS).reduce((a, b) => a + b.bytes, 0);
+    $("#kpis").innerHTML = `<div class="kpi"><b class="num">${Object.keys(BUCKETS).length}</b><span>buckets</span></div><div class="kpi"><b class="num">${objs.toLocaleString()}</b><span>objects</span></div><div class="kpi"><b class="num">${fmtBytes(bytes)}</b><span>stored</span></div>`;
+  }
+  function renderBuckets() {
+    $("#buckets").innerHTML = Object.entries(BUCKETS).map(([n, b]) => `<li class="li" data-bucket="${n}" ${n === bucket ? 'aria-current="true"' : ""} tabindex="0">${svg(I.bucket)}<span class="nm">${n}</span><span class="meta num" title="${b.total.toLocaleString()} objects · ${fmtBytes(b.bytes)}">${b.total ? fmtBytes(b.bytes) : "empty"}</span></li>`).join("");
+  }
+  function renderKeys() {
+    $("#keys").innerHTML = KEYS.map((k) => `<li class="li" data-key="${k.name}" ${panel === "key:" + k.name ? 'aria-current="true"' : ""} tabindex="0" title="${esc(k.note)}">${svg(I.key)}<span class="nm">${k.name}</span><span class="meta">${Object.keys(k.perms).length}</span></li>`).join("");
+  }
+
+  // ---------- object browser ----------
+  function listing() {
+    const b = BUCKETS[bucket], dirs = new Map(), files = [];
+    b.objects.forEach((ob) => {
+      if (!ob.key.startsWith(prefix)) return;
+      const rest = ob.key.slice(prefix.length);
+      const i = rest.indexOf("/");
+      if (i >= 0) {
+        const d = rest.slice(0, i), cur = dirs.get(d) || { name: d, size: 0, count: 0, mod: 0 };
+        cur.size += ob.size; cur.count += rest.length > i + 1 ? 1 : 0; cur.mod = Math.max(cur.mod, ob.mod); dirs.set(d, cur);
+      } else if (rest) files.push(ob);
+    });
+    const ql = q.toLowerCase();
+    const D = [...dirs.values()].filter((d) => !ql || d.name.toLowerCase().includes(ql)).sort((a, b) => a.name.localeCompare(b.name));
+    const F = files.filter((f) => !ql || f.key.toLowerCase().includes(ql)).sort((a, b) => a.key.localeCompare(b.key));
+    return { D, F };
+  }
+  function renderCrumbs() {
+    const parts = prefix ? prefix.replace(/\/$/, "").split("/") : [];
+    $("#crumbs").innerHTML = `<button type="button" data-crumb="">${esc(bucket)}</button>` + parts.map((p, i) => `<span class="sep">/</span><button type="button" data-crumb="${esc(parts.slice(0, i + 1).join("/") + "/")}">${esc(p)}</button>`).join("");
+  }
+  let creatingFolder = false;
+  function renderObjects() {
+    renderCrumbs();
+    const { D, F } = listing();
+    const name = (k) => k.slice(prefix.length);
+    if (!D.length && !F.length && !creatingFolder) {
+      $("#objwrap").innerHTML = `<div class="empty">${svg(I.upload)}<div>${q ? `Nothing matches “${esc(q)}”.` : "Empty. Drop files here or use Upload."}</div></div>`;
+      return;
+    }
+    const act = (key) => `<span class="rowact"><button class="iconbtn sm" type="button" data-dl="${esc(key)}" title="Download" aria-label="Download">${svg(I.download)}</button><button class="iconbtn sm" type="button" data-del="${esc(key)}" title="Delete" aria-label="Delete">${svg(I.trash)}</button></span>`;
+    $("#objwrap").innerHTML = `<table class="objtable"><thead><tr><th>Name</th><th class="r">Size</th><th>Type</th><th>Modified</th><th class="r"><span class="sr">Actions</span></th></tr></thead><tbody>
+      ${creatingFolder ? `<tr class="newrow"><td colspan="5"><form id="folder-form" style="display:flex;gap:6px;align-items:center">${svg(I.folder)}<label class="sr" for="folder-name">Folder name</label><input class="input mono" id="folder-name" placeholder="folder-name" autocomplete="off"><button class="btn sm primary" type="submit">Create</button><button class="btn sm ghost" type="button" id="folder-cancel">Cancel</button></form></td></tr>` : ""}
+      ${D.map((d) => `<tr data-kind="dir" data-dir="${esc(d.name)}" tabindex="0"><td class="namecell"><span class="nm" title="${esc(d.name)}/">${svg(I.folder)}<span class="t">${esc(d.name)}/</span></span></td><td class="r num mono faint">${fmtBytes(d.size)}</td><td class="faint">${d.count} items</td><td class="faint">${d.mod ? ago(d.mod) : ""}</td><td class="r">${act(prefix + d.name + "/")}</td></tr>`).join("")}
+      ${F.map((f) => `<tr data-kind="file" data-obj="${esc(f.key)}" tabindex="0" class="${selected === f.key ? "sel" : ""}"><td class="namecell"><span class="nm" title="${esc(name(f.key))}">${svg(I.file)}<span class="t">${esc(name(f.key))}</span></span></td><td class="r num mono">${fmtBytes(f.size)}</td><td class="faint mono" style="font-size:12px">${esc(f.type)}</td><td class="faint">${ago(f.mod)}</td><td class="r">${act(f.key)}</td></tr>`).join("")}
+    </tbody></table>`;
+    if (creatingFolder) setTimeout(() => $("#folder-name") && $("#folder-name").focus(), 0);
+  }
+  function showDetail(html) { $("#detail").innerHTML = html; $("#detail").hidden = false; $("#bbody").classList.add("with-detail"); }
+  function hideDetail() { $("#detail").hidden = true; $("#bbody").classList.remove("with-detail"); selected = null; panel = null; renderKeys(); $$("#objwrap tr.sel").forEach((t) => t.classList.remove("sel")); }
+  const closeBtn = `<button class="iconbtn sm" type="button" data-close title="Close" aria-label="Close">${svg(I.x)}</button>`;
+  function openObject(key) {
+    const ob = BUCKETS[bucket].objects.find((x) => x.key === key); if (!ob) return;
+    selected = key; panel = "obj"; renderKeys();
+    $$("#objwrap tr[data-obj]").forEach((t) => t.classList.toggle("sel", t.dataset.obj === key));
+    const prev = ob.img ? `<div class="preview-img"><img src="${ob.img}" alt="Preview of ${esc(key)}"></div>`
+      : ob.text ? `<pre class="code">${esc(ob.text)}</pre>`
+      : `<div class="nopreview">No preview for ${esc(ob.type)}</div>`;
+    showDetail(`<div class="detail-h"><span class="ttl">${esc(key.split("/").pop())}</span>${closeBtn}</div>${prev}
+      <dl class="kv"><div><dt>Size</dt><dd class="num">${fmtBytes(ob.size)}</dd></div><div><dt>Modified</dt><dd>${ago(ob.mod)}</dd></div><div><dt>Type</dt><dd>${esc(ob.type)}</dd></div><div><dt>ETag</dt><dd>${ob.etag}</dd></div><div style="grid-column:1/-1"><dt>Key</dt><dd>${esc(bucket)}/${esc(key)}</dd></div></dl>
+      <div class="acts"><button class="btn sm" type="button" data-dl="${esc(key)}">${svg(I.download)}Download</button><button class="btn sm" type="button" data-copy="${esc(bucket + "/" + key)}">${svg(I.copy)}Copy key</button><button class="btn sm danger" type="button" data-del="${esc(key)}">${svg(I.trash)}Delete</button></div>`);
+  }
+  function openKey(name) {
+    const k = KEYS.find((x) => x.name === name); if (!k) return;
+    panel = "key:" + name; selected = null; renderKeys(); renderObjects();
+    const rows = Object.keys(BUCKETS).map((b) => { const p = k.perms[b] || ""; return `<span class="b" title="${b}">${b}</span>${["R", "W", "O"].map((x) => `<label title="${x === "R" ? "Read" : x === "W" ? "Write" : "Owner"}"><input type="checkbox" data-perm="${b}" data-p="${x}" ${p.includes(x) ? "checked" : ""}></label>`).join("")}`; }).join("");
+    showDetail(`<div class="detail-h">${svg(I.key).replace("<svg", '<svg width="16" height="16"')}<span class="ttl">${esc(k.name)}</span>${closeBtn}</div>
+      <dl class="kv"><div style="grid-column:1/-1"><dt>Access key ID</dt><dd>${k.id}</dd></div><div style="grid-column:1/-1"><dt>Used by</dt><dd>${esc(k.note)}</dd></div></dl>
+      <div class="secret" title="Secret key · masked"><span id="ksec" data-v="${esc(k.secret)}">••••••••••••••••</span><button class="iconbtn sm" type="button" data-reveal title="Reveal for 20 s" aria-label="Reveal secret">${svg(I.eye)}</button><button class="iconbtn sm" type="button" data-copy="${esc(k.secret)}" data-what="Secret key" title="Copy" aria-label="Copy secret">${svg(I.copy)}</button></div>
+      <div class="perm"><span class="h" style="text-align:left">Bucket</span><span class="h">R</span><span class="h">W</span><span class="h">O</span>${rows}</div>
+      <div class="acts"><button class="btn sm danger" type="button" data-delkey="${esc(k.name)}">${svg(I.trash)}Delete key</button></div>`);
+  }
+
+  // ---------- actions ----------
+  function navigate(p) { prefix = p; q = ""; $("#obj-q").value = ""; creatingFolder = false; if (panel === "obj") hideDetail(); renderObjects(); }
+  function delKey(key, btn) {
+    const isDir = key.endsWith("/");
+    const b = BUCKETS[bucket];
+    const hits = b.objects.filter((x) => isDir ? x.key.startsWith(key) : x.key === key);
+    confirmClick(btn, isDir ? `Delete ${hits.length} objects?` : "Delete?", () => {
+      const bytes = hits.reduce((a, x) => a + x.size, 0);
+      b.objects = b.objects.filter((x) => !hits.includes(x)); b.total = Math.max(0, b.total - hits.length); b.bytes = Math.max(0, b.bytes - bytes);
+      if (selected && hits.some((h) => h.key === selected)) hideDetail();
+      renderHead(); renderBuckets(); renderObjects();
+      toast("good", isDir ? `Deleted ${key} (${hits.length})` : `Deleted ${key.split("/").pop()}`);
+    });
+  }
+  function addFiles(files) {
+    const b = BUCKETS[bucket];
+    Array.from(files).forEach((f) => {
+      const key = prefix + f.name, ob = o(key, f.size, f.type || "application/octet-stream", 0);
+      if (/^(?:text\/|application\/(?:json|yaml|x-yaml)$)/.test(ob.type) && f.size < 200000) f.text().then((t) => { ob.text = t.slice(0, 4000); if (selected === key) openObject(key); });
+      if (/^image\//.test(ob.type) && f.size < 2e6) { const r = new FileReader(); r.onload = () => { ob.img = r.result; if (selected === key) openObject(key); }; r.readAsDataURL(f); }
+      b.objects = b.objects.filter((x) => x.key !== key).concat(ob); b.total += 1; b.bytes += f.size;
+    });
+    renderHead(); renderBuckets(); renderObjects();
+    toast("good", files.length === 1 ? `Uploaded ${files[0].name}` : `Uploaded ${files.length} files`);
+  }
+
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-bucket],[data-key],[data-crumb],[data-dir],[data-obj],[data-dl],[data-del],[data-copy],[data-close],[data-reveal],[data-delkey],#new-folder,#folder-cancel,#new-bucket,#new-key");
+    if (!t) return;
+    if (t.dataset.del !== undefined) { e.stopPropagation(); delKey(t.dataset.del, t); }
+    else if (t.dataset.dl !== undefined) { e.stopPropagation(); toast("neutral", `Downloading ${t.dataset.dl.split("/").filter(Boolean).pop()}`); }
+    else if (t.dataset.copy !== undefined) copy(t.dataset.copy, t.dataset.what || "Key");
+    else if (t.dataset.close !== undefined) hideDetail();
+    else if (t.dataset.reveal !== undefined) {
+      const s = $("#ksec"); const shown = s.textContent === s.dataset.v;
+      s.textContent = shown ? "••••••••••••••••" : s.dataset.v;
+      t.innerHTML = svg(shown ? I.eye : I.eyeoff);
+      if (!shown) setTimeout(() => { if ($("#ksec") === s) { s.textContent = "••••••••••••••••"; t.innerHTML = svg(I.eye); } }, 20000);
+    }
+    else if (t.dataset.delkey) confirmClick(t, "Delete key?", () => { KEYS.splice(KEYS.findIndex((k) => k.name === t.dataset.delkey), 1); hideDetail(); renderKeys(); toast("good", `Deleted key ${t.dataset.delkey}`); });
+    else if (t.dataset.bucket) { bucket = t.dataset.bucket; prefix = ""; q = ""; $("#obj-q").value = ""; hideDetail(); renderBuckets(); renderObjects(); }
+    else if (t.dataset.key) openKey(t.dataset.key);
+    else if (t.dataset.crumb !== undefined) navigate(t.dataset.crumb);
+    else if (t.dataset.dir) navigate(prefix + t.dataset.dir + "/");
+    else if (t.dataset.obj) openObject(t.dataset.obj);
+    else if (t.id === "new-folder") { creatingFolder = true; renderObjects(); }
+    else if (t.id === "folder-cancel") { creatingFolder = false; renderObjects(); }
+    else if (t.id === "new-bucket") { $("#bucket-form").hidden = !$("#bucket-form").hidden; if (!$("#bucket-form").hidden) $("#bucket-name").focus(); }
+    else if (t.id === "new-key") {
+      const name = `key-${KEYS.length + 1}`;
+      KEYS.push({ name, id: "GK" + randHex(12), secret: randHex(4) + "…new", perms: {}, note: "not used yet" });
+      renderKeys(); openKey(name); toast("good", `Created ${name} · no bucket access yet`);
+    }
+  });
+  document.addEventListener("change", (e) => {
+    const c = e.target.closest("[data-perm]"); if (!c) return;
+    const k = KEYS.find((x) => "key:" + x.name === panel); if (!k) return;
+    const cur = new Set((k.perms[c.dataset.perm] || "").split("").filter(Boolean));
+    c.checked ? cur.add(c.dataset.p) : cur.delete(c.dataset.p);
+    const v = ["R", "W", "O"].filter((x) => cur.has(x)).join("");
+    if (v) k.perms[c.dataset.perm] = v; else delete k.perms[c.dataset.perm];
+    renderKeys(); toast("good", `${k.name} · ${c.dataset.perm}: ${v || "no access"}`);
+  });
+  document.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (e.target.id === "folder-form") {
+      const n = $("#folder-name").value.trim().replace(/\/+$/, "");
+      if (!n || /[^a-zA-Z0-9._\-]/.test(n)) { toast("critical", "Use letters, numbers, . _ -"); return; }
+      BUCKETS[bucket].objects.push(o(prefix + n + "/", 0, "folder", 0));
+      creatingFolder = false; renderObjects(); toast("good", `Created ${n}/`);
+    }
+    if (e.target.id === "bucket-form") {
+      const n = $("#bucket-name").value.trim(), err = $("#bucket-err");
+      const bad = !/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(n) ? "3–63 chars: lowercase letters, numbers, . and -" : BUCKETS[n] ? "That bucket already exists" : "";
+      err.hidden = !bad; err.textContent = bad; if (bad) return;
+      BUCKETS[n] = { created: NOW, total: 0, bytes: 0, objects: [] };
+      $("#bucket-form").hidden = true; $("#bucket-name").value = "";
+      bucket = n; prefix = ""; hideDetail(); renderHead(); renderBuckets(); renderObjects();
+      toast("good", `Created bucket ${n}`);
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    const r = e.target.closest && e.target.closest("tr[data-obj],tr[data-dir],li[data-bucket],li[data-key],#upload-btn");
+    if (r && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); r.id === "upload-btn" ? $("#upload-input").click() : r.click(); }
+    if (e.key === "Escape" && !$("#detail").hidden) hideDetail();
+  });
+  $("#obj-q").addEventListener("input", (e) => { q = e.target.value.trim(); renderObjects(); });
+  $("#upload-input").addEventListener("change", (e) => { if (e.target.files.length) addFiles(e.target.files); e.target.value = ""; });
+  // drag & drop upload onto the browser
+  let dragN = 0;
+  const br = $("#browser");
+  br.addEventListener("dragenter", (e) => { if (!e.dataTransfer.types.includes("Files")) return; e.preventDefault(); dragN++; $("#drop").hidden = false; $("#drop").textContent = `Drop to upload to ${bucket}/${prefix}`; });
+  br.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); });
+  br.addEventListener("dragleave", () => { dragN = Math.max(0, dragN - 1); if (!dragN) $("#drop").hidden = true; });
+  br.addEventListener("drop", (e) => { e.preventDefault(); dragN = 0; $("#drop").hidden = true; if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+
+  // icons into static buttons
+  $("#new-bucket").innerHTML = svg(I.plus); $("#new-key").innerHTML = svg(I.plus); $("#q-ic").innerHTML = svg(I.search);
+  $("#new-folder").innerHTML = `${svg(I.folder)}Folder`; $("#upload-btn").innerHTML = `${svg(I.upload)}Upload`;
+  renderHead(); renderBuckets(); renderKeys(); renderObjects();
+})();
+</script>
+</body>
+</html>
