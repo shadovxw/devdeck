@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>devdeck Quiet Instrument</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22-8%20-8%20336%20336%22%3E%20%3Cstyle%3E.p%7Bstroke%3A%230b0f12%7D.u%7Bfill%3A%230b0f12%7D%40media%20(prefers-color-scheme%3A%20dark)%7B.p%7Bstroke%3A%234ee8b5%7D.u%7Bfill%3A%232aeab4%7D%7D%3C%2Fstyle%3E%20%3Cdefs%3E%3ClinearGradient%20id%3D%22fs%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23054d58%22%2F%3E%3Cstop%20offset%3D%22.42%22%20stop-color%3D%22%2302b3ae%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2302f1c9%22%2F%3E%3C%2FlinearGradient%3E%20%3ClinearGradient%20id%3D%22fu%22%20x1%3D%2212%22%20y1%3D%220%22%20x2%3D%22320%22%20y2%3D%220%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2301d4d0%22%2F%3E%3Cstop%20offset%3D%22.45%22%20stop-color%3D%22%2323ecca%22%2F%3E%3Cstop%20offset%3D%22.8%22%20stop-color%3D%22%2368fbc9%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2371fbb6%22%2F%3E%3C%2FlinearGradient%3E%20%3ClinearGradient%20id%3D%22fl%22%20x1%3D%2212%22%20y1%3D%220%22%20x2%3D%22320%22%20y2%3D%220%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2300efc7%22%2F%3E%3Cstop%20offset%3D%22.45%22%20stop-color%3D%22%2301c1ac%22%2F%3E%3Cstop%20offset%3D%22.72%22%20stop-color%3D%22%23048e8d%22%2F%3E%3Cstop%20offset%3D%22.88%22%20stop-color%3D%22%2305545d%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%230a6a70%22%2F%3E%3C%2FlinearGradient%3E%20%3CclipPath%20id%3D%22fc%22%3E%3Cpath%20d%3D%22M12%200H195Q215%200%20229%2015L298%2090Q320%20115%20320%20165C320%20250%20260%20320%20185%20320H12L92%20244H185C250%20244%20280%20190%20270%20173L175%2076H92Z%22%2F%3E%3C%2FclipPath%3E%3C%2Fdefs%3E%20%3Cpath%20d%3D%22M0%208L80%2084V236L0%20312Z%22%20fill%3D%22url(%23fs)%22%2F%3E%3Cpath%20d%3D%22M12%200H195Q215%200%20229%2015L298%2090Q320%20115%20320%20165C320%20250%20260%20320%20185%20320H12L92%20244H185C250%20244%20280%20190%20270%20173L175%2076H92Z%22%20fill%3D%22url(%23fu)%22%2F%3E%20%3Cg%20clip-path%3D%22url(%23fc)%22%3E%3Cpath%20d%3D%22M0%20212L262%20168L320%20138H340V340H0Z%22%20fill%3D%22url(%23fl)%22%2F%3E%3C%2Fg%3E%20%3Cpath%20class%3D%22p%22%20d%3D%22M118%20128L152%20160L118%20192%22%20fill%3D%22none%22%20stroke-width%3D%2220%22%20stroke-linecap%3D%22square%22%2F%3E%3Crect%20class%3D%22u%22%20x%3D%22166%22%20y%3D%22184%22%20width%3D%2256%22%20height%3D%2219%22%20rx%3D%222%22%2F%3E%3C%2Fsvg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -120,12 +121,11 @@ button { font: inherit; color: inherit; }
   background: var(--surface-1);
   border-radius: var(--r-sheet);
 }
-.dock .logo {
-  width: 32px; height: 32px; border-radius: var(--r-ctl); margin-bottom: 8px;
-  display: grid; place-items: center;
-  background: var(--accent); color: var(--on-accent);
-  font: 700 17px/1 var(--font-ui);
-}
+.dock .logo { width: 36px; height: 36px; margin-bottom: 8px; display: grid; place-items: center; border-radius: var(--r-ctl); --mark-prompt: #4ee8b5; --mark-under: #2aeab4; }
+.dock .logo:hover { background: var(--accent-soft); }
+.dock .logo svg { width: 30px; height: 30px; display: block; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .dock .logo { --mark-prompt: #0b0f12; --mark-under: #0b0f12; } }
+:root[data-theme="light"] .dock .logo { --mark-prompt: #0b0f12; --mark-under: #0b0f12; }
 .dock hr { width: 24px; border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
 .dock-btn {
   position: relative;
@@ -555,7 +555,7 @@ tbody tr:hover .rowact, tbody tr:focus-within .rowact, tbody tr:focus-visible .r
 <body>
 <div class="app" id="app">
   <nav class="dock" aria-label="Main">
-    <div class="logo" aria-hidden="true">d</div>
+    <a class="logo" href="index.html" title="devdeck" aria-label="devdeck home"><svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 336 336" aria-hidden="true" focusable="false"><defs><linearGradient id="ddms" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#054d58"/><stop offset=".42" stop-color="#02b3ae"/><stop offset="1" stop-color="#02f1c9"/></linearGradient><linearGradient id="ddmu" x1="12" y1="0" x2="320" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#01d4d0"/><stop offset=".45" stop-color="#23ecca"/><stop offset=".8" stop-color="#68fbc9"/><stop offset="1" stop-color="#71fbb6"/></linearGradient><linearGradient id="ddml" x1="12" y1="0" x2="320" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00efc7"/><stop offset=".45" stop-color="#01c1ac"/><stop offset=".72" stop-color="#048e8d"/><stop offset=".88" stop-color="#05545d"/><stop offset="1" stop-color="#0a6a70"/></linearGradient><clipPath id="ddmc"><path d="M12 0H195Q215 0 229 15L298 90Q320 115 320 165C320 250 260 320 185 320H12L92 244H185C250 244 280 190 270 173L175 76H92Z"/></clipPath></defs><path d="M0 8L80 84V236L0 312Z" fill="url(#ddms)"/><path d="M12 0H195Q215 0 229 15L298 90Q320 115 320 165C320 250 260 320 185 320H12L92 244H185C250 244 280 190 270 173L175 76H92Z" fill="url(#ddmu)"/><g clip-path="url(#ddmc)"><path d="M0 212L262 168L320 138H340V340H0Z" fill="url(#ddml)"/><path d="M262 168L320 138" stroke="#ffffff" stroke-opacity=".28" stroke-width="2"/></g><path d="M118 128L152 160L118 192" fill="none" style="stroke:var(--mark-prompt,#4ee8b5)" stroke-width="17" stroke-linecap="square"/><rect x="166" y="186" width="54" height="16" rx="2" style="fill:var(--mark-under,#2aeab4)"/></svg></a>
     <div id="dock-items" style="display:contents"></div>
   </nav>
 
@@ -746,6 +746,8 @@ tbody tr:hover .rowact, tbody tr:focus-within .rowact, tbody tr:focus-visible .r
     ["Repositories", '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 5-12 2-12 7"/>'],
     ["Work items", '<path d="M4 6h2M9 6h11M4 12h2M9 12h11M4 18h2M9 18h11"/>'],
     ["Databases", KIND_ICON.db],
+    ["Storage", '<path d="M4 7h16l-1.6 12.2a2 2 0 0 1-2 1.8H7.6a2 2 0 0 1-2-1.8z"/><ellipse cx="12" cy="7" rx="8" ry="2.5"/>', false, 0, "storage.html"],
+    ["Secrets", '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l2 2M15 8l2 2"/>', false, 0, "secrets.html"],
     "|",
     ["Flows", '<rect x="3" y="5" width="7" height="5" rx="1.5"/><rect x="14" y="14" width="7" height="5" rx="1.5"/><path d="M10 7.5h2a2 2 0 0 1 2 2V14"/>'],
     ["Trace", '<circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 6h7a3 3 0 0 1 0 6H10a3 3 0 0 0 0 6h7"/>', false, 1, "flow-trace.html"],

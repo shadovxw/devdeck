@@ -173,6 +173,7 @@ Ranked by how common they are in SaaS backends:
 | §8 Phases | New **Phase 6b: Infrastructure explorers** (nats, openbao, garage, keycloak) after Phase 6; **Phase 7b: Open standards** (http-health, prometheus-scrape, otlp-receiver, log-tail, declarative HTTP plugin) after Phase 7; Wave 2 plugins spread over v1.2–v1.3 |
 | §12 Later | Wave 4 plugins; integration with production observability backends (read/link, not replace) |
 | New feature | **Flow trace** across HTTP, NATS, DB and Ansible: see [`04-flow-trace.md`](04-flow-trace.md) (Phase 6c v1, v2 with 7b, v3 with 7) |
+| Phase 6b detail | **Storage (Garage) and Secrets (OpenBao) explorers** with full view/add/edit/delete: see [`05-storage-and-secrets.md`](05-storage-and-secrets.md) |
 
 ---
 

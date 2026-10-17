@@ -112,7 +112,45 @@ The verdict is a one-line pill at the top of the page. Everything else is eviden
 4. **DB spans**: `otelpgx` for pgx; MySQL driver wrapper where used.
 5. **Ansible**: emit one span per playbook/task (callback plugin or automation-service wrapper).
 6. **APISIX**: enable the `opentelemetry` plugin. **FastAPI agents**: `opentelemetry-instrumentation-fastapi` + nats-py headers.
+6a. **Garage / OpenBao** (see §6a): `otelhttp` on backend's storage and vault clients; backend log fields for bucket/key/secret path (names only); Garage `trace_sink`; an OpenBao file audit device plus audited `X-Request-Id`.
 7. **Exporter**: OTLP to devdeck locally, and to Grafana Tempo / SigNoz in production (same code, different endpoint).
+
+---
+
+## 6a. Garage and OpenBao inside a flow
+
+**Where they sit (from the code):** only **backend-service** talks to them. In a hardening run:
+- `automation → backend /api/v1/connectors/storage → Garage`: download the playbook files that catalog uploaded earlier.
+- `automation → backend /api/v1/connectors/vault → OpenBao`: read the SSH credentials for the target.
+
+They don't use NATS and don't know `ticket_id`, so they're traced through the calls into them and their own records:
+
+| | **Garage** | **OpenBao** |
+|---|---|---|
+| Health | admin API `/health` (quorum) | `sys/health` (sealed? standby?) |
+| Metrics | Prometheus `/metrics` (S3 request counts, errors, latency) | telemetry endpoint (Prometheus format, when enabled) |
+| Per-request record | no access log, but **native OpenTelemetry export** (`[admin] trace_sink = "http://…:4317"`) | **audit device** (file/socket/http): one JSON line per request with path, operation, status and request id; secret values HMAC'd. Extra headers (e.g. `X-Request-Id`) can be audited via `sys/config/auditing/request-headers`. |
+| Spans | its own spans via `trace_sink` + backend's HTTP-client span | backend's HTTP-client span (no native OTel spans); the audit line is joined to it by request id |
+| Today in infrabot | backend logs don't record bucket/key as fields | backend logs don't record the secret path as a field |
+
+**Per source:**
+- **Logs (3)**: automation's and backend's lines by `job_id` today. Add structured fields in backend: `bucket`, `object_key`, `secret_mount`, `secret_path` (**names only, never values**).
+- **Correlation (4)**: forward `X-Request-Id` from automation → backend → OpenBao, and audit that header in OpenBao. Every secret read then carries the flow's id.
+- **Traces (5)**: `otelhttp` on backend's Garage and OpenBao clients, plus Garage `trace_sink` to devdeck's OTLP receiver.
+- **Synthetic (6)**: the test flow reads one test object and one test secret first, so storage or vault problems surface before a real run.
+
+**Verdicts these enable:**
+
+| Rule | Verdict |
+|---|---|
+| OpenBao `sys/health` sealed, or a 503 from the vault connector | "Secrets unavailable · OpenBao sealed" (local: one-click unseal) |
+| 403 on a secret path (audit log) | "Permission denied on `kv/ssh/target-07` · policy `automation-ro`" |
+| Token expired / lease revoked | "Vault token expired for backend" |
+| Garage `/health` 503 / node down | "Storage unavailable · Garage quorum lost" |
+| S3 `NoSuchKey` on the playbook object | "Playbook file missing in bucket · re-upload from catalog" |
+| Slow GET (span over budget) | "Slow storage · 4.2 s to fetch playbook" |
+
+**In the UI**: `garage` and `openbao` get their own lanes in Flow trace; their hops link to the **Object storage** (Garage) and **Secrets** (OpenBao) explorer pages from the plugin catalog; both appear as nodes on the Home 3D map with live health.
 
 ---
 
