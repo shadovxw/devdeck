@@ -69,7 +69,9 @@ func (s *Manager) checkScanRoot(root string) (string, error) {
 		if err != nil || filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			continue
 		}
-		return resolved, nil
+		// Rebuild the path from the trusted base plus the cleaned remainder, so
+		// the result can never leave base (the usual "clean a rooted path" pattern).
+		return filepath.Join(base, filepath.Clean("/"+rel)), nil
 	}
 	return "", ErrOutsideScanRoots
 }
