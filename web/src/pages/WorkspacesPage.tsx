@@ -6,6 +6,7 @@ import { navByPath } from "../app/nav";
 import { primaryButton, quietButton } from "../design/buttons";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
+import { StatusMark } from "../design/StatusMark";
 import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
 import {
@@ -25,12 +26,7 @@ const field =
 
 /** Same shapes as the status pills: an error is a square, a warning a triangle. */
 function Mark({ severity }: { severity: Issue["severity"] }) {
-  const error = severity === "error";
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden fill={error ? "var(--critical)" : "var(--warning)"} className="shrink-0">
-      {error ? <rect x="1.8" y="1.8" width="8.4" height="8.4" /> : <path d="M6 1.2 11 10.2H1Z" />}
-    </svg>
-  );
+  return <StatusMark level={severity === "error" ? "fail" : "warn"} />;
 }
 
 function IssueCount({ errors, warnings }: { errors: number; warnings: number }) {

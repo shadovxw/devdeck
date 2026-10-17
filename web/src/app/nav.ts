@@ -316,7 +316,6 @@ const GROUPS: GroupDef[] = [
         path: "/doctor",
         label: "Doctor",
         icon: Stethoscope,
-        phase: "Phase 2",
         empty: {
           headline: "Nothing checked yet",
           text: "Check that your machine has everything a workspace needs. Tool status is already on the Plugins page.",

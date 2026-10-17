@@ -64,6 +64,8 @@ type Detail struct {
 	Stacks    []StackFile    `json:"stacks"`
 	Flows     []FlowFile     `json:"flows"`
 	Issues    []Issue        `json:"issues"`
+	// Folder is where the workspace lives on disk. It is not sent to the browser.
+	Folder string `json:"-"`
 }
 
 func (s *Manager) plugins() []string {
@@ -151,7 +153,7 @@ func (s *Manager) Get(id string) (*Detail, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Detail{Summary: summarise(id, f[1], l), Workspace: l.Workspace, Stacks: l.Stacks, Flows: l.Flows, Issues: l.Issues}
+	d := &Detail{Summary: summarise(id, f[1], l), Workspace: l.Workspace, Stacks: l.Stacks, Flows: l.Flows, Issues: l.Issues, Folder: f[0]}
 	if d.Stacks == nil {
 		d.Stacks = []StackFile{}
 	}

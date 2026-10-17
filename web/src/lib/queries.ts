@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "./api";
-import type { Health, Plugin, ScanResult, Validation, WorkspaceDetail, WorkspaceSummary } from "./types";
+import type { DoctorReport, Health, Plugin, ScanResult, Validation, WorkspaceDetail, WorkspaceSummary } from "./types";
 
 export const keys = {
   health: ["health"] as const,
@@ -73,5 +73,18 @@ export function useCreateWorkspace() {
   return useMutation({
     mutationFn: (yaml: string) => api.post<WorkspaceSummary>("/workspaces", { yaml }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.workspaces }),
+  });
+}
+
+/** Checks the machine for a workspace, or for one of its stacks. Slow, so only on demand. */
+export function useDoctor(workspace: string | undefined, stack: string | undefined) {
+  const query = new URLSearchParams({ workspace: workspace ?? "" });
+  if (stack) query.set("stack", stack);
+  return useQuery({
+    queryKey: ["doctor", workspace ?? "", stack ?? ""],
+    queryFn: ({ signal }) => api.get<DoctorReport>(`/doctor?${query}`, signal),
+    enabled: Boolean(workspace),
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 }

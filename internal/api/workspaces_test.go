@@ -21,6 +21,16 @@ const goodWorkspace = "version: 1\nname: demo\nroot: ~/code\nrepos:\n  - id: api
 
 func workspaceServer(t *testing.T) *echo.Echo {
 	t.Helper()
+	return serverWith(t, &workspace.Manager{
+		Dir:         filepath.Join(t.TempDir(), "workspaces"),
+		ExamplesDir: "../../examples/workspaces",
+		// every t.TempDir() of this test lives under the same parent
+		ScanRoots: []string{filepath.Dir(t.TempDir())},
+	})
+}
+
+func serverWith(t *testing.T, m *workspace.Manager) *echo.Echo {
+	t.Helper()
 	guard, err := NewGuard("127.0.0.1:7070", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -29,14 +39,9 @@ func workspaceServer(t *testing.T) *echo.Echo {
 	e := echo.New()
 	Register(e, Deps{
 		Version: "test", Bus: bus, Guard: guard,
-		Hub:     NewHub(bus, guard.OriginHosts(), zerolog.Nop()),
-		Plugins: sdk.NewRegistry(),
-		Workspaces: &workspace.Manager{
-			Dir:         filepath.Join(t.TempDir(), "workspaces"),
-			ExamplesDir: "../../examples/workspaces",
-			// every t.TempDir() of this test lives under the same parent
-			ScanRoots: []string{filepath.Dir(t.TempDir())},
-		},
+		Hub:        NewHub(bus, guard.OriginHosts(), zerolog.Nop()),
+		Plugins:    sdk.NewRegistry(),
+		Workspaces: m,
 	})
 	return e
 }

@@ -42,5 +42,6 @@ func Register(e *echo.Echo, d Deps) {
 	registerPlugins(v1, d.Plugins)
 	if d.Workspaces != nil {
 		registerWorkspaces(v1, d.Workspaces)
+		registerDoctor(v1, d.Workspaces, d.Plugins)
 	}
 }

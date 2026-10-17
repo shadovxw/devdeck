@@ -4,6 +4,7 @@ import type { RouteObject } from "react-router";
 
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
+import { DoctorPage } from "../pages/DoctorPage";
 import { Placeholder } from "../pages/Placeholder";
 import { PluginsPage } from "../pages/PluginsPage";
 import { WorkspacesPage } from "../pages/WorkspacesPage";
@@ -15,6 +16,7 @@ import { Shell } from "./Shell";
 const built: Record<string, ReactElement> = {
   "/plugins": <PluginsPage />,
   "/workspaces": <WorkspacesPage />,
+  "/doctor": <DoctorPage />,
 };
 
 function NotFound() {
