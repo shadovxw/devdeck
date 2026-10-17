@@ -61,7 +61,7 @@ export type WorkspaceSummary = {
 
 export type WorkspaceDetail = Omit<WorkspaceSummary, "stacks" | "flows"> & {
   workspace?: { name: string; root: string; repos?: Repo[] };
-  stacks: Array<{ name: string; description?: string }>;
+  stacks: StackDef[];
   flows: Array<{ name: string; description?: string }>;
   issues: Issue[];
 };
@@ -94,3 +94,49 @@ export type DoctorReport = {
   failures: number;
   checked_at: string;
 };
+
+// Stacks and the supervisor (internal/workspace, internal/supervisor).
+
+/** A stack as written in its file. */
+export type StackDef = {
+  name: string;
+  description?: string;
+  compose?: { repo: string; file: string; services?: string[] };
+  services?: Array<{ id: string; kind: string; port?: number; after?: string[] }>;
+};
+
+export type ServiceState =
+  | "waiting"
+  | "building"
+  | "starting"
+  | "ready"
+  | "restarting"
+  | "failed"
+  | "blocked"
+  | "stopping"
+  | "stopped";
+
+export type RunState = "starting" | "running" | "degraded" | "stopping" | "stopped";
+
+export type ServiceStatus = {
+  id: string;
+  kind: string;
+  state: ServiceState;
+  port?: number;
+  restarts: number;
+  started_at?: string;
+  ready_at?: string;
+  last_error?: string;
+  exit_code?: number;
+};
+
+export type RunStatus = {
+  workspace: string;
+  stack: string;
+  state: RunState;
+  started_at: string;
+  services: ServiceStatus[];
+};
+
+/** The body of a 422 from starting a stack when the machine isn't ready. */
+export type StartRefusal = { message: string; report?: DoctorReport };

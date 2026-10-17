@@ -73,7 +73,6 @@ const GROUPS: GroupDef[] = [
         path: "/",
         label: "Home",
         icon: House,
-        phase: "Phase 1",
         empty: {
           headline: "Your workspace is ready to connect",
           text: "Start a stack to bring your services, logs, and resources into one view.",
@@ -127,7 +126,6 @@ const GROUPS: GroupDef[] = [
         path: "/stacks",
         label: "Stacks",
         icon: Layers,
-        phase: "Phase 2",
         empty: {
           headline: "No stack defined yet",
           text: "A stack starts your databases, services and web apps in the right order with one click.",
