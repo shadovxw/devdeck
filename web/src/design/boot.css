@@ -55,7 +55,7 @@ body {
   width: 40%;
   border-radius: 2px;
   background: var(--brand);
-  animation: splash-sweep 1.3s var(--ease-out) infinite;
+  animation: splash-sweep 1.3s linear infinite;
 }
 
 .splash[data-state="offline"] .bar::after {

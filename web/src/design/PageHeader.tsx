@@ -1,5 +1,7 @@
 import { Laptop } from "lucide-react";
 
+import { stagger } from "../lib/motion";
+
 type Props = {
   title: string;
   /** Group the page belongs to, shown before the title in the breadcrumb. */
@@ -13,7 +15,7 @@ type Props = {
 /** Breadcrumb, big title and scope chip at the top of every page. */
 export function PageHeader({ title, group, parent, phase }: Props) {
   return (
-    <header className="border-b border-line pb-5">
+    <header className="enter border-b border-line pb-5" style={stagger(0)}>
       <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3">
         {[group, parent].filter(Boolean).map((crumb) => (
           <span key={crumb}>

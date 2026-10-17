@@ -1,4 +1,5 @@
 import { ChevronDown, Layers, Monitor, Moon, SunMoon, Sun } from "lucide-react";
+import { useLayoutEffect } from "react";
 import { Link, Outlet } from "react-router";
 
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -34,8 +35,9 @@ function TopBar() {
       <SidebarTrigger className="size-9 text-ink-2" title="Expand or collapse the sidebar (Ctrl+B)" />
       <Link
         to="/workspaces"
+        viewTransition
         title="No workspace yet"
-        className="inline-flex h-9 items-center gap-2.5 rounded-ctl bg-bg px-3 text-[14px] font-semibold text-ink hover:bg-fill sm:w-60"
+        className="inline-flex h-9 items-center gap-2.5 rounded-ctl bg-bg px-3 text-[14px] font-semibold text-ink transition hover:bg-fill active:scale-[.98] sm:w-60"
       >
         <Layers size={17} className="text-ink-3" aria-hidden />
         <span className="hidden flex-1 text-start sm:inline">No workspace</span>
@@ -48,7 +50,7 @@ function TopBar() {
         onClick={() => setTheme(themeNext[theme])}
         title={`Theme: ${theme}. Click to switch.`}
         aria-label={`Theme: ${theme}`}
-        className="grid size-9 place-items-center rounded-ctl text-ink-2 hover:bg-accent-soft hover:text-ink"
+        className="grid size-9 place-items-center rounded-ctl text-ink-2 transition hover:bg-accent-soft hover:text-ink active:scale-95"
       >
         <ThemeIcon size={19} strokeWidth={1.7} />
       </button>
@@ -56,15 +58,33 @@ function TopBar() {
   );
 }
 
+/**
+ * Marks the first moments after the app appears, so blocks marked .enter rise
+ * in once (design/motion.css). Set before paint, so nothing flashes first.
+ * Later page changes use the page cross-fade instead.
+ */
+function useFirstLoad() {
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.dataset.first = "";
+    const timer = setTimeout(() => delete root.dataset.first, 600);
+    return () => {
+      clearTimeout(timer);
+      delete root.dataset.first;
+    };
+  }, []);
+}
+
 export function Shell() {
   const sidebarOpen = useUi((s) => s.sidebarOpen);
   const setSidebarOpen = useUi((s) => s.setSidebarOpen);
+  useFirstLoad();
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <AppSidebar />
       <SidebarInset className="min-w-0 bg-bg">
         <TopBar />
-        <div className="mx-auto w-full max-w-[1440px] px-4 py-7 md:px-10 md:py-9">
+        <div className="page-area mx-auto w-full max-w-[1440px] px-4 py-7 md:px-10 md:py-9">
           <Outlet />
         </div>
       </SidebarInset>

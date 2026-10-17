@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 
 import { Boot } from "./app/Boot";
+import { AppErrorBoundary } from "./app/ErrorPages";
 import { routes } from "./app/routes";
 import { SocketProvider } from "./lib/socket";
 
@@ -14,12 +15,14 @@ const router = createBrowserRouter(routes);
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Boot>
-        <SocketProvider>
-          <RouterProvider router={router} />
-        </SocketProvider>
-      </Boot>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <Boot>
+          <SocketProvider>
+            <RouterProvider router={router} />
+          </SocketProvider>
+        </Boot>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }

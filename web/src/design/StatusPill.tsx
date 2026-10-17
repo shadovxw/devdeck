@@ -1,7 +1,9 @@
+import { useState } from "react";
+
 import type { ToolState } from "../lib/types";
 
 // Status is never colour alone: each state has its own shape and a label
-// (flight-deck convention, dev-plans/02-frontend-design-system.md §2.1).
+// (flight-deck convention, dev-plans/02-frontend-design-system.md section 2.1).
 const look: Record<ToolState, { label: string; color: string; shape: "dot" | "triangle" | "diamond" | "square" }> = {
   ok: { label: "Ready", color: "var(--good)", shape: "dot" },
   degraded: { label: "Degraded", color: "var(--warning)", shape: "triangle" },
@@ -22,8 +24,24 @@ function Shape({ shape, color }: { shape: (typeof look)[ToolState]["shape"]; col
 
 export function StatusPill({ state, title }: { state: ToolState; title?: string }) {
   const { label, color, shape } = look[state];
+
+  // When the state changes, flash the pill once. A change in the first render is not a
+  // change, so nothing flashes on load. (Adjusting state while rendering is React's
+  // documented way to react to a prop change without an effect.)
+  const [shown, setShown] = useState(state);
+  const [flashes, setFlashes] = useState(0);
+  if (shown !== state) {
+    setShown(state);
+    setFlashes((n) => n + 1);
+  }
+
   return (
-    <span className="inline-flex items-center gap-2 text-ink-2" title={title}>
+    <span
+      // A new key restarts the one-shot flash animation.
+      key={flashes}
+      className={`-mx-1.5 inline-flex items-center gap-2 px-1.5 py-0.5 text-ink-2 ${flashes > 0 ? "flash" : ""}`}
+      title={title}
+    >
       <Shape shape={shape} color={color} />
       {label}
     </span>

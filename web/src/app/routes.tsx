@@ -6,6 +6,7 @@ import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { Placeholder } from "../pages/Placeholder";
 import { PluginsPage } from "../pages/PluginsPage";
+import { FatalError, PageError } from "./ErrorPages";
 import { NAV_ITEMS } from "./nav";
 import { Shell } from "./Shell";
 
@@ -33,12 +34,20 @@ function NotFound() {
 export const routes: RouteObject[] = [
   {
     element: <Shell />,
+    // The shell itself crashed: no sidebar to show, so a full-window page.
+    errorElement: <FatalError />,
     children: [
-      ...NAV_ITEMS.map((item) => ({
-        path: item.path,
-        element: built[item.path] ?? <Placeholder item={item} />,
-      })),
-      { path: "*", element: <NotFound /> },
+      {
+        // A page crashed: the error shows inside the shell, so the sidebar still works.
+        errorElement: <PageError />,
+        children: [
+          ...NAV_ITEMS.map((item) => ({
+            path: item.path,
+            element: built[item.path] ?? <Placeholder item={item} />,
+          })),
+          { path: "*", element: <NotFound /> },
+        ],
+      },
     ],
   },
 ];

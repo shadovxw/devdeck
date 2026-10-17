@@ -3,6 +3,7 @@ import { RotateCw } from "lucide-react";
 import { navByPath } from "../app/nav";
 import { PageHeader } from "../design/PageHeader";
 import { StatusPill } from "../design/StatusPill";
+import { stagger } from "../lib/motion";
 import { useCheckPlugin, usePlugins } from "../lib/queries";
 import type { Plugin } from "../lib/types";
 
@@ -36,7 +37,7 @@ function Row({ plugin }: { plugin: Plugin }) {
           disabled={busy}
           title="Check again"
           aria-label={`Check ${plugin.name} again`}
-          className="grid size-8 place-items-center rounded-ctl text-ink-3 hover:bg-accent-soft hover:text-ink disabled:opacity-50"
+          className="grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-accent-soft hover:text-ink active:scale-90 disabled:opacity-50"
         >
           <RotateCw size={15} className={busy ? "animate-spin" : undefined} />
         </button>
@@ -55,7 +56,7 @@ export function PluginsPage() {
     <>
       <PageHeader title={item.label} group={item.group} phase={item.phase} />
 
-      <section className="mt-7 rounded-sheet bg-surface-1">
+      <section className="enter mt-7 rounded-sheet bg-surface-1" style={stagger(1)}>
         <div className="flex items-center gap-2 px-4 py-3">
           <p className="m-0 flex-1 text-[13px] text-ink-3">{data ? `${data.length} plugins` : ""}</p>
           <button
@@ -63,14 +64,24 @@ export function PluginsPage() {
             onClick={() => void refetch()}
             disabled={isFetching}
             title="Run every plugin's check again"
-            className="inline-flex h-9 items-center gap-2 rounded-ctl px-3 text-[14px] text-ink-2 hover:bg-accent-soft hover:text-ink disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-ctl px-3 text-[14px] text-ink-2 transition hover:bg-accent-soft hover:text-ink active:scale-[.97] disabled:opacity-50"
           >
             <RotateCw size={15} className={isFetching ? "animate-spin" : undefined} aria-hidden />
             Check all
           </button>
         </div>
 
-        {isPending && <p className="m-0 px-4 py-8 text-ink-3">Checking…</p>}
+        {isPending && (
+          <div role="status" aria-label="Loading plugins" className="flex flex-col gap-4 px-4 pb-6 pt-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-8">
+                <div className="skeleton h-4 w-20" />
+                <div className="skeleton h-4 w-44" />
+                <div className="skeleton h-4 w-14" />
+              </div>
+            ))}
+          </div>
+        )}
         {isError && <p className="m-0 px-4 py-8 text-ink-3">Could not load plugins.</p>}
         {data && (
           <div className="overflow-x-auto">
