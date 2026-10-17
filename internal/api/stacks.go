@@ -53,7 +53,7 @@ func registerStacks(g *echo.Group, m *workspace.Manager, sup *supervisor.Supervi
 			return echo.NewHTTPError(http.StatusUnprocessableEntity, "this workspace has errors: fix them before starting a stack")
 		}
 
-		spec, err := supervisor.Plan(id, workspace.ResolveRoot(d.Folder, d.Workspace.Root), d.Workspace, d.Stacks, stack)
+		spec, err := supervisor.Plan(d.ID, workspace.ResolveRoot(d.Folder, d.Workspace.Root), d.Workspace, d.Stacks, stack)
 		switch {
 		case errors.Is(err, supervisor.ErrNoSuchStack):
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())

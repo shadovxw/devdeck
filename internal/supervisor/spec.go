@@ -93,7 +93,8 @@ func Plan(workspaceID, root string, w *workspace.WorkspaceFile, stacks []workspa
 		repoDir[r.ID] = dir
 	}
 
-	spec := StackSpec{Workspace: workspaceID, Name: name, Root: root, WorkspaceFile: w, Stacks: stacks}
+	// The stack's name is the one written in its file, not the caller's string.
+	spec := StackSpec{Workspace: workspaceID, Name: st.Name, Root: root, WorkspaceFile: w, Stacks: stacks}
 
 	if st.Compose != nil {
 		dir, ok := repoDir[st.Compose.Repo]
