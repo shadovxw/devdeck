@@ -1,0 +1,52 @@
+# Tool versions and tasks. Install everything with `mise install`, then `mise run dev`.
+# Node matches the version CI uses (.github/workflows/ci.yml); Go follows go.mod.
+
+[tools]
+go = "1.26"
+node = "22"
+golangci-lint = "2.15.0"
+"go:github.com/air-verse/air" = "1.67.4"
+
+[tasks."dev:api"]
+description = "Go server on 127.0.0.1:7070 with live reload"
+run = "air"
+
+[tasks."dev:web"]
+description = "Vite dev server on 127.0.0.1:5173, proxying /api and /ws to the Go server"
+dir = "web"
+run = "npm run dev"
+
+[tasks.dev]
+description = "Run the Go server and the web app together, then open http://127.0.0.1:5173"
+depends = ["dev:api", "dev:web"]
+
+[tasks."build:web"]
+description = "Production build of the web app"
+dir = "web"
+run = "npm run build"
+
+[tasks.build]
+description = "Build the web app and bin/devdeck.exe"
+depends = ["build:web"]
+run = "go build -o bin/devdeck.exe ./cmd/devdeck"
+
+[tasks."test:go"]
+description = "Go tests (CI adds -race on Linux; it needs a C compiler, which Windows lacks)"
+run = "go test -count=1 ./..."
+
+[tasks.test]
+description = "All tests"
+depends = ["test:go"]
+
+[tasks."lint:go"]
+description = "go vet and golangci-lint"
+run = ["go vet ./...", "golangci-lint run"]
+
+[tasks."lint:web"]
+description = "ESLint and the TypeScript check"
+dir = "web"
+run = ["npm run lint", "npm run typecheck"]
+
+[tasks.lint]
+description = "All linters"
+depends = ["lint:go", "lint:web"]
