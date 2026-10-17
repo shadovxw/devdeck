@@ -35,7 +35,7 @@ let sockets: FakeSocket[];
 
 function make() {
   return new TopicSocket({
-    url: "ws://test/ws",
+    url: "wss://test/ws",
     create: () => {
       const s = new FakeSocket();
       sockets.push(s);
