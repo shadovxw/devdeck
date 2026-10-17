@@ -41,7 +41,7 @@ A personal **developer cockpit** that runs on this Windows machine, works for **
 - A UI that feels like a **3D, animated, crafted product**, not a plain SaaS admin panel.
 - Ships as a **desktop app** (`.exe` + installer) in the final phase.
 
-**Non-goals for v1**: remote/dev environments, deploying to dev, teammates/multi-user, prod access. (See §12.)
+**Non-goals for v1 (phases 0–13)**: remote/dev environments, deploying to dev, teammates/multi-user, prod access. Managing the dev server from the laptop is planned as Phase 14A, and a hosted devdeck as 14B. (See §12.)
 
 ---
 
@@ -615,6 +615,46 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 
 ---
 
+### Phase 14A: Manage the dev server from your laptop (L, can start right after Phase 3)
+devdeck stays on the laptop and manages the dev EC2 through AWS: no devdeck on the server, nothing new exposed to the internet, no manual AWS sign-in + SSM shell per task. "Local" and "dev" become two environments in the same UI, with the same pages (status, logs, restart, tags, flow trace, DB, Garage, Vault).
+
+How it reaches the server: your own AWS sign-in (an SSO / named profile in the AWS CLI), SSM Run Command for one-off commands, and SSM sessions for streaming and tunnels. devdeck runs these for you; you never open a shell. Needs the AWS CLI and the Session Manager plugin on the laptop, and permission to send commands and start sessions on that instance.
+
+- **14A.1 Environments**: an `environments` block in the workspace YAML: name, AWS profile, region, instance id, Compose project folder, the file that holds tags and secrets, and which keys are tags. No credentials in YAML; devdeck uses the AWS CLI's own sign-in and shows "sign in expired" with a one-click `aws sso login`.
+- **14A.2 Status and control**: `docker compose ps` as the status table (running / unhealthy / restarting, image tag, uptime); start, stop, restart one service or all. Destructive actions need a confirmation naming the environment.
+- **14A.3 Live logs**: stream `docker compose logs -f` through an SSM session into the Logs page (same filters, JSON fields and `file:line` links as local). Redaction runs on the laptop before anything is shown, stored or handed to Claude.
+- **14A.4 Tags in one UI**: the file mixes tags and secrets, so devdeck only touches the tag keys and **never downloads that file**. A small command on the server changes one `*_TAG` key (with a timestamped backup), then `docker compose pull <service>` and `up -d <service>`, then waits for health. The previous tag is kept in devdeck's local history for one-click rollback. Secret values are never read, shown, logged or sent anywhere.
+- **14A.5 Flow trace across services**: follow one request through the API logs and NATS messages by request / trace id, across services on the server, with the same trace view as local. Needs services to log a correlation id (a rule in the plugin docs).
+- **14A.6 NATS, Vault, Garage**: devdeck opens SSM port-forward tunnels (to the container ports, not public) and points the existing plugins at `localhost`. NATS: connections, subjects, stream and consumer state from its monitoring endpoint. Vault: status, seal state, masked secret listing (values stay hidden). Garage: buckets, keys (masked), usage. Tunnels close when you switch environment or quit.
+- **14A.7 Claude access (opt-in)**: a read-only MCP server that gives Claude redacted logs, container status and flow traces for an environment you switch on, and nothing else. Claude never gets AWS credentials, a shell, a secret value or write actions. Off by default, per environment, with a visible indicator when on.
+- **14A.8 Safety**: every change (restart, tag change, rollback) is recorded in a local audit log and in AWS CloudTrail; "dev" is clearly coloured so it cannot be mistaken for local; no prod environment type exists in v1.
+
+**Done when**: from your laptop, with one AWS sign-in, you see dev container status, stream logs, restart a service, change an image tag and roll it back, follow a request across services, and open NATS / Vault / Garage views, without ever opening an SSM shell, and Claude can read the redacted logs when you allow it.
+
+---
+
+### Phase 14B: Hosted dev server (EC2) (XL, later; only if you want a shared view or no AWS sign-in)
+Run devdeck as a container on the dev server, next to the app containers, so the dev environment can be watched and managed from a browser. Same app, a second mode. It is only started once the local phases are done, and it **must not be reachable without a login**, because devdeck can restart containers, run SQL and read secrets.
+
+- **14.1 Server mode**: `DEVDECK_MODE=server`. Configurable listen address, no Windows-only features, runs as a non-root user with a read-only filesystem and one data volume (`state.db`, workspaces). Health endpoint for the container runtime.
+- **14.2 Safe Docker access**: never mount the raw Docker socket (it is root on the host). Put a socket proxy in front that allows only list, inspect, logs, stats, start, stop and restart. Deploys (14.10) also need image pull and container create / remove, so those are allowed only for services listed in the environment's YAML, with no privileged mode, host networking or host-path mounts. No exec and no image push unless turned on per environment. devdeck's own container is excluded so it cannot stop or replace itself.
+- **14.3 Login and roles**: sign-in with an OIDC provider, or a local admin account (strong hash + TOTP) as the fallback. Roles viewer / developer / admin. Session cookie (`HttpOnly`, `SameSite=Strict`, `Secure`), CSRF token on writes, rate-limited sign-in. Every write needs a role.
+- **14.4 Audit log**: who / what / when for restarts, SQL writes, migrations, secret reveals and role changes. Append-only, shown on its own page.
+- **14.5 TLS and network**: the dev server has a **private IP**, so devdeck is private by design and never gets a public port. You reach it from your laptop through whatever private path already works for the dev network: VPN into the VPC, an SSM Session Manager port-forward (no inbound ports), or an SSH tunnel through a bastion. **Preferred path: the existing load balancer.** devdeck gets its own host name and target group behind it, with the certificate on the load balancer (so no proxy of our own). Requirements: WebSocket support and an idle timeout long enough for live logs (for example 300 s, with the UI reconnecting); health check on devdeck's health endpoint; the Host / Origin allow-list set to the real host name; devdeck's own login stays on even when the load balancer also authenticates. **The load balancer is internet-facing, so these are required before devdeck is exposed (three layers, none optional):** (1) an **IP allow-list** on the load balancer's security group (and the WAF, if used): only known office / VPN / home ranges, never `0.0.0.0/0`; (2) **OIDC sign-in on the load balancer** (authenticate action on the listener rule) or a **WAF** with rate limiting and managed rule sets, so unauthenticated traffic never reaches devdeck; (3) **devdeck's own login, roles and audit log** (14.3, 14.4). The devdeck target group accepts traffic only from the load balancer's security group. HTTP is redirected to HTTPS. devdeck in server mode refuses to start without its own login and an allowed-host list configured; the first two layers are AWS settings, so they are a checked item in the deploy checklist (14.12).
+
+**Fallback, before the load balancer is set up:** AWS sign-in then SSM, so the first version uses one SSM port-forward (`aws ssm start-session` with the port-forwarding document, wrapped in a small script) to open devdeck in the browser: one command per sitting, instead of a shell session per task. To drop the AWS sign-in step later, put devdeck behind a VPN, a mesh VPN agent on the server (outbound only), or an internal load balancer with OIDC sign-in, each needing approval from whoever owns the network. Optionally an internal reverse proxy (Caddy or nginx) adds HTTPS for people on that network. The security group allows only that proxy / devdeck port from the VPN or bastion range. Because the laptop cannot reach the server directly, devdeck must run **on** the server (this phase), not drive it remotely from the laptop. Outbound internet (GitHub, registries) needs a NAT gateway or VPC endpoints; features that need it are optional on the server.
+- **14.6 Secrets on Linux**: there is no OS keyring on the server. Store connection secrets encrypted at rest with a key supplied outside the data volume (secrets manager or environment at start). Same rules as local: masked in the UI, never in YAML, SQLite, logs or Claude context.
+- **14.7 Environments in workspaces**: a workspace gets an `environment` (local or dev). On dev, a repo maps to a container or compose service, not a folder. Stacks and flows stay the same files. Schemas and the validator learn the new fields.
+- **14.8 What you can do there**: container status and restart, live logs, flow runs and their trace, Postgres explorer (read-only by default), Garage buckets, Vault status (read-only first).
+- **14.9 Safe defaults**: destructive actions off by default in server mode, confirmation + audit when turned on; migrations never auto-run.
+- **14.10 Deploy from the UI**: pick an app and an image tag (tags listed from the registry, see Phase 9), see what is running now, and deploy. devdeck pulls the image, recreates that one container with the same settings and the new tag, waits for the health check, and keeps the previous tag for a one-click rollback. Developer role or higher, a confirmation showing old tag → new tag, and an audit entry for every deploy. The deploy definition (image, ports, environment variable names, health check) lives in the environment's YAML; secret values are never in it. The apps run as **Docker Compose** containers on the same host as devdeck, so devdeck works on those Compose projects directly: the tag lives in an override / env file that devdeck owns (the app repos' own Compose files are never rewritten), and a deploy is "pull the image, then `up` that one service". devdeck never deploys itself; its own update stays a manual / CI step. Helm / Kubernetes is out of scope.
+- **14.11 Two modes, one view**: the same devdeck runs in **local mode** (your laptop: VS Code integration, CI/CD and review pipeline, local stacks) and **server mode** (the dev server: dev containers, deploys, logs, data). Version one is two separate instances, each with its own UI. Next step: the local devdeck adds the dev server as a remote environment (API address + access token kept in the keyring) so one UI switches between "local" and "dev" and shows all repos in both places. The two instances run the same version, checked on connect.
+- **14.12 Ship it**: multi-stage Dockerfile, compose snippet, image built in CI and pushed to the registry, upgrade steps, nightly backup of the data volume.
+
+**Done when**: from a browser you sign in, see every dev container's status, restart one, change its image tag and roll it back, read its logs, follow a flow run, and open the DB and Garage views, with HTTPS on, no anonymous access, and every write in the audit log. A request from outside the allow-list, or without the load balancer's sign-in, never reaches devdeck (checked from a non-allowed address).
+
+---
+
 ## 9. Milestones
 
 | Milestone | Phases | You can… |
@@ -625,6 +665,7 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 | **M4 Pipeline** | 7, 8, 9 | run pre-PR checks, see findings, build and push images |
 | **M5 Ship** | 10, 11 | go from work item to PRs with Claude, inside VS Code |
 | **M6 App** | 12, 13 | install devdeck as a desktop app on any PC |
+| **M7 Dev server** | 14A (then optional 14B) | from your laptop, watch and manage the dev server's containers, tags, logs, flows and data without an SSM shell; 14B adds a hosted, shared version |
 
 Suggested order of work: 0 → 1 (in parallel with 2 → 3) → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12. Phase 1's later parts (signature visuals per page) are built together with each page's phase.
 
@@ -663,6 +704,7 @@ Suggested order of work: 0 → 1 (in parallel with 2 → 3) → 4 → 5 → 6 �
 
 ## 12. Later (out of scope for v1)
 
+- **Dev server from the laptop**: planned as Phase 14A (AWS CLI + SSM, nothing installed on the server). **Hosted dev server**: planned as Phase 14B (devdeck as a container on the dev EC2, with login, HTTPS and audit). The items below are the other ways to reach a remote environment.
 - **Remote environments (dev)**: environment switcher; Docker over SSH (`docker context`), Kubernetes via kubeconfig (logs, exec, port-forward), Postgres through tunnels; then an optional devdeck agent on the dev host.
 - **Deploy to dev**: bump `image.tag` in Helm values → `helm upgrade` → rollout + health check → rollback.
 - **Authentication** (see §6.1 "Deferred"): session token + cookie, token file for the VS Code extension/CLI, audit log, and Keycloak OIDC login with roles once devdeck is deployed or shared.
