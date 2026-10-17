@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 )
 
 // Where a workspace comes from.
@@ -27,6 +28,8 @@ var (
 	ErrInvalid = errors.New("the workspace has errors")
 	// ErrNoDir means no folder is configured for the user's own workspaces.
 	ErrNoDir = errors.New("no folder is set up for workspaces")
+	// ErrReadOnly means the workspace ships with devdeck and can't be changed or deleted.
+	ErrReadOnly = errors.New("sample workspaces can't be deleted")
 
 	idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
 )
@@ -218,4 +221,39 @@ func (s *Manager) Scan(root string) (*ScanResult, error) {
 		return nil, err
 	}
 	return Scan(checked)
+}
+
+// trashDir is where deleted workspaces go, inside the workspaces folder. It starts
+// with a dot, so it is never listed as a workspace.
+const trashDir = ".trash"
+
+// Delete removes one of the user's own workspaces from devdeck. Nothing is erased:
+// its folder is moved into .trash inside the workspaces folder, so a mistake can be
+// undone by moving it back. Only the workspace's files move; the repositories it
+// describes are not touched. Sample workspaces can't be deleted.
+func (s *Manager) Delete(id string) error {
+	if !idPattern.MatchString(id) {
+		return ErrNotFound
+	}
+	f, ok := s.folders()[id]
+	if !ok {
+		return ErrNotFound
+	}
+	if f[1] != SourceLocal {
+		return ErrReadOnly
+	}
+	// f[0] is the folder as found on disk, not the caller's string.
+	trash := filepath.Join(s.Dir, trashDir)
+	if err := os.MkdirAll(trash, 0o750); err != nil {
+		return err
+	}
+	stamp := time.Now().UTC().Format("20060102-150405")
+	dest := filepath.Join(trash, filepath.Base(f[0])+"-"+stamp)
+	for n := 2; ; n++ {
+		if _, err := os.Lstat(dest); errors.Is(err, os.ErrNotExist) {
+			break
+		}
+		dest = filepath.Join(trash, fmt.Sprintf("%s-%s-%d", filepath.Base(f[0]), stamp, n))
+	}
+	return os.Rename(f[0], dest)
 }

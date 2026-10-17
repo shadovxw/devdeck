@@ -177,3 +177,49 @@ func TestStartRestartAndStop(t *testing.T) {
 		t.Errorf("restart after stop = %d, want 404", rec.Code)
 	}
 }
+
+func TestDeleteAWorkspace(t *testing.T) {
+	e, _ := stackFixture(t, ready)
+	url := "/api/v1/workspaces/demo"
+
+	if rec := do(e, http.MethodDelete, "/api/v1/workspaces/acme-shop"); rec.Code != http.StatusForbidden {
+		t.Errorf("sample = %d, want 403 (%s)", rec.Code, rec.Body)
+	}
+	if rec := do(e, http.MethodDelete, "/api/v1/workspaces/nope"); rec.Code != http.StatusNotFound {
+		t.Errorf("unknown = %d, want 404", rec.Code)
+	}
+
+	// a workspace with a running stack can't go until the stack is stopped
+	if rec := postJSON(e, http.MethodPost, url+"/stacks/full/start", nil); rec.Code != http.StatusAccepted {
+		t.Fatalf("start = %d (%s)", rec.Code, rec.Body)
+	}
+	if rec := do(e, http.MethodDelete, url); rec.Code != http.StatusConflict {
+		t.Errorf("while running = %d, want 409 (%s)", rec.Code, rec.Body)
+	}
+	if rec := do(e, http.MethodGet, url); rec.Code != http.StatusOK {
+		t.Errorf("a refused delete must leave the workspace: %d", rec.Code)
+	}
+	if rec := postJSON(e, http.MethodPost, url+"/stacks/full/stop", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("stop = %d", rec.Code)
+	}
+
+	if rec := do(e, http.MethodDelete, url); rec.Code != http.StatusNoContent {
+		t.Fatalf("delete = %d (%s)", rec.Code, rec.Body)
+	}
+	if rec := do(e, http.MethodGet, url); rec.Code != http.StatusNotFound {
+		t.Errorf("after delete GET = %d, want 404", rec.Code)
+	}
+	if rec := do(e, http.MethodDelete, url); rec.Code != http.StatusNotFound {
+		t.Errorf("second delete = %d, want 404", rec.Code)
+	}
+}
+
+func TestDeleteWorksWithoutASupervisor(t *testing.T) {
+	e := workspaceServer(t)
+	if rec := postJSON(e, http.MethodPost, "/api/v1/workspaces", createRequest{YAML: goodWorkspace}); rec.Code != http.StatusCreated {
+		t.Fatalf("create = %d", rec.Code)
+	}
+	if rec := do(e, http.MethodDelete, "/api/v1/workspaces/demo"); rec.Code != http.StatusNoContent {
+		t.Errorf("delete = %d (%s)", rec.Code, rec.Body)
+	}
+}

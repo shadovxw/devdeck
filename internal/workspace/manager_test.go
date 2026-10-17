@@ -188,3 +188,74 @@ func TestScanDefaultsToTheHomeFolder(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestDeleteMovesTheWorkspaceToTheTrash(t *testing.T) {
+	m := newManager(t)
+	if _, _, err := m.Create(goodYAML); err != nil {
+		t.Fatal(err)
+	}
+	stacks := filepath.Join(m.Dir, "demo", "stacks")
+	must(t, os.MkdirAll(stacks, 0o755))
+	must(t, os.WriteFile(filepath.Join(stacks, "full.yaml"), []byte("hand written"), 0o600))
+
+	if err := m.Delete("demo"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Get("demo"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("Get after delete: %v", err)
+	}
+	for _, s := range m.List() {
+		if s.ID == "demo" || strings.HasPrefix(s.ID, ".") {
+			t.Errorf("deleted workspace (or the trash) is still listed: %+v", s)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(m.Dir, "demo")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the folder should be gone from the workspaces folder: %v", err)
+	}
+
+	// nothing was erased: every file, including the hand-written one, is in the trash
+	entries, err := os.ReadDir(filepath.Join(m.Dir, ".trash"))
+	if err != nil || len(entries) != 1 || !strings.HasPrefix(entries[0].Name(), "demo-") {
+		t.Fatalf("trash = %v, %v", entries, err)
+	}
+	kept := filepath.Join(m.Dir, ".trash", entries[0].Name())
+	for _, f := range []string{"workspace.yaml", filepath.Join("stacks", "full.yaml")} {
+		if _, err := os.Stat(filepath.Join(kept, f)); err != nil {
+			t.Errorf("%s missing from the trash: %v", f, err)
+		}
+	}
+}
+
+func TestDeleteThenCreateAndDeleteAgainKeepsBothCopies(t *testing.T) {
+	m := newManager(t)
+	for range 2 {
+		if _, _, err := m.Create(goodYAML); err != nil {
+			t.Fatal(err)
+		}
+		if err := m.Delete("demo"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entries, _ := os.ReadDir(filepath.Join(m.Dir, ".trash"))
+	if len(entries) != 2 {
+		t.Errorf("two deletes in the same second must not overwrite each other: %v", entries)
+	}
+}
+
+func TestDeleteRefusesWhatItShould(t *testing.T) {
+	m := newManager(t)
+	if err := m.Delete("acme-shop"); !errors.Is(err, ErrReadOnly) {
+		t.Errorf("sample workspace: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(examples, "acme-shop", "workspace.yaml")); err != nil {
+		t.Errorf("the sample must be untouched: %v", err)
+	}
+	for _, id := range []string{"nope", "", "..", "../x", "a" + string(filepath.Separator) + "b", ".trash", "Demo"} {
+		if err := m.Delete(id); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Delete(%q) = %v, want ErrNotFound", id, err)
+		}
+	}
+	if err := (&Manager{}).Delete("demo"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("no folder configured: %v", err)
+	}
+}

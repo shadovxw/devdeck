@@ -37,21 +37,34 @@ const draft = "version: 1\nname: code\nroot: ~/code\nrepos:\n  - id: api\n    pa
 
 type Posted = { url: string; body: unknown };
 const posted: Posted[] = [];
+const calls: string[] = [];
+/** Whether a DELETE for the demo workspace was sent. */
+const deleted = () => calls.includes("DELETE /api/v1/workspaces/demo");
+
+const sample: WorkspaceSummary = { ...demo, id: "acme-shop", name: "acme-shop", source: "example", root: "~/code/acme-shop", repos: 3, stacks: 2, flows: 1, errors: 0, warnings: 0 };
 
 const chosen = "/home/me/code";
 /** Lets a test finish a folder dialog that is still open. */
 let closeDialog: (() => void) | undefined;
 
-function mockServer(opts: { list?: WorkspaceSummary[]; scanError?: string; pick?: "ok" | "cancel" | "error" | "wait" } = {}) {
+function mockServer(
+  opts: { list?: WorkspaceSummary[]; scanError?: string; pick?: "ok" | "cancel" | "error" | "wait"; deleteError?: { status: number; message: string } } = {},
+) {
   let list = opts.list ?? [];
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
+      calls.push(`${method} ${url}`);
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       if (method === "POST") posted.push({ url, body });
       if (url === "/api/v1/health") return Promise.resolve(Response.json({ status: "ok", version: "test" }));
       if (url === "/api/v1/workspaces" && method === "GET") return Promise.resolve(Response.json(list));
+      if (url === "/api/v1/workspaces/demo" && method === "DELETE") {
+        if (opts.deleteError) return Promise.resolve(Response.json({ message: opts.deleteError.message }, { status: opts.deleteError.status }));
+        list = list.filter((w) => w.id !== "demo");
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
       if (url === "/api/v1/workspaces/demo") return Promise.resolve(Response.json(detail));
       if (url === "/api/v1/system/pick-folder") {
         if (opts.pick === "cancel") return Promise.resolve(new Response(null, { status: 204 }));
@@ -91,6 +104,7 @@ afterEach(() => {
   useUi.setState({ sidebarOpen: false, closedGroups: [] });
   vi.unstubAllGlobals();
   posted.length = 0;
+  calls.length = 0;
   closeDialog = undefined;
 });
 
@@ -104,17 +118,87 @@ describe("workspaces page", () => {
     expect(add.disabled).toBe(false);
     fireEvent.click(add);
 
-    expect(await screen.findByRole("region", { name: "Add workspace" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "No workspace yet" })).toBeNull();
+    const drawer = within(await screen.findByRole("dialog", { name: "Add a workspace" }));
+    expect(drawer.getByLabelText(/Folder that contains/)).toBeTruthy();
   });
 
-  it("lists workspaces with their counts and problems", async () => {
+  it("shows each workspace as a card with its counts and problems", async () => {
+    mockServer({ list: [demo, sample] });
+    renderAt("/workspaces");
+
+    const card = within(await screen.findByRole("listitem", { name: "Workspace demo" }));
+    expect(card.getByText("Yours")).toBeTruthy();
+    expect(card.getByText("~/code")).toBeTruthy();
+    expect(card.getByText("Repos").nextElementSibling?.textContent).toBe("2");
+    expect(card.getByText("Stacks").nextElementSibling?.textContent).toBe("1");
+    expect(card.getByText("Flows").nextElementSibling?.textContent).toBe("0");
+    expect(card.getByTitle("1 error")).toBeTruthy();
+    expect(card.getByTitle("1 warning")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+
+    const other = within(screen.getByRole("listitem", { name: "Workspace acme-shop" }));
+    expect(other.getByText("Example")).toBeTruthy();
+    expect(other.getByText("Problems").nextElementSibling?.textContent).toBe("None");
+  });
+
+  it("puts Add workspace at the left, before the count, and opens the drawer from it", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces");
-    const row = (await screen.findByRole("button", { name: "demo" })).closest("tr")!;
-    expect(within(row).getByText("Yours")).toBeTruthy();
-    expect(within(row).getByTitle("1 error")).toBeTruthy();
-    expect(within(row).getByTitle("1 warning")).toBeTruthy();
+    const add = await screen.findByRole("button", { name: /Add workspace/ });
+    const count = await screen.findByText("1 workspace");
+    // the button comes first in the row, so it sits on the left
+    expect(add.compareDocumentPosition(count) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(add);
+    expect(await screen.findByRole("dialog", { name: "Add a workspace" })).toBeTruthy();
+
+    // the drawer closes again with Escape, and leaves the list as it was
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("listitem", { name: "Workspace demo" })).toBeTruthy();
+  });
+
+  it("deletes a workspace only after it is confirmed", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces");
+    const card = within(await screen.findByRole("listitem", { name: "Workspace demo" }));
+
+    fireEvent.click(card.getByRole("button", { name: "Delete demo" }));
+    const confirm = within(await screen.findByRole("group", { name: "Confirm deleting demo" }));
+    expect(confirm.getByText(/repositories aren’t touched/)).toBeTruthy();
+    expect(posted.some((p) => p.url.endsWith("/workspaces/demo"))).toBe(false); // nothing yet
+
+    // Cancel leaves it alone
+    fireEvent.click(confirm.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("group", { name: "Confirm deleting demo" })).toBeNull();
+    expect(deleted()).toBe(false);
+
+    fireEvent.click(card.getByRole("button", { name: "Delete demo" }));
+    fireEvent.click(within(await screen.findByRole("group", { name: "Confirm deleting demo" })).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(deleted()).toBe(true));
+    await waitFor(() => expect(screen.queryByRole("listitem", { name: "Workspace demo" })).toBeNull());
+    // with none left, the page offers to add one
+    expect(await screen.findByRole("heading", { name: "No workspace yet" })).toBeTruthy();
+  });
+
+  it("says why a workspace could not be deleted and keeps it", async () => {
+    mockServer({ list: [demo], deleteError: { status: 409, message: "stop its running stacks before deleting this workspace" } });
+    renderAt("/workspaces");
+    const card = within(await screen.findByRole("listitem", { name: "Workspace demo" }));
+
+    fireEvent.click(card.getByRole("button", { name: "Delete demo" }));
+    fireEvent.click(within(await screen.findByRole("group", { name: "Confirm deleting demo" })).getByRole("button", { name: "Delete" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("stop its running stacks before deleting this workspace");
+    expect(screen.getByRole("listitem", { name: "Workspace demo" })).toBeTruthy();
+  });
+
+  it("offers no delete on the sample workspace", async () => {
+    mockServer({ list: [sample] });
+    renderAt("/workspaces");
+    const card = within(await screen.findByRole("listitem", { name: "Workspace acme-shop" }));
+    expect(card.queryByRole("button", { name: /Delete/ })).toBeNull();
   });
 
   it("opens a workspace and shows each problem with its file and line", async () => {
@@ -152,7 +236,7 @@ describe("workspaces page", () => {
     await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces", body: { yaml: draft + "# edited\n" } }));
     // the form closes and the new workspace is in the list
     expect(await screen.findByRole("button", { name: "code" })).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Add workspace" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); // the drawer closes once it is saved
   });
 
   it("says why a folder couldn't be scanned", async () => {

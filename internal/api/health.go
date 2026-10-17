@@ -50,7 +50,7 @@ func Register(e *echo.Echo, d Deps) {
 		registerSystem(v1, d.FolderPicker)
 	}
 	if d.Workspaces != nil {
-		registerWorkspaces(v1, d.Workspaces)
+		registerWorkspaces(v1, d.Workspaces, d.Supervisor)
 		registerDoctor(v1, d.Workspaces, d.Plugins, d.Supervisor)
 		if d.Supervisor != nil {
 			registerStacks(v1, d.Workspaces, d.Supervisor)

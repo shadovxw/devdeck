@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
 )
 
@@ -50,7 +51,7 @@ type invalidResponse struct {
 	Issues  []workspace.Issue `json:"issues"`
 }
 
-func registerWorkspaces(g *echo.Group, m *workspace.Manager) {
+func registerWorkspaces(g *echo.Group, m *workspace.Manager, sup *supervisor.Supervisor) {
 	ws := g.Group("/workspaces", limitBody)
 
 	ws.GET("", func(c echo.Context) error {
@@ -125,6 +126,31 @@ func registerWorkspaces(g *echo.Group, m *workspace.Manager) {
 			return echo.NewHTTPError(http.StatusInternalServerError, "the workspace couldn't be read")
 		}
 		return c.JSON(http.StatusOK, d)
+	})
+
+	// DELETE /:id removes one of the user's own workspaces from devdeck. Its folder
+	// moves to .trash, so nothing is lost for good, and the repositories it describes
+	// are not touched. A workspace with a running stack can't be deleted.
+	ws.DELETE("/:id", func(c echo.Context) error {
+		id := c.Param("id")
+		if sup != nil {
+			for _, r := range sup.List() {
+				if r.Workspace == id {
+					return echo.NewHTTPError(http.StatusConflict, "stop its running stacks before deleting this workspace")
+				}
+			}
+		}
+		err := m.Delete(id)
+		switch {
+		case errors.Is(err, workspace.ErrNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, "no such workspace")
+		case errors.Is(err, workspace.ErrReadOnly):
+			return echo.NewHTTPError(http.StatusForbidden, err.Error())
+		case err != nil:
+			c.Logger().Error(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "the workspace couldn't be deleted")
+		}
+		return c.NoContent(http.StatusNoContent)
 	})
 }
 

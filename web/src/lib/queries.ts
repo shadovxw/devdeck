@@ -80,6 +80,18 @@ export function useValidateWorkspace(yaml: string) {
   });
 }
 
+/** Deletes one of the user's own workspaces. Its files move to a trash folder; the repositories are untouched. */
+export function useDeleteWorkspace() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/workspaces/${encodeURIComponent(id)}`),
+    onSuccess: (_none, id) => {
+      qc.removeQueries({ queryKey: keys.workspace(id) });
+      return qc.invalidateQueries({ queryKey: keys.workspaces });
+    },
+  });
+}
+
 export function useCreateWorkspace() {
   const qc = useQueryClient();
   return useMutation({
