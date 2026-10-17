@@ -4,7 +4,18 @@ devdeck is a personal developer cockpit that sits on top of VS Code. One click s
 
 ## Status
 
-Planning. Nothing is built yet.
+Phase 0 (foundations) in progress: a Go server with one health endpoint and a React shell, wired for live reload. Everything else is still planned.
+
+## Run it
+
+Install the toolchain once (`winget install jdx.mise`), then:
+
+```bash
+mise install
+mise run dev
+```
+
+The Go server listens on `127.0.0.1:7070` and the web app on `http://127.0.0.1:5173`, which proxies `/api` and `/ws` to the server. Other tasks: `mise run build | test | lint`.
 
 | What | Where |
 |---|---|
