@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/sdk"
 )
@@ -29,7 +30,7 @@ func workspaceServer(t *testing.T) *echo.Echo {
 	})
 }
 
-func serverWith(t *testing.T, m *workspace.Manager) *echo.Echo {
+func serverWith(t *testing.T, m *workspace.Manager, sup ...*supervisor.Supervisor) *echo.Echo {
 	t.Helper()
 	guard, err := NewGuard("127.0.0.1:7070", nil)
 	if err != nil {
@@ -37,12 +38,16 @@ func serverWith(t *testing.T, m *workspace.Manager) *echo.Echo {
 	}
 	bus := events.NewBus()
 	e := echo.New()
-	Register(e, Deps{
+	deps := Deps{
 		Version: "test", Bus: bus, Guard: guard,
 		Hub:        NewHub(bus, guard.OriginHosts(), zerolog.Nop()),
 		Plugins:    sdk.NewRegistry(),
 		Workspaces: m,
-	})
+	}
+	if len(sup) > 0 {
+		deps.Supervisor = sup[0]
+	}
+	Register(e, deps)
 	return e
 }
 

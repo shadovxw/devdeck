@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/sdk"
 )
@@ -26,6 +27,9 @@ type Deps struct {
 	Plugins *sdk.Registry
 	// Workspaces is optional: without it the workspace routes aren't mounted.
 	Workspaces *workspace.Manager
+	// Supervisor is optional too: it adds the routes that start and stop stacks.
+	// It needs Workspaces.
+	Supervisor *supervisor.Supervisor
 }
 
 // Register mounts the API and WebSocket routes on e. Every route sits behind
@@ -42,6 +46,9 @@ func Register(e *echo.Echo, d Deps) {
 	registerPlugins(v1, d.Plugins)
 	if d.Workspaces != nil {
 		registerWorkspaces(v1, d.Workspaces)
-		registerDoctor(v1, d.Workspaces, d.Plugins)
+		registerDoctor(v1, d.Workspaces, d.Plugins, d.Supervisor)
+		if d.Supervisor != nil {
+			registerStacks(v1, d.Workspaces, d.Supervisor)
+		}
 	}
 }
