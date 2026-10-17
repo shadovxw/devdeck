@@ -52,6 +52,9 @@
   --color-input: var(--line-strong);
   --color-ring: var(--accent);
 
+  --default-transition-duration: var(--dur-instant);
+  --default-transition-timing-function: var(--ease-out);
+
   --radius-tag: 3px;
   --radius-ctl: 4px;
   --radius-card: 4px;

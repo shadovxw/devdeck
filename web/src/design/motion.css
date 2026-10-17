@@ -1,0 +1,132 @@
+/* Motion (dev-plans/02-frontend-design-system.md sections 2.4 and 6). Calm by
+   default: nothing moves unless something changed, and nothing loops except
+   loading states. Durations come from the --dur-* tokens, so reduced motion
+   turns it all into instant cuts. */
+
+/* --- Page changes ---------------------------------------------------------
+   Links use the View Transitions API (the viewTransition prop). Only the page
+   area is animated; the sidebar and top bar stay put. */
+.page-area {
+  view-transition-name: page;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* The old page leaves fast (the system responding) and the new one settles in. */
+::view-transition-old(page) {
+  animation: page-out var(--dur-instant) var(--ease-out) both;
+  mix-blend-mode: normal;
+}
+
+/* Keyboard-initiated actions never animate (see lib/input-mode.ts). */
+:root[data-input="keyboard"]::view-transition-old(page),
+:root[data-input="keyboard"]::view-transition-new(page) {
+  animation: none;
+}
+
+:root[data-input="keyboard"] [data-slot="sidebar-gap"],
+:root[data-input="keyboard"] [data-slot="sidebar-container"] {
+  transition: none !important;
+}
+
+::view-transition-new(page) {
+  animation: page-in var(--dur-quick) var(--ease-out) both;
+  mix-blend-mode: normal;
+}
+
+@keyframes page-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* --- First load -----------------------------------------------------------
+   Blocks rise 8px and fade in, 40ms apart in reading order. The shell sets
+   data-first on <html> for the first moments only, so later page changes use
+   the cross-fade above and not this. */
+[data-first] .enter {
+  animation: enter-rise var(--dur-quick) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+@keyframes enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* --- Loading placeholder ---------------------------------------------------- */
+/* The shimmer is a highlight sliding across with transform, so it runs on the
+   GPU (animating background-position would repaint every frame). */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-tag);
+  background: var(--fill);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--fill-hover), transparent);
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* --- A status changed --------------------------------------------------------
+   A highlight needs to be visible long enough to catch the eye, so it is longer
+   than the 300ms movement budget. It only changes a background colour. */
+.flash {
+  border-radius: var(--radius-tag);
+  animation: flash 700ms var(--ease-out) both;
+}
+
+@keyframes flash {
+  from {
+    background: var(--accent-soft);
+  }
+}
+
+/* --- Reduced motion ---------------------------------------------------------
+   The OS setting, or data-motion="reduced". Loops stop and one-shot motion ends
+   at once. (Durations driven by the tokens are already close to zero.) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

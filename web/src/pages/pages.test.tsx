@@ -57,11 +57,13 @@ afterEach(() => {
 });
 
 describe("pages", () => {
-  it("shows a placeholder with its phase for pages that are not built yet", async () => {
+  it("shows only the breadcrumb and title at the top of a page, with no phase label or scope chip", async () => {
     mockServer();
     renderAt("/stacks");
-    expect(await screen.findByRole("heading", { name: "Stacks" })).toBeTruthy();
-    expect(screen.getByText("Phase 2")).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 1, name: "Stacks" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Run locally/Stacks");
+    expect(screen.queryByText(/Phase \d/)).toBeNull();
+    expect(screen.queryByText("Local workspace")).toBeNull();
   });
 
   it("shows the page's own empty state", async () => {
@@ -103,6 +105,7 @@ describe("pages", () => {
 
   it("opens a parent's sub-pages when you are on one of them", async () => {
     mockServer();
+    useUi.setState({ sidebarOpen: true });
     renderAt("/sql");
     await screen.findByRole("heading", { level: 1, name: "SQL console" });
     const toggle = screen.getByRole("button", { name: "Hide Databases pages" });
@@ -149,6 +152,19 @@ describe("pages", () => {
     const dock = screen.getByRole("navigation", { name: "Pages" });
     expect(within(dock).getByRole("link", { name: "Logs" }).getAttribute("aria-current")).toBe("page");
     expect(within(dock).getByRole("link", { name: "Stacks" }).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("shows a loading skeleton while the plugin list is on its way", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url === "/api/v1/health") return Promise.resolve(Response.json({ status: "ok", version: "test" }));
+        return new Promise(() => {}); // plugins never answer
+      }),
+    );
+    renderAt("/plugins");
+    expect(await screen.findByRole("status", { name: "Loading plugins…" })).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
   });
 
   it("lists plugins with status, version and detail", async () => {

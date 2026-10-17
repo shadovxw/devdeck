@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { LazyMotion, m, MotionConfig } from "motion/react";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router";
 
@@ -21,72 +22,112 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Logo } from "../design/Logo";
+import { useInputMode } from "../lib/input-mode";
+import { springSnappy } from "../lib/motion";
 import { useUi } from "../store/ui";
 import { NAV, type NavGroup, type NavItem } from "./nav";
 
+const loadMotionFeatures = () => import("../lib/motion-features").then((mod) => mod.default);
+
 // Row look: 32px tall, 13px text, 17px icons. Collapsed, a row is a 32px square.
-const row = "h-8 gap-2 py-0 text-[13px] group-data-[collapsible=icon]:size-8! [&>svg]:size-[17px]";
+// The active highlight is the sliding pill below, so the button's own active background is off.
+const row =
+  "relative isolate h-8 gap-2 py-0 text-[13px] data-[active=true]:bg-transparent group-data-[collapsible=icon]:size-8! [&>svg]:size-[17px]";
+const subRow = "relative isolate h-7 text-[13px] data-[active=true]:bg-transparent";
+
+/**
+ * The highlight behind the current page. It is one shared element (layoutId), so
+ * when the page changes it slides from the old row to the new one instead of
+ * jumping. Under reduced motion MotionConfig turns the slide into a cut.
+ */
+function ActivePill() {
+  const keyboard = useInputMode() === "keyboard";
+  return (
+    <m.span
+      layoutId="nav-active"
+      layout="position"
+      // Changing page is a tens-of-times-a-day action: quick and bounce-free, and
+      // an instant cut when it came from the keyboard.
+      transition={keyboard ? { duration: 0 } : springSnappy}
+      aria-hidden
+      className="absolute inset-0 -z-10 rounded-md bg-sidebar-accent"
+    />
+  );
+}
 
 function Page({ item }: { item: NavItem }) {
   const { pathname } = useLocation();
-  const { setOpenMobile } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const closeDrawer = () => setOpenMobile(false);
+  // Collapsed to icons there is no room for a sub-list, so sub-pages become plain icons.
+  const iconOnly = state === "collapsed" && !isMobile;
   const kids = item.children;
   const insideKids = kids?.some((k) => pathname === k.path) ?? false;
   // Sub-pages open by themselves when you are on one; the chevron overrides that.
   const [chosen, setChosen] = useState<boolean>();
   const open = chosen ?? insideKids;
 
-  return (
-    <>
-      <Collapsible open={open} onOpenChange={setChosen} asChild>
-        <SidebarMenuItem>
-          <SidebarMenuButton asChild isActive={pathname === item.path} tooltip={item.label} className={row}>
-            <NavLink to={item.path} end onClick={closeDrawer}>
-              <item.icon strokeWidth={1.7} />
-              <span>{item.label}</span>
-            </NavLink>
-          </SidebarMenuButton>
-          {kids && (
-            <>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuAction
-                  aria-label={`${open ? "Hide" : "Show"} ${item.label} pages`}
-                  className="top-1.5 data-[state=open]:rotate-90 [&>svg]:size-3.5"
-                >
-                  <ChevronRight />
-                </SidebarMenuAction>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarMenuSub className="gap-0 py-0">
-                  {kids.map((k) => (
-                    <SidebarMenuSubItem key={k.path}>
-                      <SidebarMenuSubButton asChild isActive={pathname === k.path} className="h-7 text-[13px]">
-                        <NavLink to={k.path} end onClick={closeDrawer}>
-                          <span>{k.label}</span>
-                        </NavLink>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </>
-          )}
-        </SidebarMenuItem>
-      </Collapsible>
+  const parentButton = (
+    <SidebarMenuButton asChild isActive={pathname === item.path} tooltip={item.label} className={row}>
+      <NavLink to={item.path} end viewTransition onClick={closeDrawer}>
+        {pathname === item.path && <ActivePill />}
+        <item.icon strokeWidth={1.7} />
+        <span>{item.label}</span>
+      </NavLink>
+    </SidebarMenuButton>
+  );
 
-      {/* Collapsed to icons there is no room for a sub-list, so sub-pages become plain icons. */}
-      {kids?.map((k) => (
-        <SidebarMenuItem key={k.path} className="hidden group-data-[collapsible=icon]:block">
-          <SidebarMenuButton asChild isActive={pathname === k.path} tooltip={k.label} className={row}>
-            <NavLink to={k.path} end onClick={closeDrawer}>
-              <k.icon strokeWidth={1.7} />
-              <span>{k.label}</span>
-            </NavLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      ))}
-    </>
+  if (iconOnly) {
+    return (
+      <>
+        <SidebarMenuItem>{parentButton}</SidebarMenuItem>
+        {kids?.map((k) => (
+          <SidebarMenuItem key={k.path}>
+            <SidebarMenuButton asChild isActive={pathname === k.path} tooltip={k.label} className={row}>
+              <NavLink to={k.path} end viewTransition onClick={closeDrawer}>
+                {pathname === k.path && <ActivePill />}
+                <k.icon strokeWidth={1.7} />
+                <span>{k.label}</span>
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <Collapsible open={open} onOpenChange={setChosen} asChild>
+      <SidebarMenuItem>
+        {parentButton}
+        {kids && (
+          <>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuAction
+                aria-label={`${open ? "Hide" : "Show"} ${item.label} pages`}
+                className="top-1.5 data-[state=open]:rotate-90 [&>svg]:size-3.5"
+              >
+                <ChevronRight />
+              </SidebarMenuAction>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub className="gap-0 py-0">
+                {kids.map((k) => (
+                  <SidebarMenuSubItem key={k.path}>
+                    <SidebarMenuSubButton asChild isActive={pathname === k.path} className={subRow}>
+                      <NavLink to={k.path} end viewTransition onClick={closeDrawer}>
+                        {pathname === k.path && <ActivePill />}
+                        <span>{k.label}</span>
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                ))}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </>
+        )}
+      </SidebarMenuItem>
+    </Collapsible>
   );
 }
 
@@ -103,7 +144,7 @@ function Group({ group }: { group: NavGroup }) {
       <SidebarGroup className="px-2 py-0.5 group-data-[collapsible=icon]:py-0">
         <SidebarGroupLabel
           asChild
-          className="h-6 cursor-pointer text-[12px] text-sidebar-foreground/60 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden"
+          className="h-6 cursor-pointer text-[12px] text-ink-3 hover:text-ink group-data-[collapsible=icon]:hidden"
         >
           <CollapsibleTrigger>
             {group.name}
@@ -128,24 +169,35 @@ function Group({ group }: { group: NavGroup }) {
 export function AppSidebar() {
   const { setOpenMobile } = useSidebar();
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="h-14 flex-row items-center gap-3 px-3 group-data-[collapsible=icon]:justify-center">
-        <NavLink to="/" aria-label="devdeck home" title="devdeck" onClick={() => setOpenMobile(false)} className="grid size-7 shrink-0 place-items-center">
-          <Logo className="size-6" />
-        </NavLink>
-        <span className="text-[15px] font-bold tracking-tight text-brand-dev group-data-[collapsible=icon]:hidden">
-          dev
-          <span className="bg-gradient-to-r from-brand-deck-from to-brand-deck-to bg-clip-text text-transparent">deck</span>
-        </span>
-      </SidebarHeader>
-      <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-hidden [scrollbar-width:none]">
-        <nav aria-label="Pages" className="flex flex-col py-1 group-data-[collapsible=icon]:py-0.5">
-          {NAV.map((group) => (
-            <Group key={group.name} group={group} />
-          ))}
-        </nav>
-      </SidebarContent>
-      <SidebarRail />
-    </Sidebar>
+    <LazyMotion features={loadMotionFeatures} strict>
+      <MotionConfig reducedMotion="user">
+        <Sidebar collapsible="icon">
+          <SidebarHeader className="h-14 flex-row items-center gap-3 px-3 group-data-[collapsible=icon]:justify-center">
+            <NavLink
+              to="/"
+              viewTransition
+              aria-label="devdeck home"
+              title="devdeck"
+              onClick={() => setOpenMobile(false)}
+              className="grid size-7 shrink-0 place-items-center"
+            >
+              <Logo className="size-6" />
+            </NavLink>
+            <span className="text-[15px] font-bold tracking-tight text-brand-dev group-data-[collapsible=icon]:hidden">
+              dev
+              <span className="bg-gradient-to-r from-brand-deck-from to-brand-deck-to bg-clip-text text-transparent">deck</span>
+            </span>
+          </SidebarHeader>
+          <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-hidden [scrollbar-width:none]">
+            <nav aria-label="Pages" className="flex flex-col py-1 group-data-[collapsible=icon]:py-0.5">
+              {NAV.map((group) => (
+                <Group key={group.name} group={group} />
+              ))}
+            </nav>
+          </SidebarContent>
+          <SidebarRail />
+        </Sidebar>
+      </MotionConfig>
+    </LazyMotion>
   );
 }

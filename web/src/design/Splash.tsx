@@ -15,7 +15,7 @@ export function Splash({ state = "loading", onRetry }: Props) {
       <Logo className="mark" />
       <div className="bar" />
       {state === "offline" && (
-        <div className="note" title="devdeck can't reach its server on 127.0.0.1:7070. Start it with: mise run dev">
+        <div className="note" title="devdeck can’t reach its server on 127.0.0.1:7070. Start it with: mise run dev">
           <span className="inline-block size-2 bg-critical" aria-hidden />
           <span>offline</span>
           {onRetry && (
@@ -31,7 +31,7 @@ export function Splash({ state = "loading", onRetry }: Props) {
           )}
         </div>
       )}
-      {state === "loading" && <span className="sr-only">Loading devdeck</span>}
+      {state === "loading" && <span className="sr-only">Loading devdeck…</span>}
     </div>
   );
 }

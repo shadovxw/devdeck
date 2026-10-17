@@ -39,7 +39,9 @@ const SATELLITES: Array<{ x: number; y: number; icon: LucideIcon }> = [
 const CENTER = { x: 282, y: 168 };
 
 /** The illustration on empty pages: a dark centre tile linked to four smaller ones. */
-export function EmptyArt({ centerIcon: Center }: { centerIcon: LucideIcon }) {
+export function EmptyArt({ centerIcon: Center, tone = "default" }: { centerIcon: LucideIcon; tone?: "default" | "critical" }) {
+  // The links, dots and the centre tile edge use the accent, or red for an error.
+  const line = tone === "critical" ? "var(--critical)" : "var(--accent)";
   const id = useId().replace(/[^a-zA-Z0-9]/g, "");
   return (
     <svg viewBox="0 0 560 340" className="h-auto w-full max-w-[600px]" aria-hidden focusable="false">
@@ -78,12 +80,12 @@ export function EmptyArt({ centerIcon: Center }: { centerIcon: LucideIcon }) {
             y1={CENTER.y}
             x2={s.x}
             y2={s.y}
-            stroke="var(--accent)"
+            stroke={line}
             strokeWidth="1.25"
             strokeDasharray="3 4"
             opacity="0.85"
           />
-          <circle cx={CENTER.x + (s.x - CENTER.x) * 0.62} cy={CENTER.y + (s.y - CENTER.y) * 0.62} r="2.6" fill="var(--accent)" />
+          <circle cx={CENTER.x + (s.x - CENTER.x) * 0.62} cy={CENTER.y + (s.y - CENTER.y) * 0.62} r="2.6" fill={line} />
         </g>
       ))}
 
@@ -106,12 +108,12 @@ export function EmptyArt({ centerIcon: Center }: { centerIcon: LucideIcon }) {
           top="var(--center-top)"
           left="var(--center-side)"
           right="var(--center-side)"
-          edge="var(--accent)"
+          edge={line}
         />
         <path
           d={`M${CENTER.x} ${CENTER.y - 30}L${CENTER.x + 54} ${CENTER.y}L${CENTER.x} ${CENTER.y + 30}L${CENTER.x - 54} ${CENTER.y}Z`}
           fill="none"
-          stroke="var(--accent)"
+          stroke={line}
           strokeWidth="1"
           opacity="0.35"
         />

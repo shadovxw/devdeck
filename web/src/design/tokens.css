@@ -24,7 +24,17 @@
   --neutral: #788890;
   --mark-prompt: #4ee8b5;
   --mark-under: #2aeab4;
-  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Motion tokens (dev-plans/02-frontend-design-system.md section 2.4). The same
+     numbers are in src/lib/motion.ts for JavaScript animations; a test keeps
+     them equal. */
+  --dur-instant: 100ms;
+  --dur-quick: 180ms;
+  --dur-move: 320ms;
+  --dur-scene: 700ms;
+  --ease-scene: cubic-bezier(0.65, 0, 0.35, 1);
 
   /* Brand colours (brand/README.md). Deliberately separate from the website accent
      (--accent): the logo, wordmark and loader keep these in both themes. */
@@ -134,4 +144,22 @@
   --tile-icon: #17323a;
   --tile-shadow: rgba(16, 50, 58, 0.18);
   color-scheme: light;
+}
+
+/* Reduced motion: the OS setting, or data-motion="reduced" (performance mode).
+   Every duration collapses to nothing, so changes become instant cuts. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0.01ms;
+    --dur-quick: 0.01ms;
+    --dur-move: 0.01ms;
+    --dur-scene: 0.01ms;
+  }
+}
+
+:root[data-motion="reduced"] {
+  --dur-instant: 0.01ms;
+  --dur-quick: 0.01ms;
+  --dur-move: 0.01ms;
+  --dur-scene: 0.01ms;
 }
