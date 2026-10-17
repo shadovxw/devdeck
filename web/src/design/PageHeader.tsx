@@ -4,19 +4,25 @@ type Props = {
   title: string;
   /** Group the page belongs to, shown before the title in the breadcrumb. */
   group: string;
+  /** For a sub-page: the parent page, shown between the group and the title. */
+  parent?: string;
   /** The plan phase that builds the page; shown while the page is a placeholder. */
   phase?: string;
 };
 
 /** Breadcrumb, big title and scope chip at the top of every page. */
-export function PageHeader({ title, group, phase }: Props) {
+export function PageHeader({ title, group, parent, phase }: Props) {
   return (
     <header className="border-b border-line pb-5">
       <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3">
-        {group}
-        <span className="mx-2" aria-hidden>
-          /
-        </span>
+        {[group, parent].filter(Boolean).map((crumb) => (
+          <span key={crumb}>
+            {crumb}
+            <span className="mx-2" aria-hidden>
+              /
+            </span>
+          </span>
+        ))}
         <span className="font-medium text-ink">{title}</span>
       </nav>
       <h1 className="m-0 mt-3 text-[32px] font-bold leading-tight tracking-tight text-ink">{title}</h1>

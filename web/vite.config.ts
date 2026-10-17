@@ -8,6 +8,7 @@ const api = "http://127.0.0.1:7070";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: { alias: { "@": "/src" } },
   server: {
     host: "127.0.0.1",
     port: 5173,
@@ -21,6 +22,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
     css: false,
   },
 });

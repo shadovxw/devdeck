@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { routes } from "../app/routes";
 import type { Plugin } from "../lib/types";
+import { useUi } from "../store/ui";
 
 const plugins: Plugin[] = [
   { id: "git", name: "Git", category: "vcs", status: { state: "ok", version: "2.55.0", checked_at: "" } },
@@ -49,6 +50,8 @@ function renderAt(path: string) {
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
+  useUi.setState({ sidebarOpen: false, closedGroups: [] });
   vi.unstubAllGlobals();
   calls.length = 0;
 });
@@ -77,13 +80,60 @@ describe("pages", () => {
     expect(btn.title).toBe("Available in Phase 2");
   });
 
-  it("shows tool status chips in the top bar", async () => {
-    mockServer([
-      { id: "git", name: "Git", category: "vcs", needs: [{ binary: "git" }], status: { state: "ok", checked_at: "" } },
-    ]);
+  it("keeps the top bar to the sidebar toggle, the workspace picker and status controls", async () => {
+    mockServer();
     renderAt("/stacks");
-    const chip = await screen.findByRole("link", { name: "Git" });
-    expect(chip.getAttribute("href")).toBe("/plugins");
+    await screen.findByRole("heading", { level: 1, name: "Stacks" });
+    const bar = within(document.querySelector("header") as HTMLElement);
+    expect(bar.queryByText("Git")).toBeNull();
+    expect(bar.queryByText("Docker")).toBeNull();
+    expect(bar.queryByText("No repo")).toBeNull();
+    expect(bar.getByText("No workspace")).toBeTruthy();
+  });
+
+  it("shows Group / Parent / Page in the breadcrumb of a sub-page, and marks only the sub-page current", async () => {
+    mockServer();
+    renderAt("/migrations");
+    await screen.findByRole("heading", { level: 1, name: "Migrations" });
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Data/Databases/Migrations");
+    const dock = within(screen.getByRole("navigation", { name: "Pages" }));
+    expect(dock.getAllByRole("link", { name: "Migrations" }).some((a) => a.getAttribute("aria-current") === "page")).toBe(true);
+    expect(dock.getByRole("link", { name: "Databases" }).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("opens a parent's sub-pages when you are on one of them", async () => {
+    mockServer();
+    renderAt("/sql");
+    await screen.findByRole("heading", { level: 1, name: "SQL console" });
+    const toggle = screen.getByRole("button", { name: "Hide Databases pages" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("starts collapsed and remembers when you expand the sidebar", async () => {
+    mockServer();
+    renderAt("/stacks");
+    await screen.findByRole("heading", { level: 1, name: "Stacks" });
+    expect(localStorage.getItem("devdeck.sidebar")).toBeNull();
+    expect(document.querySelector('[data-slot="sidebar"]')?.getAttribute("data-state")).toBe("collapsed");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Toggle Sidebar" })[0]);
+
+    expect(document.querySelector('[data-slot="sidebar"]')?.getAttribute("data-state")).toBe("expanded");
+    expect(localStorage.getItem("devdeck.sidebar")).toBe("expanded");
+  });
+
+  it("folds a group when you click its heading, and remembers it", async () => {
+    mockServer();
+    useUi.setState({ sidebarOpen: true });
+    renderAt("/stacks");
+    await screen.findByRole("heading", { level: 1, name: "Stacks" });
+    const heading = screen.getByRole("button", { name: "Run locally" });
+    expect(heading.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(heading);
+
+    expect(heading.getAttribute("aria-expanded")).toBe("false");
+    expect(JSON.parse(localStorage.getItem("devdeck.sidebar.groups") ?? "[]")).toEqual(["Run locally"]);
   });
 
   it("shows Not found for unknown paths", async () => {

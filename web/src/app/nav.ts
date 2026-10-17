@@ -51,6 +51,10 @@ type NavDef = {
 export type NavItem = NavDef & {
   /** The group's name, used in the breadcrumb. */
   group: string;
+  /** For a sub-page: the parent page's label, shown in the breadcrumb. */
+  parent?: string;
+  /** Sub-pages, listed under this item in the expanded sidebar. */
+  children?: NavItem[];
 };
 
 type GroupDef = { name: string; items: NavDef[] };
@@ -334,12 +338,31 @@ const GROUPS: GroupDef[] = [
   },
 ];
 
-export const NAV: NavGroup[] = GROUPS.map((g) => ({
-  name: g.name,
-  items: g.items.map((i) => ({ ...i, group: g.name })),
-}));
+// Pages that sit under another page in the sidebar. Both are still real routes:
+// the parent's chevron opens the list, clicking the parent's name opens its page.
+const NESTED: Record<string, string[]> = {
+  "/databases": ["/migrations", "/sql", "/scripts"],
+  "/flows": ["/runs"],
+};
+const nestedPaths = new Set(Object.values(NESTED).flat());
 
-export const NAV_ITEMS: NavItem[] = NAV.flatMap((g) => g.items);
+export const NAV: NavGroup[] = GROUPS.map((g) => {
+  const byPath = new Map(g.items.map((i) => [i.path, i]));
+  const items = g.items
+    .filter((i) => !nestedPaths.has(i.path))
+    .map((i): NavItem => {
+      const children = (NESTED[i.path] ?? []).map((path): NavItem => {
+        const child = byPath.get(path);
+        if (!child) throw new Error(`nav: ${path} is nested under ${i.path} but is not in group ${g.name}`);
+        return { ...child, group: g.name, parent: i.label };
+      });
+      return { ...i, group: g.name, children: children.length > 0 ? children : undefined };
+    });
+  return { name: g.name, items };
+});
+
+/** Every page, parents and sub-pages alike. */
+export const NAV_ITEMS: NavItem[] = NAV.flatMap((g) => g.items.flatMap((i) => [i, ...(i.children ?? [])]));
 
 export const navByPath = (path: string): NavItem => {
   const item = NAV_ITEMS.find((i) => i.path === path);
