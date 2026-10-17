@@ -264,7 +264,7 @@ describe("stacks page", () => {
   it("follows live updates from the server", async () => {
     mockServer();
     const fake = new FakeSocket();
-    const socket = new TopicSocket({ url: "ws://test/ws", create: () => fake });
+    const socket = new TopicSocket({ url: "wss://test/ws", create: () => fake });
     renderAt("/stacks", socket);
     await screen.findByRole("button", { name: /Start/ });
 
