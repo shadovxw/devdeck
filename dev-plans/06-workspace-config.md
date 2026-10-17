@@ -14,7 +14,7 @@ A workspace is a folder with plain YAML files. Nothing secret goes in them.
 ```
 
 The workspaces folder is `<data dir>/workspaces` unless `DEVDECK_WORKSPACES_DIR` is set.
-`DEVDECK_EXAMPLES_DIR` points at read-only sample workspaces (`examples/workspaces`).
+`DEVDECK_EXAMPLES_DIR` points at read-only sample workspaces (`examples/workspaces`). It is off by default and not set in `mise.toml`, so the sample does not show up in the app; set it to `examples/workspaces` to see it again. The tests use the sample directly.
 
 ## Checking
 

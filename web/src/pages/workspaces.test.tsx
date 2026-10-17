@@ -141,13 +141,17 @@ describe("workspaces page", () => {
     expect(other.getByText("Problems").nextElementSibling?.textContent).toBe("None");
   });
 
-  it("puts Add workspace at the left, before the count, and opens the drawer from it", async () => {
+  it("puts Add workspace on the title's line, at the right, and opens the drawer from it", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces");
     const add = await screen.findByRole("button", { name: /Add workspace/ });
-    const count = await screen.findByText("1 workspace");
-    // the button comes first in the row, so it sits on the left
-    expect(add.compareDocumentPosition(count) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await screen.findByRole("listitem", { name: "Workspace demo" });
+    // same row as the page title (inside the header), pushed to the right, and no "1 workspace" count
+    const row = add.parentElement as HTMLElement;
+    expect(row.className).toContain("justify-between");
+    expect(within(row).getByRole("heading", { level: 1, name: "Workspaces" })).toBeTruthy();
+    expect(row.closest("header")).toBeTruthy();
+    expect(screen.queryByText(/\d+ workspaces?$/)).toBeNull();
 
     fireEvent.click(add);
     expect(await screen.findByRole("dialog", { name: "Add a workspace" })).toBeTruthy();

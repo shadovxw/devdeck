@@ -2,8 +2,9 @@
 
 ## What changed on the page
 
-- **Add workspace** is a button on the left, above the cards and before the count ("3 workspaces"). It opens a **drawer** from the right (the shadcn Sheet already in the app) that holds the whole add flow: folder box, Browse…, Scan folder, the drafted `workspace.yaml`, problems, Create workspace. It closes with the X, with Escape or by clicking outside, and its fields start empty each time it opens. After Create, the drawer closes and the new workspace's details open above the cards. With no workspace at all, the empty-state button opens the same drawer.
-- **Each workspace is a card** (a grid: one column on a phone, two on a tablet, three on a wide screen): name, folder, "Yours" or "Example", description, Repos / Stacks / Flows counts and Problems. Clicking anywhere on a card opens its details (shown above the cards).
+- **Add workspace** is a button at the right end of the title line (the page header has an `actions` slot for this). It opens a **drawer** from the right (the shadcn Sheet already in the app) that holds the whole add flow: folder box, Browse…, Scan folder, the drafted `workspace.yaml`, problems, Create workspace. It closes with the X, with Escape or by clicking outside, and its fields start empty each time it opens. After Create, the drawer closes and the new workspace's details open above the cards. With no workspace at all, the empty-state button opens the same drawer. There is no "3 workspaces" count.
+- **Each workspace is a full-width card**, one below the other: name, folder, "Yours" or "Example", description, Repos / Stacks / Flows counts and Problems. Clicking anywhere on a card opens its details (shown above the cards).
+- The sample workspace is no longer shown in the dev setup (`DEVDECK_EXAMPLES_DIR` was removed from `mise.toml`); the files stay in `examples/workspaces` for the tests.
 - **Delete** is a trash icon on the cards of your own workspaces, not on the sample. It asks first ("Its files move to a trash folder inside your workspaces folder. Your repositories aren't touched.") with Delete and Cancel.
 
 ## How delete works

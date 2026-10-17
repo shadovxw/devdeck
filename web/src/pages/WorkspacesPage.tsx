@@ -365,24 +365,25 @@ export function WorkspacesPage() {
 
   return (
     <>
-      <PageHeader title={item.label} group={item.group} />
+      <PageHeader
+        title={item.label}
+        group={item.group}
+        actions={
+          !showEmpty && (
+            <button type="button" onClick={() => setAdding(true)} className={addButton}>
+              <Plus size={16} aria-hidden />
+              Add workspace
+            </button>
+          )
+        }
+      />
 
       {showEmpty && item.empty && <EmptyState icon={Boxes} empty={item.empty} onCta={() => setAdding(true)} />}
-
-      {!showEmpty && (
-        <div className="enter mt-4 flex items-center gap-4" style={stagger(1)}>
-          <button type="button" onClick={() => setAdding(true)} className={addButton}>
-            <Plus size={16} aria-hidden />
-            Add workspace
-          </button>
-          <p className="m-0 text-[13px] text-ink-3">{data ? `${data.length} ${data.length === 1 ? "workspace" : "workspaces"}` : ""}</p>
-        </div>
-      )}
 
       {openId && <Detail id={openId} onClose={() => open()} />}
 
       {isPending && (
-        <div role="status" aria-label="Loading workspaces…" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div role="status" aria-label="Loading workspaces…" className="mt-4 grid grid-cols-1 gap-3">
           {[0, 1, 2].map((i) => (
             <div key={i} className="skeleton h-36 w-full" />
           ))}
@@ -391,7 +392,7 @@ export function WorkspacesPage() {
       {isError && <p className="mt-4 text-ink-3">Could not load workspaces.</p>}
 
       {data && data.length > 0 && (
-        <ul className="enter m-0 mt-4 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-3" style={stagger(2)}>
+        <ul className="enter m-0 mt-4 grid list-none grid-cols-1 gap-3 p-0" style={stagger(2)}>
           {data.map((w) => (
             <WorkspaceCard
               key={w.id}
