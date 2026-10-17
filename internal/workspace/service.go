@@ -153,7 +153,8 @@ func (s *Manager) Get(id string) (*Detail, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Detail{Summary: summarise(id, f[1], l), Workspace: l.Workspace, Stacks: l.Stacks, Flows: l.Flows, Issues: l.Issues, Folder: f[0]}
+	// The id comes from the folder's own name, not from the caller's string.
+	d := &Detail{Summary: summarise(filepath.Base(f[0]), f[1], l), Workspace: l.Workspace, Stacks: l.Stacks, Flows: l.Flows, Issues: l.Issues, Folder: f[0]}
 	if d.Stacks == nil {
 		d.Stacks = []StackFile{}
 	}

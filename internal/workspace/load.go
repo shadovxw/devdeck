@@ -32,6 +32,17 @@ func ResolveRoot(dir, root string) string {
 	return filepath.Clean(root)
 }
 
+// JoinInside joins rel to base and reports false when the result is not under
+// base, so a path written in a workspace file can't point outside its folder.
+func JoinInside(base, rel string) (string, bool) {
+	p := filepath.Join(base, filepath.FromSlash(rel))
+	r, err := filepath.Rel(base, p)
+	if err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) || filepath.IsAbs(r) {
+		return "", false
+	}
+	return p, true
+}
+
 // decode reads a checked document into its Go shape.
 func decode[T any](p *parsed) (*T, bool) {
 	var v T

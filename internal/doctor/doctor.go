@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -232,14 +231,7 @@ func (b *builder) repoDir(r workspace.Repo) (string, bool) {
 }
 
 // inside joins rel to base and reports false if the result is not under base.
-func inside(base, rel string) (string, bool) {
-	p := filepath.Join(base, filepath.FromSlash(rel))
-	r, err := filepath.Rel(base, p)
-	if err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) || filepath.IsAbs(r) {
-		return "", false
-	}
-	return p, true
-}
+func inside(base, rel string) (string, bool) { return workspace.JoinInside(base, rel) }
 
 func isDir(p string) bool {
 	st, err := os.Stat(p)

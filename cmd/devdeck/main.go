@@ -18,6 +18,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/config"
 	"github.com/shadovxw/devdeck/internal/events"
 	"github.com/shadovxw/devdeck/internal/store"
+	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/plugins"
 	"github.com/shadovxw/devdeck/sdk"
@@ -61,15 +62,22 @@ func run() error {
 		return err
 	}
 
+	sup := supervisor.New(supervisor.Options{
+		Bus:     bus,
+		Plugins: registry,
+		BinDir:  filepath.Join(cfg.DataDir, "bin"),
+	})
+
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
 	api.Register(e, api.Deps{
-		Version: version,
-		Bus:     bus,
-		Guard:   guard,
-		Hub:     api.NewHub(bus, guard.OriginHosts(), log.Logger),
-		Plugins: registry,
+		Version:    version,
+		Bus:        bus,
+		Guard:      guard,
+		Hub:        api.NewHub(bus, guard.OriginHosts(), log.Logger),
+		Plugins:    registry,
+		Supervisor: sup,
 		Workspaces: &workspace.Manager{
 			Dir:         cfg.WorkspacesDir,
 			ExamplesDir: cfg.ExamplesDir,
@@ -92,6 +100,11 @@ func run() error {
 	case <-ctx.Done():
 	}
 	log.Info().Msg("shutting down")
+
+	// Stop what devdeck started first, so closing it leaves no processes behind.
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer stopCancel()
+	sup.StopAll(stopCtx)
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

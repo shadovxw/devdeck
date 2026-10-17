@@ -7,11 +7,12 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/shadovxw/devdeck/internal/doctor"
+	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/sdk"
 )
 
-func registerDoctor(g *echo.Group, m *workspace.Manager, reg *sdk.Registry) {
+func registerDoctor(g *echo.Group, m *workspace.Manager, reg *sdk.Registry, sup *supervisor.Supervisor) {
 	// GET /doctor?workspace=<id>[&stack=<name>] checks the machine for a workspace,
 	// or for one stack of it. It only reads; it never installs or changes anything.
 	g.GET("/doctor", func(c echo.Context) error {
@@ -38,6 +39,7 @@ func registerDoctor(g *echo.Group, m *workspace.Manager, reg *sdk.Registry) {
 			Stack:     c.QueryParam("stack"),
 			Root:      workspace.ResolveRoot(d.Folder, d.Workspace.Root),
 			Plugins:   reg,
+			OwnPorts:  ownPorts(sup, id, c.QueryParam("stack")),
 		})
 		switch {
 		case errors.Is(err, doctor.ErrNoSuchStack):
@@ -48,4 +50,12 @@ func registerDoctor(g *echo.Group, m *workspace.Manager, reg *sdk.Registry) {
 		}
 		return c.JSON(http.StatusOK, rep)
 	})
+}
+
+// ownPorts are the ports held by stacks devdeck is running, so Doctor doesn't call them taken.
+func ownPorts(sup *supervisor.Supervisor, workspaceID, stack string) map[int]bool {
+	if sup == nil {
+		return nil
+	}
+	return sup.OwnPorts(workspaceID, stack)
 }
