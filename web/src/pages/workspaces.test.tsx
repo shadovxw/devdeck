@@ -205,19 +205,57 @@ describe("workspaces page", () => {
     expect(card.queryByRole("button", { name: /Delete/ })).toBeNull();
   });
 
-  it("opens a workspace and shows each problem with its file and line", async () => {
+  it("opens a card to show its details, each problem with its file and line, and closes it again", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces");
-    fireEvent.click(await screen.findByRole("button", { name: "demo" }));
+    const toggle = await screen.findByRole("button", { name: "demo" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    // nothing is fetched for the details until the card is opened
+    expect(calls).not.toContain("GET /api/v1/workspaces/demo");
+    expect(screen.queryByRole("region", { name: "demo" })).toBeNull();
 
-    const panel = within(await screen.findByRole("region", { name: "Workspace details" }));
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    const panel = within(await screen.findByRole("region", { name: "demo" }));
     expect(await panel.findByText("stacks/full.yaml")).toBeTruthy();
     expect(panel.getByText("line 9")).toBeTruthy();
     expect(panel.getByText(/no repo with id "ghost"/)).toBeTruthy();
     expect(panel.getByText("github.com/acme/api")).toBeTruthy();
+    expect(calls).toContain("GET /api/v1/workspaces/demo");
 
-    fireEvent.click(panel.getByRole("button", { name: "Close details" }));
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Workspace details" })).toBeNull());
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    await waitFor(() => expect(screen.queryByRole("region", { name: "demo" })).toBeNull());
+  });
+
+  it("opens one card at a time", async () => {
+    mockServer({ list: [demo, sample] });
+    renderAt("/workspaces");
+    const first = await screen.findByRole("button", { name: "demo" });
+    const second = await screen.findByRole("button", { name: "acme-shop" });
+
+    fireEvent.click(first);
+    await waitFor(() => expect(first.getAttribute("aria-expanded")).toBe("true"));
+    fireEvent.click(second);
+    await waitFor(() => expect(second.getAttribute("aria-expanded")).toBe("true"));
+    expect(first.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("opens the card named in the address, so a link can point at it", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces?open=demo");
+    expect(await screen.findByRole("region", { name: "demo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "demo" }).getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("clicking the delete button does not also open the card", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces");
+    const card = within(await screen.findByRole("listitem", { name: "Workspace demo" }));
+    fireEvent.click(card.getByRole("button", { name: "Delete demo" }));
+    expect(card.getByRole("button", { name: "demo" }).getAttribute("aria-expanded")).toBe("false");
+    expect(await card.findByRole("group", { name: "Confirm deleting demo" })).toBeTruthy();
   });
 
   it("scans a folder, shows the draft, and saves exactly what is in the box", async () => {

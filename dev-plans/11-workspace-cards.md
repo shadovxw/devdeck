@@ -3,7 +3,7 @@
 ## What changed on the page
 
 - **Add workspace** is a button at the right end of the title line (the page header has an `actions` slot for this). It opens a **drawer** from the right (the shadcn Sheet already in the app) that holds the whole add flow: folder box, Browse…, Scan folder, the drafted `workspace.yaml`, problems, Create workspace. It closes with the X, with Escape or by clicking outside, and its fields start empty each time it opens. After Create, the drawer closes and the new workspace's details open above the cards. With no workspace at all, the empty-state button opens the same drawer. There is no "3 workspaces" count.
-- **Each workspace is a full-width card**, one below the other: name, folder, "Yours" or "Example", description, Repos / Stacks / Flows counts and Problems. Clicking anywhere on a card opens its details (shown above the cards).
+- **Each workspace is a full-width card**, one below the other: name, folder, "Yours" or "Example", description, Repos / Stacks / Flows counts and Problems. Each card is an item of the shadcn **accordion** (`components/ui/accordion.tsx`): the whole card is the button, an arrow at its right turns up when it is open, and clicking opens the details **under the card, in place** (repos, stacks and flows, problems). One card is open at a time, and the open one is kept in the address as `?open=<name>`, so a link can point at it. The details are fetched only when a card is opened. The delete button sits above the card-wide button, so clicking it does not also open the card.
 - The sample workspace is no longer shown in the dev setup (`DEVDECK_EXAMPLES_DIR` was removed from `mise.toml`); the files stay in `examples/workspaces` for the tests.
 - **Delete** is a trash icon on the cards of your own workspaces, not on the sample. It asks first ("Its files move to a trash folder inside your workspaces folder. Your repositories aren't touched.") with Delete and Cancel.
 
@@ -11,7 +11,7 @@
 
 - `DELETE /api/v1/workspaces/:id` → 204. 403 for the sample workspace, 404 for an unknown one, **409 while any stack of that workspace is running** ("stop its running stacks before deleting this workspace").
 - **Nothing is erased.** The workspace's folder moves into `.trash` inside the workspaces folder as `<name>-<date>-<time>` (a number is added if two are deleted in the same second). `.trash` starts with a dot, so it is never listed as a workspace. To undo a delete, move the folder back out of `.trash` and take the date off its name. To empty the trash, delete `.trash` yourself.
-- Only the workspace's own files move: `workspace.yaml`, `stacks/`, `flows/` and anything else in that folder. The repositories it points to are never touched. Deleting the open workspace closes its details.
+- Only the workspace's own files move: `workspace.yaml`, `stacks/`, `flows/` and anything else in that folder. The repositories it points to are never touched. Deleting the open workspace closes it.
 - The folder to move is found by listing the workspaces folder, not taken from the request, so the request can't point it elsewhere.
 
 ## Code
