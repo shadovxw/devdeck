@@ -7,14 +7,35 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
+
+	"github.com/shadovxw/devdeck/internal/events"
 )
 
-func TestHealth(t *testing.T) {
+func newTestServer(t *testing.T) *echo.Echo {
+	t.Helper()
+	bus := events.NewBus()
+	guard, err := NewGuard("127.0.0.1:7070", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	e := echo.New()
-	Register(e, "test")
+	Register(e, Deps{
+		Version: "test",
+		Bus:     bus,
+		Guard:   guard,
+		Hub:     NewHub(bus, guard.OriginHosts(), zerolog.Nop()),
+	})
+	return e
+}
 
+func TestHealth(t *testing.T) {
+	e := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	req.Host = "127.0.0.1:7070"
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/health", nil))
+	e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -25,5 +46,18 @@ func TestHealth(t *testing.T) {
 	}
 	if want := (HealthResponse{Status: "ok", Version: "test"}); got != want {
 		t.Fatalf("body = %+v, want %+v", got, want)
+	}
+}
+
+func TestHealthIsBehindTheGuard(t *testing.T) {
+	e := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	req.Host = "evil.example.com:7070"
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 }

@@ -24,6 +24,12 @@ The plan is in [`dev-plans/00-implementation-plan.md`](dev-plans/00-implementati
 - Write actions (SQL, migrations, clean-ups, pushes) are local-only and need a confirmation step.
 - CI scans every commit with gitleaks, semgrep, trivy and CodeQL. Do not commit key-shaped sample strings, `Math.random()` for ids, or CDN `<script>` tags without `integrity`. A real secret is rotated, not added to `.gitleaksignore`.
 
+## Keep the product generic
+
+- This repo is public. New code, docs, tests, fixtures and sample data must not mention infrabot or its services, databases and ticket systems, the company's GitHub org, Docker Hub namespace, domains, hostnames, IPs or emails. Use neutral demo names (`acme`, `demo-api`, `example.com`).
+- Real workspace config (repos, stacks, connections for the user's own systems) belongs in a separate private repo, never here. Plan §13 question 2.
+- `dev-plans/`, `ui-mockup/` and `ui-design/` still mention infrabot from before this rule. Do not copy that content into code; the mockups are deleted once the product is nearly done.
+
 ## UI
 
 - Flat: no borders or shadows on cards, tight radii (3/4/6px), no icon-background chrome.

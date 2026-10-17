@@ -11,9 +11,11 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5173,
     strictPort: true,
+    // changeOrigin rewrites Host to the Go server's, which its Host check requires.
+    // The browser's Origin (this dev server) is allowed via DEVDECK_EXTRA_ORIGINS.
     proxy: {
-      "/api": api,
-      "/ws": { target: api, ws: true },
+      "/api": { target: api, changeOrigin: true },
+      "/ws": { target: api, changeOrigin: true, ws: true },
     },
   },
 });
