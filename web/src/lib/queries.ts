@@ -57,6 +57,14 @@ export function useWorkspace(id: string | undefined) {
   });
 }
 
+/**
+ * Opens the system's folder dialog on this computer and resolves with the chosen
+ * folder, or undefined when the dialog was closed without choosing one.
+ */
+export function usePickFolder() {
+  return useMutation({ mutationFn: () => api.post<{ path: string } | undefined>("/system/pick-folder") });
+}
+
 /** Looks at a folder of repositories and drafts a workspace. Saves nothing. */
 export function useScanFolder() {
   return useMutation({ mutationFn: (root: string) => api.post<ScanResult>("/workspaces/scan", { root }) });

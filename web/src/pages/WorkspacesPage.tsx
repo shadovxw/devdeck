@@ -1,4 +1,4 @@
-import { Boxes, FolderSearch, Plus, X } from "lucide-react";
+import { Boxes, FolderOpen, FolderSearch, Plus, X } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 
@@ -11,6 +11,7 @@ import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
 import {
   useCreateWorkspace,
+  usePickFolder,
   useScanFolder,
   useValidateWorkspace,
   useWorkspace,
@@ -156,6 +157,7 @@ function AddWorkspace({ onClose, onCreated }: { onClose: () => void; onCreated: 
   const [root, setRoot] = useState("");
   const [yaml, setYaml] = useState("");
   const scan = useScanFolder();
+  const pick = usePickFolder();
   const create = useCreateWorkspace();
   const checked = useValidateWorkspace(useDebounced(yaml, 400));
 
@@ -167,6 +169,18 @@ function AddWorkspace({ onClose, onCreated }: { onClose: () => void; onCreated: 
     e.preventDefault();
     create.reset();
     scan.mutate(root, { onSuccess: (res) => setYaml(res.yaml) });
+  }
+
+  /** Choose the folder in the system's own dialog, then look at it straight away. */
+  function browse() {
+    create.reset();
+    pick.mutate(undefined, {
+      onSuccess: (res) => {
+        if (!res?.path) return; // the dialog was closed without choosing
+        setRoot(res.path);
+        scan.mutate(res.path, { onSuccess: (found) => setYaml(found.yaml) });
+      },
+    });
   }
 
   function save() {
@@ -187,11 +201,25 @@ function AddWorkspace({ onClose, onCreated }: { onClose: () => void; onCreated: 
           Folder that contains your repositories
           <input value={root} onChange={(e) => setRoot(e.target.value)} placeholder="~/code" spellCheck={false} autoComplete="off" className={`${field} font-mono`} />
         </label>
-        <button type="submit" disabled={!root.trim() || scan.isPending} className={`${quietButton} h-10 disabled:opacity-50`}>
+        <button type="button" onClick={browse} disabled={pick.isPending || scan.isPending} title="Choose the folder in a window" className={`${quietButton} h-10 disabled:opacity-50`}>
+          <FolderOpen size={17} aria-hidden />
+          {pick.isPending ? "Waiting for you…" : "Browse…"}
+        </button>
+        <button type="submit" disabled={!root.trim() || scan.isPending || pick.isPending} className={`${quietButton} h-10 disabled:opacity-50`}>
           <FolderSearch size={17} aria-hidden />
           {scan.isPending ? "Scanning…" : "Scan folder"}
         </button>
       </form>
+      {pick.isPending && (
+        <p role="status" className="m-0 text-[13px] text-ink-3">
+          A folder window has opened. If you can’t see it, look for it in the taskbar.
+        </p>
+      )}
+      {pick.isError && (
+        <p role="alert" className="m-0 text-[14px] text-critical">
+          {pick.error.message}
+        </p>
+      )}
       {scan.isError && (
         <p role="alert" className="m-0 text-[14px] text-critical">
           {scan.error.message}

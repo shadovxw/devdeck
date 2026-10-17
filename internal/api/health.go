@@ -30,6 +30,8 @@ type Deps struct {
 	// Supervisor is optional too: it adds the routes that start and stop stacks.
 	// It needs Workspaces.
 	Supervisor *supervisor.Supervisor
+	// FolderPicker is optional: it adds the route that opens the system's folder dialog.
+	FolderPicker FolderPicker
 }
 
 // Register mounts the API and WebSocket routes on e. Every route sits behind
@@ -44,6 +46,9 @@ func Register(e *echo.Echo, d Deps) {
 		return c.JSON(http.StatusOK, HealthResponse{Status: "ok", Version: d.Version})
 	})
 	registerPlugins(v1, d.Plugins)
+	if d.FolderPicker != nil {
+		registerSystem(v1, d.FolderPicker)
+	}
 	if d.Workspaces != nil {
 		registerWorkspaces(v1, d.Workspaces)
 		registerDoctor(v1, d.Workspaces, d.Plugins, d.Supervisor)

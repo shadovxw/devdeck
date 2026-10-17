@@ -38,7 +38,11 @@ const draft = "version: 1\nname: code\nroot: ~/code\nrepos:\n  - id: api\n    pa
 type Posted = { url: string; body: unknown };
 const posted: Posted[] = [];
 
-function mockServer(opts: { list?: WorkspaceSummary[]; scanError?: string } = {}) {
+const chosen = "/home/me/code";
+/** Lets a test finish a folder dialog that is still open. */
+let closeDialog: (() => void) | undefined;
+
+function mockServer(opts: { list?: WorkspaceSummary[]; scanError?: string; pick?: "ok" | "cancel" | "error" | "wait" } = {}) {
   let list = opts.list ?? [];
   vi.stubGlobal(
     "fetch",
@@ -49,6 +53,12 @@ function mockServer(opts: { list?: WorkspaceSummary[]; scanError?: string } = {}
       if (url === "/api/v1/health") return Promise.resolve(Response.json({ status: "ok", version: "test" }));
       if (url === "/api/v1/workspaces" && method === "GET") return Promise.resolve(Response.json(list));
       if (url === "/api/v1/workspaces/demo") return Promise.resolve(Response.json(detail));
+      if (url === "/api/v1/system/pick-folder") {
+        if (opts.pick === "cancel") return Promise.resolve(new Response(null, { status: 204 }));
+        if (opts.pick === "error") return Promise.resolve(Response.json({ message: "the folder dialog couldn't be opened: type the folder’s path instead" }, { status: 500 }));
+        if (opts.pick === "wait") return new Promise((resolve) => (closeDialog = () => resolve(Response.json({ path: chosen }))));
+        return Promise.resolve(Response.json({ path: chosen }));
+      }
       if (url === "/api/v1/workspaces/scan") {
         if (opts.scanError) return Promise.resolve(Response.json({ message: opts.scanError }, { status: 422 }));
         return Promise.resolve(Response.json({ root: "/home/me/code", name: "code", repos: [{ id: "api", path: "api" }], yaml: draft }));
@@ -81,6 +91,7 @@ afterEach(() => {
   useUi.setState({ sidebarOpen: false, closedGroups: [] });
   vi.unstubAllGlobals();
   posted.length = 0;
+  closeDialog = undefined;
 });
 
 describe("workspaces page", () => {
@@ -153,5 +164,60 @@ describe("workspaces page", () => {
 
     expect((await screen.findByRole("alert")).textContent).toBe("that folder doesn't exist");
     expect(screen.queryByLabelText("workspace.yaml")).toBeNull();
+  });
+  it("fills in the folder from the system's dialog and scans it at once", async () => {
+    mockServer();
+    renderAt("/workspaces");
+    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Browse/ }));
+
+    const box = (await screen.findByLabelText("workspace.yaml")) as HTMLTextAreaElement;
+    expect(box.value).toBe(draft);
+    expect((screen.getByLabelText(/Folder that contains/) as HTMLInputElement).value).toBe(chosen);
+    expect(posted).toContainEqual({ url: "/api/v1/system/pick-folder", body: undefined });
+    expect(posted).toContainEqual({ url: "/api/v1/workspaces/scan", body: { root: chosen } });
+  });
+
+  it("does nothing when the dialog is closed without choosing", async () => {
+    mockServer({ pick: "cancel" });
+    renderAt("/workspaces");
+    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    const browse = await screen.findByRole("button", { name: /Browse/ });
+    fireEvent.click(browse);
+
+    await waitFor(() => expect(posted.some((p) => p.url === "/api/v1/system/pick-folder")).toBe(true));
+    await waitFor(() => expect((screen.getByRole("button", { name: /Browse/ }) as HTMLButtonElement).disabled).toBe(false));
+    expect((screen.getByLabelText(/Folder that contains/) as HTMLInputElement).value).toBe("");
+    expect(posted.some((p) => p.url === "/api/v1/workspaces/scan")).toBe(false);
+    expect(screen.queryByLabelText("workspace.yaml")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("says when the dialog could not open, and the path can still be typed", async () => {
+    mockServer({ pick: "error" });
+    renderAt("/workspaces");
+    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Browse/ }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("type the folder");
+    const input = screen.getByLabelText(/Folder that contains/) as HTMLInputElement;
+    expect(input.disabled).toBe(false);
+  });
+
+  it("shows that it is waiting while the dialog is open", async () => {
+    mockServer({ pick: "wait" });
+    renderAt("/workspaces");
+    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Browse/ }));
+
+    const waiting = (await screen.findByRole("button", { name: /Waiting for you/ })) as HTMLButtonElement;
+    expect(waiting.disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /Scan folder/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("status").textContent).toMatch(/folder window has opened/);
+
+    await waitFor(() => expect(closeDialog).toBeDefined());
+    closeDialog?.();
+    expect(await screen.findByLabelText("workspace.yaml")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });
