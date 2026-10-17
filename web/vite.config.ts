@@ -1,12 +1,13 @@
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 // The Go server (air) listens on 7070; the Vite dev server proxies /api and /ws to it
 // so the browser only ever talks to one origin.
 const api = "http://127.0.0.1:7070";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     host: "127.0.0.1",
     port: 5173,
@@ -17,5 +18,9 @@ export default defineConfig({
       "/api": { target: api, changeOrigin: true },
       "/ws": { target: api, changeOrigin: true, ws: true },
     },
+  },
+  test: {
+    environment: "jsdom",
+    css: false,
   },
 });

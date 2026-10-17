@@ -1,0 +1,111 @@
+/* Loaded with a <link> in index.html (not through JavaScript), so the loading
+   page is styled from the very first paint, even in the dev server where all
+   other CSS arrives with the script. Used by the boot markup in index.html and
+   by <Splash>. */
+@import "./tokens.css";
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+}
+
+/* The mark sits at the exact centre of the window in every state. The bar and
+   the note hang below it, so adding the note never moves the mark. */
+.splash {
+  --mark-size: 96px;
+  --below: calc(50% + var(--mark-size) / 2 + 28px);
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--ink-3);
+}
+
+.splash .mark {
+  width: var(--mark-size);
+  height: var(--mark-size);
+  display: block;
+  animation: splash-in 520ms var(--ease-out) both;
+}
+
+/* The prompt underscore blinks like a terminal cursor. */
+.splash .mark-under {
+  animation: splash-cursor 1.1s steps(1, end) infinite;
+}
+
+/* Indeterminate sweep under the mark. */
+.splash .bar {
+  position: absolute;
+  top: var(--below);
+  left: calc(50% - var(--mark-size) / 2);
+  width: var(--mark-size);
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.splash .bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: splash-sweep 1.3s var(--ease-out) infinite;
+}
+
+.splash[data-state="offline"] .bar::after {
+  animation: none;
+  width: 100%;
+  background: var(--critical);
+}
+
+.splash .note {
+  position: absolute;
+  top: calc(var(--below) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 13px/18px var(--font-sans, system-ui, sans-serif);
+  white-space: nowrap;
+}
+
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+@keyframes splash-cursor {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes splash-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash .mark,
+  .splash .mark-under,
+  .splash .bar::after {
+    animation: none;
+  }
+  .splash .bar::after {
+    width: 100%;
+    opacity: 0.5;
+  }
+}

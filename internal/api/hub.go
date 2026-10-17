@@ -23,8 +23,10 @@ const (
 )
 
 // Hub serves the /ws endpoint. A client sends {"op":"subscribe","topic":"..."}
-// or {"op":"unsubscribe","topic":"..."} and receives {"topic":"...","data":...}
-// for matching events from the bus.
+// or {"op":"unsubscribe","topic":"..."} and receives
+// {"topic":"...","data":...,"sub":"..."} for matching events from the bus, where
+// "sub" is the subscription pattern that matched, so overlapping patterns
+// ("logs.*" and "logs.demo") can be told apart.
 //
 // Backpressure: each client has a bounded outgoing queue. A client that can't
 // keep up is disconnected ("slow consumer") rather than stalling the bus or
@@ -39,6 +41,13 @@ type Hub struct {
 // originHosts (see Guard.OriginHosts).
 func NewHub(bus *events.Bus, originHosts []string, log zerolog.Logger) *Hub {
 	return &Hub{bus: bus, opts: &websocket.AcceptOptions{OriginPatterns: originHosts}, log: log}
+}
+
+// serverMsg is one event pushed to a client.
+type serverMsg struct {
+	Topic string `json:"topic"`
+	Data  any    `json:"data"`
+	Sub   string `json:"sub"`
 }
 
 type clientMsg struct {
@@ -88,10 +97,10 @@ func (h *Hub) serve(parent context.Context, conn *websocket.Conn) {
 		}
 	}()
 
-	forward := func(ch <-chan events.Event) {
+	forward := func(pattern string, ch <-chan events.Event) {
 		defer wg.Done()
 		for ev := range ch {
-			b, err := json.Marshal(ev)
+			b, err := json.Marshal(serverMsg{Topic: ev.Topic, Data: ev.Data, Sub: pattern})
 			if err != nil {
 				h.log.Warn().Err(err).Str("topic", ev.Topic).Msg("ws: drop unserialisable event")
 				continue
@@ -130,7 +139,7 @@ func (h *Hub) serve(parent context.Context, conn *websocket.Conn) {
 			ch, unsub := h.bus.Subscribe(m.Topic, subscriptionBuf)
 			subs[m.Topic] = unsub
 			wg.Add(1)
-			go forward(ch)
+			go forward(m.Topic, ch)
 		case "unsubscribe":
 			if unsub, ok := subs[m.Topic]; ok {
 				unsub()
