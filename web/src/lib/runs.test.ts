@@ -1,0 +1,92 @@
+import { describe, expect, it } from "vitest";
+
+import { formatUptime, mergeRun, startOrder, tally } from "./runs";
+import type { RunStatus, ServiceStatus, StackDef } from "./types";
+
+const svc = (id: string, state: ServiceStatus["state"]): ServiceStatus => ({ id, kind: "go", state, restarts: 0 });
+const run = (workspace: string, stack: string, state: RunStatus["state"], services: ServiceStatus[] = []): RunStatus => ({
+  workspace,
+  stack,
+  state,
+  started_at: "2026-10-17T10:00:00Z",
+  services,
+});
+
+describe("mergeRun", () => {
+  it("adds a stack, replaces it on the next update and keeps the list sorted", () => {
+    let list = mergeRun(undefined, run("w", "b", "starting"));
+    list = mergeRun(list, run("w", "a", "starting"));
+    expect(list.map((r) => r.stack)).toEqual(["a", "b"]);
+
+    list = mergeRun(list, run("w", "a", "running"));
+    expect(list).toHaveLength(2);
+    expect(list.find((r) => r.stack === "a")?.state).toBe("running");
+  });
+
+  it("drops a stack once it has stopped, and ignores stopping an unknown one", () => {
+    const list = mergeRun([run("w", "a", "running")], run("w", "a", "stopped"));
+    expect(list).toEqual([]);
+    expect(mergeRun([], run("w", "x", "stopped"))).toEqual([]);
+  });
+
+  it("keeps same-named stacks of other workspaces apart", () => {
+    const list = mergeRun([run("one", "full", "running")], run("two", "full", "starting"));
+    expect(list.map((r) => r.workspace)).toEqual(["one", "two"]);
+  });
+});
+
+describe("startOrder", () => {
+  const stack: StackDef = {
+    name: "full",
+    compose: { repo: "infra", file: "c.yml" },
+    services: [
+      { id: "web", kind: "node", after: ["api"] },
+      { id: "api", kind: "go", after: ["db"] },
+      { id: "db", kind: "command" },
+      { id: "auth", kind: "go" },
+    ],
+  };
+
+  it("puts compose first, then each wave of services that can start together", () => {
+    expect(startOrder(stack)).toEqual([["compose"], ["db", "auth"], ["api"], ["web"]]);
+  });
+
+  it("does not hang on a loop or an unknown dependency", () => {
+    const loop: StackDef = {
+      name: "x",
+      services: [
+        { id: "a", kind: "go", after: ["b"] },
+        { id: "b", kind: "go", after: ["a"] },
+        { id: "c", kind: "go", after: ["ghost"] },
+      ],
+    };
+    const cols = startOrder(loop);
+    expect(cols.flat().sort()).toEqual(["a", "b", "c"]);
+    expect(startOrder({ name: "empty" })).toEqual([]);
+  });
+});
+
+describe("tally", () => {
+  it("counts services, the ready ones and the problems", () => {
+    const t = tally([
+      run("w", "a", "running", [svc("x", "ready"), svc("y", "ready")]),
+      run("w", "b", "degraded", [svc("z", "failed"), svc("q", "blocked"), svc("r", "restarting"), svc("s", "starting")]),
+    ]);
+    expect(t).toEqual({ stacks: 2, services: 6, ready: 2, problems: 3 });
+    expect(tally([])).toEqual({ stacks: 0, services: 0, ready: 0, problems: 0 });
+  });
+});
+
+describe("formatUptime", () => {
+  it.each([
+    [0, "0s"],
+    [999, "0s"],
+    [59_000, "59s"],
+    [134_000, "2m 14s"],
+    [3_660_000, "1h 1m"],
+    [90_000_000, "1d 1h"],
+    [-5, "0s"],
+  ])("%d ms is %s", (ms, text) => {
+    expect(formatUptime(ms)).toBe(text);
+  });
+});

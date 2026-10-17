@@ -9,8 +9,9 @@ function socketUrl(): string {
   return `${scheme}://${location.host}/ws`;
 }
 
-export function SocketProvider({ children }: { children: ReactNode }) {
-  const [socket] = useState(() => new TopicSocket({ url: socketUrl() }));
+/** `socket` lets a test supply its own; the app lets the provider make one. */
+export function SocketProvider({ children, socket: given }: { children: ReactNode; socket?: TopicSocket }) {
+  const [socket] = useState(() => given ?? new TopicSocket({ url: socketUrl() }));
   useEffect(() => {
     socket.connect();
     return () => socket.close();

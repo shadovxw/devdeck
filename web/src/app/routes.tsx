@@ -5,8 +5,10 @@ import type { RouteObject } from "react-router";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { DoctorPage } from "../pages/DoctorPage";
+import { HomePage } from "../pages/HomePage";
 import { Placeholder } from "../pages/Placeholder";
 import { PluginsPage } from "../pages/PluginsPage";
+import { StacksPage } from "../pages/StacksPage";
 import { WorkspacesPage } from "../pages/WorkspacesPage";
 import { FatalError, PageError } from "./ErrorPages";
 import { NAV_ITEMS } from "./nav";
@@ -16,6 +18,8 @@ import { Shell } from "./Shell";
 const built: Record<string, ReactElement> = {
   "/plugins": <PluginsPage />,
   "/workspaces": <WorkspacesPage />,
+  "/": <HomePage />,
+  "/stacks": <StacksPage />,
   "/doctor": <DoctorPage />,
 };
 

@@ -1,13 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { api } from "./api";
-import type { DoctorReport, Health, Plugin, ScanResult, Validation, WorkspaceDetail, WorkspaceSummary } from "./types";
+import { mergeRun } from "./runs";
+import { useSocketStatus, useTopicHandler } from "./socket";
+import type { DoctorReport, Health, Plugin, RunStatus, ScanResult, Validation, WorkspaceDetail, WorkspaceSummary } from "./types";
 
 export const keys = {
   health: ["health"] as const,
   plugins: ["plugins"] as const,
   workspaces: ["workspaces"] as const,
   workspace: (id: string) => ["workspaces", id] as const,
+  runs: ["runs"] as const,
 };
 
 /** Polls the server. Fast while it is unreachable so the splash recovers by itself. */
@@ -86,5 +90,52 @@ export function useDoctor(workspace: string | undefined, stack: string | undefin
     enabled: Boolean(workspace),
     refetchOnWindowFocus: false,
     retry: false,
+  });
+}
+
+/**
+ * The stacks devdeck has started, kept current by the live "stacks.*" updates.
+ * When the socket reconnects the list is fetched again, in case updates were missed.
+ */
+export function useRuns() {
+  const qc = useQueryClient();
+  const socket = useSocketStatus();
+  const query = useQuery({
+    queryKey: keys.runs,
+    queryFn: ({ signal }) => api.get<RunStatus[]>("/runs", signal),
+  });
+  useTopicHandler<RunStatus>("stacks.*", (run) => {
+    qc.setQueryData<RunStatus[]>(keys.runs, (list) => mergeRun(list, run));
+  });
+  useEffect(() => {
+    if (socket === "open") void qc.invalidateQueries({ queryKey: keys.runs });
+  }, [socket, qc]);
+  return query;
+}
+
+type StackRef = { workspace: string; stack: string };
+
+const stackUrl = ({ workspace, stack }: StackRef) => `/workspaces/${encodeURIComponent(workspace)}/stacks/${encodeURIComponent(stack)}`;
+
+/** Checks the machine, then starts the stack in the background. A refusal carries the Doctor report. */
+export function useStartStack() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ref: StackRef) => api.post<RunStatus>(`${stackUrl(ref)}/start`),
+    onSuccess: (run) => qc.setQueryData<RunStatus[]>(keys.runs, (list) => mergeRun(list, run)),
+  });
+}
+
+export function useStopStack() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ref: StackRef) => api.post<void>(`${stackUrl(ref)}/stop`),
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.runs }),
+  });
+}
+
+export function useRestartService() {
+  return useMutation({
+    mutationFn: (ref: StackRef & { service: string }) => api.post<void>(`${stackUrl(ref)}/services/${encodeURIComponent(ref.service)}/restart`),
   });
 }

@@ -106,6 +106,53 @@
   }
 }
 
+/* --- Services starting ---------------------------------------------------------
+   A turning arc means "working"; it only plays while a service is building,
+   starting or stopping. A restarting service breathes once a second. */
+.spin-arc {
+  animation: spin-arc 0.9s linear infinite;
+}
+
+@keyframes spin-arc {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pulse-mark {
+  animation: pulse-mark 1s ease-in-out infinite;
+}
+
+@keyframes pulse-mark {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* The line between two columns of the start order fills left to right once the
+   column before it is ready. */
+.boot-link {
+  position: relative;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--line-strong);
+}
+
+.boot-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--good);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-move) var(--ease-out);
+}
+
+.boot-link[data-on="true"]::after {
+  transform: scaleX(1);
+}
+
 /* --- Reduced motion ---------------------------------------------------------
    The OS setting, or data-motion="reduced". Loops stop and one-shot motion ends
    at once. (Durations driven by the tokens are already close to zero.) */

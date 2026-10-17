@@ -76,10 +76,10 @@ describe("pages", () => {
 
   it("disables the button on pages that are not built yet, with the phase in its tooltip", async () => {
     mockServer();
-    renderAt("/stacks");
-    const btn = (await screen.findByRole("button", { name: /Create stack/ })) as HTMLButtonElement;
+    renderAt("/work-items");
+    const btn = (await screen.findByRole("button", { name: /New work item/ })) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
-    expect(btn.title).toBe("Available in Phase 2");
+    expect(btn.title).toBe("Available in Phase 10");
   });
 
   it("keeps the top bar to the sidebar toggle, the workspace picker and status controls", async () => {
