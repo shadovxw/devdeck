@@ -18,6 +18,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/config"
 	"github.com/shadovxw/devdeck/internal/events"
 	"github.com/shadovxw/devdeck/internal/store"
+	"github.com/shadovxw/devdeck/plugins"
 )
 
 // version is overridden at build time with -ldflags "-X main.version=...".
@@ -47,6 +48,11 @@ func run() error {
 	}
 	defer func() { _ = db.Close() }()
 
+	registry, err := plugins.NewRegistry()
+	if err != nil {
+		return err
+	}
+
 	bus := events.NewBus()
 	guard, err := api.NewGuard(cfg.Addr, cfg.ExtraOrigins)
 	if err != nil {
@@ -61,6 +67,7 @@ func run() error {
 		Bus:     bus,
 		Guard:   guard,
 		Hub:     api.NewHub(bus, guard.OriginHosts(), log.Logger),
+		Plugins: registry,
 	})
 
 	serverErr := make(chan error, 1)
