@@ -22,7 +22,7 @@ export function EmptyState({ icon, empty, phase }: Props) {
   const CtaIcon = cta?.icon ?? Plus;
 
   return (
-    <section className="flex flex-col items-center px-2 pb-10 pt-8 text-center">
+    <section className="flex flex-col items-center px-2 pb-10 pt-4 text-center">
       <div className="enter flex w-full justify-center" style={stagger(1)}>
         <EmptyArt centerIcon={icon} />
       </div>

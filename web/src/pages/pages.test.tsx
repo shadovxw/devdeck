@@ -57,11 +57,13 @@ afterEach(() => {
 });
 
 describe("pages", () => {
-  it("shows a placeholder with its phase for pages that are not built yet", async () => {
+  it("shows only the breadcrumb and title at the top of a page, with no phase label or scope chip", async () => {
     mockServer();
     renderAt("/stacks");
-    expect(await screen.findByRole("heading", { name: "Stacks" })).toBeTruthy();
-    expect(screen.getByText("Phase 2")).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 1, name: "Stacks" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Run locally/Stacks");
+    expect(screen.queryByText(/Phase \d/)).toBeNull();
+    expect(screen.queryByText("Local workspace")).toBeNull();
   });
 
   it("shows the page's own empty state", async () => {
@@ -161,7 +163,7 @@ describe("pages", () => {
       }),
     );
     renderAt("/plugins");
-    expect(await screen.findByRole("status", { name: "Loading plugins" })).toBeTruthy();
+    expect(await screen.findByRole("status", { name: "Loading plugins…" })).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
   });
 

@@ -144,7 +144,7 @@ function Group({ group }: { group: NavGroup }) {
       <SidebarGroup className="px-2 py-0.5 group-data-[collapsible=icon]:py-0">
         <SidebarGroupLabel
           asChild
-          className="h-6 cursor-pointer text-[12px] text-sidebar-foreground/60 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden"
+          className="h-6 cursor-pointer text-[12px] text-ink-3 hover:text-ink group-data-[collapsible=icon]:hidden"
         >
           <CollapsibleTrigger>
             {group.name}

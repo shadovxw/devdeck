@@ -22,7 +22,7 @@ function NotFound() {
       <EmptyState
         icon={Compass}
         empty={{
-          headline: "This page doesn't exist",
+          headline: "This page doesn’t exist",
           text: "The address may be mistyped, or the page has moved.",
           cta: { label: "Back to Home", icon: House, to: "/" },
         }}

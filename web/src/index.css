@@ -29,4 +29,66 @@
   button {
     cursor: pointer;
   }
+
+  /* The parts the browser draws: they carry the design too, not browser defaults. */
+  html {
+    accent-color: var(--accent);
+    caret-color: var(--accent);
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+    /* The sticky top bar must not cover whatever has keyboard focus. */
+    scroll-padding-top: 4.5rem;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 32%, transparent);
+    color: inherit;
+  }
+
+  /* No double-tap-zoom delay on controls. */
+  a,
+  button,
+  summary,
+  label,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Balanced headings, no one-word last lines. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Scrolling inside the drawer or a code block never drags the page behind it. */
+  [data-slot="sidebar-content"],
+  [data-slot="sheet-content"],
+  pre {
+    overscroll-behavior: contain;
+  }
+}
+
+/* On touch screens every control is at least 44px, the smallest comfortable tap target. */
+@media (pointer: coarse) {
+  [data-sidebar="menu-button"],
+  [data-sidebar="menu-sub-button"],
+  header.sticky a,
+  header.sticky button,
+  main button {
+    min-height: 44px;
+  }
+
+  header.sticky button,
+  [data-slot="sidebar-trigger"] {
+    min-width: 44px;
+  }
 }

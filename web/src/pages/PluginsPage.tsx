@@ -46,7 +46,7 @@ function Row({ plugin }: { plugin: Plugin }) {
   );
 }
 
-const th = "px-4 py-2.5 text-start text-[12px] font-medium uppercase tracking-wide text-ink-3";
+const th = "px-4 py-2.5 text-start text-[13px] font-medium text-ink-3";
 
 export function PluginsPage() {
   const item = navByPath("/plugins");
@@ -54,16 +54,16 @@ export function PluginsPage() {
 
   return (
     <>
-      <PageHeader title={item.label} group={item.group} phase={item.phase} />
+      <PageHeader title={item.label} group={item.group} />
 
-      <section className="enter mt-7 rounded-sheet bg-surface-1" style={stagger(1)}>
+      <section className="enter mt-4 rounded-sheet bg-surface-1" style={stagger(1)}>
         <div className="flex items-center gap-2 px-4 py-3">
           <p className="m-0 flex-1 text-[13px] text-ink-3">{data ? `${data.length} plugins` : ""}</p>
           <button
             type="button"
             onClick={() => void refetch()}
             disabled={isFetching}
-            title="Run every plugin's check again"
+            title="Run every plugin’s check again"
             className="inline-flex h-9 items-center gap-2 rounded-ctl px-3 text-[14px] text-ink-2 transition hover:bg-accent-soft hover:text-ink active:scale-[.97] disabled:opacity-50"
           >
             <RotateCw size={15} className={isFetching ? "animate-spin" : undefined} aria-hidden />
@@ -72,7 +72,7 @@ export function PluginsPage() {
         </div>
 
         {isPending && (
-          <div role="status" aria-label="Loading plugins" className="flex flex-col gap-4 px-4 pb-6 pt-2">
+          <div role="status" aria-label="Loading plugins…" className="flex flex-col gap-4 px-4 pb-6 pt-2">
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex items-center gap-8">
                 <div className="skeleton h-4 w-20" />

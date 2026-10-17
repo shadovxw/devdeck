@@ -6,12 +6,16 @@
     <meta name="color-scheme" content="dark light" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/src/design/boot.css" />
+    <meta name="theme-color" content="#0c1012" />
     <title>devdeck</title>
     <script>
       // Apply the saved theme before first paint so there is no flash.
       try {
         var t = localStorage.getItem("devdeck.theme");
         if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+        // Browser frame colour: the page background of the theme in effect.
+        var light = t === "light" || (t !== "dark" && matchMedia("(prefers-color-scheme: light)").matches);
+        document.querySelector('meta[name="theme-color"]').content = light ? "#f3f6f6" : "#0c1012";
       } catch (e) {}
     </script>
   </head>

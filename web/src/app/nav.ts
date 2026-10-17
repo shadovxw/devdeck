@@ -142,7 +142,7 @@ const GROUPS: GroupDef[] = [
         phase: "Phase 3",
         empty: {
           headline: "No logs to show",
-          text: "Start a stack and every service's logs appear here, filterable by level, field or regex.",
+          text: "Start a stack and every service’s logs appear here, filterable by level, field or regex.",
         },
       },
       {

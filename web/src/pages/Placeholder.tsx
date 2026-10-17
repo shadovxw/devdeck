@@ -10,7 +10,7 @@ export function Placeholder({ item }: { item: NavItem }) {
   const icon = item.path === "/" ? Terminal : item.icon;
   return (
     <>
-      <PageHeader title={item.label} group={item.group} parent={item.parent} phase={item.phase} />
+      <PageHeader title={item.label} group={item.group} parent={item.parent} />
       {item.empty && <EmptyState icon={icon} empty={item.empty} phase={item.phase} />}
     </>
   );

@@ -74,7 +74,7 @@ export function ErrorView({
   const Heading = standalone ? "h1" : "h2";
 
   const content = (
-    <section role="alert" className="flex w-full flex-col items-center px-2 pb-10 pt-8 text-center">
+    <section role="alert" className="flex w-full flex-col items-center px-2 pb-10 pt-4 text-center">
       {standalone && <Logo className="mb-4 size-10" />}
       <EmptyArt centerIcon={TriangleAlert} tone="critical" />
       {info.status && (

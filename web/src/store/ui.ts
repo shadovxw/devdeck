@@ -42,10 +42,26 @@ function readClosedGroups(): string[] {
   }
 }
 
+/** The page background per theme: keep in step with --bg in design/tokens.css. */
+const THEME_COLOR = { dark: "#0c1012", light: "#f3f6f6" } as const;
+
+/** Tells the browser the page colour, so its own frame (phone address bar, window titlebar) matches. */
+export function syncThemeColor(theme: Theme): void {
+  const light = theme === "light" || (theme === "system" && window.matchMedia("(prefers-color-scheme: light)").matches);
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.name = "theme-color";
+    document.head.append(meta);
+  }
+  meta.content = THEME_COLOR[light ? "light" : "dark"];
+}
+
 /** Sets or clears data-theme; with no attribute the OS preference decides. */
 function applyTheme(theme: Theme): void {
   if (theme === "system") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = theme;
+  syncThemeColor(theme);
 }
 
 type UiState = {
@@ -81,3 +97,7 @@ export const useUi = create<UiState>((set, get) => ({
     set({ closedGroups });
   },
 }));
+
+// Keep the browser frame colour right at start-up and when the OS theme changes.
+syncThemeColor(useUi.getState().theme);
+window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => syncThemeColor(useUi.getState().theme));
