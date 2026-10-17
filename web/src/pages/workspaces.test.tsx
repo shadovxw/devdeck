@@ -1,0 +1,157 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { createMemoryRouter } from "react-router";
+import { RouterProvider } from "react-router/dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { routes } from "../app/routes";
+import type { Issue, WorkspaceDetail, WorkspaceSummary } from "../lib/types";
+import { useUi } from "../store/ui";
+
+const demo: WorkspaceSummary = {
+  id: "demo",
+  name: "demo",
+  source: "local",
+  root: "~/code",
+  repos: 2,
+  stacks: 1,
+  flows: 0,
+  errors: 1,
+  warnings: 1,
+};
+
+const issues: Issue[] = [
+  { file: "stacks/full.yaml", path: "/services/1/repo", line: 9, severity: "error", message: 'There is no repo with id "ghost".' },
+  { file: "workspace.yaml", line: 3, severity: "warning", message: "The folder doesn’t exist on this machine." },
+];
+
+const detail: WorkspaceDetail = {
+  ...demo,
+  workspace: { name: "demo", root: "~/code", repos: [{ id: "api", path: "api", type: "go", remote: "github.com/acme/api" }] },
+  stacks: [{ name: "full" }],
+  flows: [],
+  issues,
+};
+
+const draft = "version: 1\nname: code\nroot: ~/code\nrepos:\n  - id: api\n    path: api\n";
+
+type Posted = { url: string; body: unknown };
+const posted: Posted[] = [];
+
+function mockServer(opts: { list?: WorkspaceSummary[]; scanError?: string } = {}) {
+  let list = opts.list ?? [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      if (method === "POST") posted.push({ url, body });
+      if (url === "/api/v1/health") return Promise.resolve(Response.json({ status: "ok", version: "test" }));
+      if (url === "/api/v1/workspaces" && method === "GET") return Promise.resolve(Response.json(list));
+      if (url === "/api/v1/workspaces/demo") return Promise.resolve(Response.json(detail));
+      if (url === "/api/v1/workspaces/scan") {
+        if (opts.scanError) return Promise.resolve(Response.json({ message: opts.scanError }, { status: 422 }));
+        return Promise.resolve(Response.json({ root: "/home/me/code", name: "code", repos: [{ id: "api", path: "api" }], yaml: draft }));
+      }
+      if (url === "/api/v1/workspaces/validate") {
+        return Promise.resolve(Response.json({ valid: true, issues: [] }));
+      }
+      if (url === "/api/v1/workspaces" && method === "POST") {
+        list = [{ ...demo, id: "code", name: "code", errors: 0, warnings: 0 }];
+        return Promise.resolve(Response.json(list[0], { status: 201 }));
+      }
+      return Promise.resolve(Response.json({ message: "not found" }, { status: 404 }));
+    }),
+  );
+}
+
+function renderAt(path: string) {
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+}
+
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  useUi.setState({ sidebarOpen: false, closedGroups: [] });
+  vi.unstubAllGlobals();
+  posted.length = 0;
+});
+
+describe("workspaces page", () => {
+  it("shows the empty state when there are none, and its button opens the add form", async () => {
+    mockServer();
+    renderAt("/workspaces");
+    expect(await screen.findByRole("heading", { name: "No workspace yet" })).toBeTruthy();
+
+    const add = screen.getByRole("button", { name: /Add workspace/ }) as HTMLButtonElement;
+    expect(add.disabled).toBe(false);
+    fireEvent.click(add);
+
+    expect(await screen.findByRole("region", { name: "Add workspace" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "No workspace yet" })).toBeNull();
+  });
+
+  it("lists workspaces with their counts and problems", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces");
+    const row = (await screen.findByRole("button", { name: "demo" })).closest("tr")!;
+    expect(within(row).getByText("Yours")).toBeTruthy();
+    expect(within(row).getByTitle("1 error")).toBeTruthy();
+    expect(within(row).getByTitle("1 warning")).toBeTruthy();
+  });
+
+  it("opens a workspace and shows each problem with its file and line", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces");
+    fireEvent.click(await screen.findByRole("button", { name: "demo" }));
+
+    const panel = within(await screen.findByRole("region", { name: "Workspace details" }));
+    expect(await panel.findByText("stacks/full.yaml")).toBeTruthy();
+    expect(panel.getByText("line 9")).toBeTruthy();
+    expect(panel.getByText(/no repo with id "ghost"/)).toBeTruthy();
+    expect(panel.getByText("github.com/acme/api")).toBeTruthy();
+
+    fireEvent.click(panel.getByRole("button", { name: "Close details" }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Workspace details" })).toBeNull());
+  });
+
+  it("scans a folder, shows the draft, and saves exactly what is in the box", async () => {
+    mockServer();
+    renderAt("/workspaces");
+    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+
+    fireEvent.change(await screen.findByLabelText(/Folder that contains/), { target: { value: "~/code" } });
+    fireEvent.click(screen.getByRole("button", { name: /Scan folder/ }));
+
+    const box = (await screen.findByLabelText("workspace.yaml")) as HTMLTextAreaElement;
+    expect(box.value).toBe(draft);
+    expect(posted).toContainEqual({ url: "/api/v1/workspaces/scan", body: { root: "~/code" } });
+
+    fireEvent.change(box, { target: { value: draft + "# edited\n" } });
+    const create = screen.getByRole("button", { name: /Create workspace/ }) as HTMLButtonElement;
+    await waitFor(() => expect(create.disabled).toBe(false));
+    fireEvent.click(create);
+
+    await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces", body: { yaml: draft + "# edited\n" } }));
+    // the form closes and the new workspace is in the list
+    expect(await screen.findByRole("button", { name: "code" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Add workspace" })).toBeNull();
+  });
+
+  it("says why a folder couldn't be scanned", async () => {
+    mockServer({ scanError: "that folder doesn't exist" });
+    renderAt("/workspaces");
+    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.change(await screen.findByLabelText(/Folder that contains/), { target: { value: "~/nope" } });
+    fireEvent.click(screen.getByRole("button", { name: /Scan folder/ }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("that folder doesn't exist");
+    expect(screen.queryByLabelText("workspace.yaml")).toBeNull();
+  });
+});

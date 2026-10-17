@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../../../internal/workspace/schemas/flow.schema.json
+version: 1
+name: pre-pr-check
+description: Look for secrets and known vulnerabilities before opening a pull request.
+
+trigger:
+  manual: true
+
+# Run the whole flow once for every repo in the workspace.
+for_each: repo
+
+steps:
+  - id: secrets
+    uses: gitleaks.scan
+
+  - id: vulnerabilities
+    uses: trivy.scan
+    needs: [secrets]
+    gate: steps.vulnerabilities.outputs.findings_count == 0

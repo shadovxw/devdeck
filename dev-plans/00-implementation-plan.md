@@ -309,6 +309,8 @@ Follow the dataviz rules: one y-axis per chart, a single hue for magnitude, stat
 Size key: **S** ≈ 1–2 days · **M** ≈ 3–5 days · **L** ≈ 1–2 weeks · **XL** ≈ 2–3 weeks (focused work, Claude-assisted).
 Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md` describing what was built.
 
+**Phase wrap-up routine (every phase, before starting the next):** merge the phase's PRs and confirm CI is green, update the phase notes and the memory file, then run **`/compact`** in the Claude session so the next phase starts with a short context. Do the same at the end of any long part inside a phase.
+
 ---
 
 ### Phase 0: Foundations (L)

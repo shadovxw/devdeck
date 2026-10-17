@@ -12,12 +12,14 @@ type Props = {
   empty: Empty;
   /** Shown in the disabled button's tooltip when the page isn't built yet. */
   phase?: string;
+  /** Makes a button without a link work: the page handles the click. */
+  onCta?: () => void;
 };
 
 const primary = primaryButton;
 
 /** What a page shows when it has nothing to show yet: art, a headline, one next step. */
-export function EmptyState({ icon, empty, phase }: Props) {
+export function EmptyState({ icon, empty, phase, onCta }: Props) {
   const { cta, secondary } = empty;
   const CtaIcon = cta?.icon ?? Plus;
 
@@ -45,9 +47,10 @@ export function EmptyState({ icon, empty, phase }: Props) {
             ) : (
               <button
                 type="button"
-                disabled
-                title={phase ? `Available in ${phase}` : "Not available yet"}
-                className={`${primary} cursor-not-allowed opacity-45 hover:brightness-100`}
+                disabled={!onCta}
+                onClick={onCta}
+                title={onCta ? undefined : phase ? `Available in ${phase}` : "Not available yet"}
+                className={onCta ? primary : `${primary} cursor-not-allowed opacity-45 hover:brightness-100`}
               >
                 <CtaIcon size={18} aria-hidden />
                 {cta.label}

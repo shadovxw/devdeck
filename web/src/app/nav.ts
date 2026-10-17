@@ -85,7 +85,6 @@ const GROUPS: GroupDef[] = [
         path: "/workspaces",
         label: "Workspaces",
         icon: Boxes,
-        phase: "Phase 2",
         empty: {
           headline: "No workspace yet",
           text: "Point devdeck at a folder of repositories to create your first workspace.",

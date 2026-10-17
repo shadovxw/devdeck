@@ -11,13 +11,13 @@ describe("nav config", () => {
     for (const p of paths) expect(p.startsWith("/")).toBe(true);
   });
 
-  it("gives every page except Plugins an empty state, and its button points to a real page", () => {
+  it("gives every page except the built ones an empty state, and its button points to a real page", () => {
     const paths = new Set(NAV_ITEMS.map((i) => i.path));
     for (const item of NAV_ITEMS) {
       if (item.path === "/plugins") continue;
       expect(item.empty, item.path).toBeDefined();
       expect(item.empty!.headline.length, item.path).toBeGreaterThan(0);
-      expect(item.phase, item.path).toBeDefined();
+      if (item.path !== "/workspaces") expect(item.phase, item.path).toBeDefined();
       const to = item.empty!.cta?.to;
       if (to) expect(paths.has(to), `${item.path} -> ${to}`).toBe(true);
     }

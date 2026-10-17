@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devdeck.local/schemas/workspace.schema.json",
+  "title": "devdeck workspace",
+  "description": "workspace.yaml: the folder of repositories devdeck works on, and who owns each one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "name", "root"],
+  "properties": {
+    "version": { "const": 1, "description": "Schema version. Always 1 for now." },
+    "name": { "$ref": "#/$defs/id", "description": "Short name of the workspace: lowercase letters, digits and dashes." },
+    "description": { "type": "string", "maxLength": 200 },
+    "root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The folder that contains the repositories. Absolute, starting with ~, or relative to this file."
+    },
+    "default_connection": { "type": "string", "description": "Id of the connection used by repos that have no rule or override." },
+    "repos": { "type": "array", "items": { "$ref": "#/$defs/repo" } },
+    "connections": { "type": "array", "items": { "$ref": "#/$defs/connection" } },
+    "account_rules": { "type": "array", "items": { "$ref": "#/$defs/accountRule" } }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,39}$"
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "path": { "type": "string", "minLength": 1, "description": "Folder of the repository, relative to the workspace root." },
+        "type": { "enum": ["go", "node", "python", "docker", "other"] },
+        "remote": { "type": "string", "description": "Where it lives, as host/owner/repo (no credentials)." },
+        "connection": { "type": "string", "description": "Overrides the account rules for this repo." },
+        "default_branch": { "type": "string" }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "$ref": "#/$defs/id", "description": "A plugin's connection type, such as github." },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "email"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "email": { "type": "string", "minLength": 3 }
+          },
+          "description": "The commit identity used with this connection."
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Non-secret settings such as a host name. Secrets never go in YAML; they live in the OS keychain."
+        }
+      }
+    },
+    "accountRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match", "connection"],
+      "properties": {
+        "match": { "type": "string", "minLength": 1, "description": "A remote pattern such as github.com/acme/*." },
+        "connection": { "type": "string" }
+      }
+    }
+  }
+}

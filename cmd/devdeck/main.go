@@ -18,7 +18,9 @@ import (
 	"github.com/shadovxw/devdeck/internal/config"
 	"github.com/shadovxw/devdeck/internal/events"
 	"github.com/shadovxw/devdeck/internal/store"
+	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/plugins"
+	"github.com/shadovxw/devdeck/sdk"
 )
 
 // version is overridden at build time with -ldflags "-X main.version=...".
@@ -68,6 +70,11 @@ func run() error {
 		Guard:   guard,
 		Hub:     api.NewHub(bus, guard.OriginHosts(), log.Logger),
 		Plugins: registry,
+		Workspaces: &workspace.Manager{
+			Dir:         cfg.WorkspacesDir,
+			ExamplesDir: cfg.ExamplesDir,
+			Plugins:     func() []string { return pluginIDs(registry) },
+		},
 	})
 
 	serverErr := make(chan error, 1)
@@ -88,4 +95,14 @@ func run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return e.Shutdown(shutdownCtx)
+}
+
+// pluginIDs lists the installed plugins, so flows naming others get a warning.
+func pluginIDs(reg *sdk.Registry) []string {
+	list := reg.List()
+	ids := make([]string, len(list))
+	for i, p := range list {
+		ids[i] = p.Manifest().ID
+	}
+	return ids
 }

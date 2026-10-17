@@ -17,6 +17,10 @@ type Config struct {
 	Addr string
 	// DataDir holds state.db and other local state.
 	DataDir string
+	// WorkspacesDir holds the user's own workspaces, one folder each.
+	WorkspacesDir string
+	// ExamplesDir optionally holds read-only sample workspaces.
+	ExamplesDir string
 	// LogLevel is the zerolog level for devdeck's own log.
 	LogLevel zerolog.Level
 	// ExtraOrigins are additional browser origins allowed to call the API,
@@ -33,6 +37,8 @@ const (
 //
 //	DEVDECK_ADDR           listen address, loopback only (default 127.0.0.1:7070)
 //	DEVDECK_DATA_DIR       data directory (default <user config dir>/devdeck)
+//	DEVDECK_WORKSPACES_DIR workspaces folder (default <data dir>/workspaces)
+//	DEVDECK_EXAMPLES_DIR   sample workspaces folder (default none)
 //	DEVDECK_LOG_LEVEL      zerolog level (default info)
 //	DEVDECK_EXTRA_ORIGINS  comma-separated extra allowed origins
 func Load(getenv func(string) string) (Config, error) {
@@ -56,10 +62,12 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	return Config{
-		Addr:         addr,
-		DataDir:      dataDir,
-		LogLevel:     level,
-		ExtraOrigins: splitList(getenv("DEVDECK_EXTRA_ORIGINS")),
+		Addr:          addr,
+		DataDir:       dataDir,
+		WorkspacesDir: orDefault(getenv("DEVDECK_WORKSPACES_DIR"), filepath.Join(dataDir, "workspaces")),
+		ExamplesDir:   getenv("DEVDECK_EXAMPLES_DIR"),
+		LogLevel:      level,
+		ExtraOrigins:  splitList(getenv("DEVDECK_EXTRA_ORIGINS")),
 	}, nil
 }
 
