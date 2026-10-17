@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { NAV, NAV_ITEMS } from "./nav";
+import { NAV, NAV_ITEMS, navByPath } from "./nav";
 
 describe("nav config", () => {
   it("has unique, absolute paths and labels", () => {
@@ -26,5 +26,14 @@ describe("nav config", () => {
   it("has Home at the root and no empty groups", () => {
     expect(NAV[0].items[0].path).toBe("/");
     for (const g of NAV) expect(g.items.length).toBeGreaterThan(0);
+  });
+
+  it("nests sub-pages under their parent and still lists them once as pages", () => {
+    const databases = NAV.flatMap((g) => g.items).find((i) => i.path === "/databases");
+    expect(databases?.children?.map((c) => c.path)).toEqual(["/migrations", "/sql", "/scripts"]);
+    expect(NAV.flatMap((g) => g.items).some((i) => i.path === "/migrations")).toBe(false); // not top-level
+    expect(navByPath("/migrations").parent).toBe("Databases");
+    expect(navByPath("/migrations").group).toBe("Data");
+    expect(NAV_ITEMS.filter((i) => i.path === "/migrations")).toHaveLength(1);
   });
 });

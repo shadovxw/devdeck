@@ -26,13 +26,22 @@
   --mark-under: #2aeab4;
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  /* The dock is dark in both themes. */
-  --dock-bg: #0a1013;
-  --dock-ink: #8fa1a7;
-  --dock-line: rgba(255, 255, 255, 0.08);
-  --dock-hover: rgba(83, 211, 230, 0.1);
-  --dock-active: rgba(83, 211, 230, 0.16);
-  --dock-accent: #53d3e6;
+  /* Brand colours (brand/README.md). Deliberately separate from the website accent
+     (--accent): the logo, wordmark and loader keep these in both themes. */
+  --brand: #1fe8bf;
+  --brand-dev: #f4f8f9;
+  --brand-deck-from: #13c8cc;
+  --brand-deck-to: #1fe8bf;
+
+  /* Sidebar: the same surface as the top bar and the cards (dark in the dark theme, white in the light theme). */
+  --sidebar: var(--surface-1);
+  --sidebar-foreground: #c9d6da;
+  --sidebar-primary: #53d3e6;
+  --sidebar-primary-foreground: #04252b;
+  --sidebar-accent: rgba(83, 211, 230, 0.16);
+  --sidebar-accent-foreground: #53d3e6;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #53d3e6;
 
   /* Empty-state illustration. */
   --tile-top: #243239;
@@ -48,7 +57,7 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --bg: #f3f6f6;
-    --surface-1: #fbfcfc;
+    --surface-1: #ffffff;
     --surface-2: #ffffff;
     --fill: #e9eff0;
     --fill-hover: #dde6e8;
@@ -65,6 +74,19 @@
     --neutral: #5f6f75;
     --mark-prompt: #0b0f12;
     --mark-under: #0b0f12;
+    --sidebar: var(--surface-1);
+    --sidebar-foreground: #26373c;
+    --sidebar-primary: #0a7c8f;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: rgba(10, 124, 143, 0.1);
+    --sidebar-accent-foreground: #0a7c8f;
+    --sidebar-border: rgba(12, 40, 48, 0.1);
+    --sidebar-ring: #0a7c8f;
+    /* Brand colours on a light background (brand/README.md). */
+    --brand: #0bbfa9;
+    --brand-dev: #0b0f12;
+    --brand-deck-from: #0fb3b8;
+    --brand-deck-to: #0bbfa9;
     --tile-top: #ffffff;
     --tile-side: #cde3e5;
     --tile-line: #b7d4d7;
@@ -76,7 +98,7 @@
 
 :root[data-theme="light"] {
   --bg: #f3f6f6;
-  --surface-1: #fbfcfc;
+  --surface-1: #ffffff;
   --surface-2: #ffffff;
   --fill: #e9eff0;
   --fill-hover: #dde6e8;
@@ -93,6 +115,19 @@
   --neutral: #5f6f75;
   --mark-prompt: #0b0f12;
   --mark-under: #0b0f12;
+  --sidebar: var(--surface-1);
+  --sidebar-foreground: #26373c;
+  --sidebar-primary: #0a7c8f;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(10, 124, 143, 0.1);
+  --sidebar-accent-foreground: #0a7c8f;
+  --sidebar-border: rgba(12, 40, 48, 0.1);
+  --sidebar-ring: #0a7c8f;
+  /* Brand colours on a light background (brand/README.md). */
+  --brand: #0bbfa9;
+  --brand-dev: #0b0f12;
+  --brand-deck-from: #0fb3b8;
+  --brand-deck-to: #0bbfa9;
   --tile-top: #ffffff;
   --tile-side: #cde3e5;
   --tile-line: #b7d4d7;
