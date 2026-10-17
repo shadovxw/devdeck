@@ -456,7 +456,7 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 
 ---
 
-### Phase 5: Resources (M)
+### Phase 5: Resources and notifications (L)
 - **5.1 Sampling**
   - 5.1.1 Machine CPU/RAM/disk via gopsutil (5 s)
   - 5.1.2 Per-service process trees (Job Object PIDs) + Docker stats API for containers
@@ -468,7 +468,17 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 - **5.3 Idle detection**: no log lines + near-zero CPU for N minutes → "idle" badge + "stop idle" action
 - **5.4 UI**: rings, live CPU chart, RAM-by-service bars with stop buttons, disk treemap, devdeck's own usage
 
-**Done when**: numbers match Task Manager / `docker stats` within 5%; stopping from the RAM list frees the memory.
+- **5.5 Notifications** (all channels send over HTTPS/443; the office blocks SMTP, so there is no SMTP sender)
+  - 5.5.1 Event bus → notification events: `service.failed_to_start`, `service.crashed`, `service.recovered`, `stack.ready`, `image.build.succeeded|failed`, `image.push.failed`, `flow.run.failed|succeeded`, `migration.failed`, `finding.critical`, `disk.low`, `digest.daily`
+  - 5.5.2 Channels as connection types (secrets in the keyring): **Windows toast** (built in, offline), **ntfy** (phone push; random topic name or self-hosted/token-protected server), **Telegram bot**, **email via HTTPS API** (Resend default; Brevo and the Gmail API as alternatives; Microsoft Graph only if IT allows it), **Teams Workflows webhook**, **generic webhook**
+  - 5.5.3 Sending library: Shoutrrr (maintained fork `nicholas-fedor/shoutrrr`, pinned) for ntfy/Telegram/Teams/webhooks; small direct HTTP clients for the email APIs; Windows toast via a Go toast library
+  - 5.5.4 Rules: event + filter (workspace, stack, repo, severity) → channels; defaults as on the Notifications mockup page
+  - 5.5.5 Behaviour: flap protection (one alert per service per 10 min, "still down" reminder, "recovered" message), quiet hours, email batching (15 min) + daily digest, offline queue with retry, delivery log
+  - 5.5.6 Privacy: messages carry names, status and a devdeck link only, never log lines, SQL, tokens or file contents
+  - 5.5.7 UI: Notifications page (channels with "send test", rules editor, delivery log)
+  - Limitation: notifications only go out while devdeck is running and the PC is awake
+
+**Done when**: numbers match Task Manager / `docker stats` within 5%; stopping from the RAM list frees the memory; a service that fails to start reaches the phone within 10 s, and a failed Docker build sends a phone push + email on the office network (no SMTP).
 
 ---
 
@@ -515,7 +525,7 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
   - 7.3.1 DAG scheduler with a concurrency limit, cancellation, timeouts, retry policy
   - 7.3.2 Step log streaming + outputs persisted; resume/"re-run from failed step"
   - 7.3.3 Triggers: manual, work-item stage, schedule (cron), file change (fsnotify, debounced), git commit (post-commit hook installed by devdeck)
-- **7.4 Built-in control steps**: gate, approval (UI prompt), stop, notify (Windows toast), script (any command)
+- **7.4 Built-in control steps**: gate, approval (UI prompt), stop, notify (any channel from 5.5), script (any command)
 - **7.5 UI**
   - 7.5.1 Flow builder on xyflow: palette from plugin manifests, schema-driven settings panel, animated edges
   - 7.5.2 Runs list, live run timeline, run detail with step logs and outputs
@@ -588,7 +598,7 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 ### Phase 12: Desktop app (M)
 - **12.1** Wails wrapper around the same frontend + Go core (re-check Wails v3 maturity; v2 is the safe default)
 - **12.2** System tray (status icon colour, quick start/stop), start with Windows (optional), single-instance lock
-- **12.3** Windows toasts for crash / flow failed / flow passed
+- **12.3** Toasts become native app notifications (click opens the right page); tray icon turns red on an active alert
 - **12.4** Installer (NSIS), app icon, signing (optional), auto-update check from GitHub releases (work account)
 - **12.5** First-run wizard: Doctor → connections → clone/choose workspace → start stack
 
@@ -608,7 +618,7 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 | Milestone | Phases | You can… |
 |---|---|---|
 | **M1 Daily driver** | 0, 1 (shell + kit), 2, 3 | start any stack with one click and read all logs in one place |
-| **M2 Control** | 4, 5 | manage repos with the right account and see/stop what eats resources |
+| **M2 Control** | 4, 5 | manage repos with the right account, see/stop what eats resources, and get phone/email alerts when a service goes down or a build fails |
 | **M3 Data** | 6 | browse DBs, run scripts and migrations from the UI |
 | **M4 Pipeline** | 7, 8, 9 | run pre-PR checks, see findings, build and push images |
 | **M5 Ship** | 10, 11 | go from work item to PRs with Claude, inside VS Code |
