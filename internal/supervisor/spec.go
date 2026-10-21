@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/shadovxw/devdeck/internal/workspace"
@@ -19,6 +20,7 @@ const (
 
 // ComposeSpec is the Docker Compose file that provides the stack's dependencies.
 type ComposeSpec struct {
+	ID       string // "compose", or "compose-<repo>" when the stack has several
 	Dir      string // the repo folder
 	File     string // absolute path of the compose file
 	Services []string
@@ -56,7 +58,7 @@ type StackSpec struct {
 	Workspace string
 	Name      string
 	Root      string
-	Compose   *ComposeSpec
+	Compose   []ComposeSpec
 	Services  []ServiceSpec
 
 	// WorkspaceFile and Stacks are kept for the pre-start check.
@@ -96,16 +98,25 @@ func Plan(workspaceID, root string, w *workspace.WorkspaceFile, stacks []workspa
 	// The stack's name is the one written in its file, not the caller's string.
 	spec := StackSpec{Workspace: workspaceID, Name: st.Name, Root: root, WorkspaceFile: w, Stacks: stacks}
 
-	if st.Compose != nil {
-		dir, ok := repoDir[st.Compose.Repo]
+	usedIDs := map[string]bool{}
+	for i, c := range st.Compose {
+		dir, ok := repoDir[c.Repo]
 		if !ok {
-			return StackSpec{}, bad("the compose file uses repo %q, which isn't in the workspace", st.Compose.Repo)
+			return StackSpec{}, bad("the compose file uses repo %q, which isn't in the workspace", c.Repo)
 		}
-		file, ok := workspace.JoinInside(dir, st.Compose.File)
+		file, ok := workspace.JoinInside(dir, c.File)
 		if !ok {
 			return StackSpec{}, bad("the compose file path leaves its repo")
 		}
-		spec.Compose = &ComposeSpec{Dir: dir, File: file, Services: slices.Clone(st.Compose.Services)}
+		id := composeID
+		if len(st.Compose) > 1 {
+			id = composeID + "-" + c.Repo
+			if usedIDs[id] {
+				id += "-" + strconv.Itoa(i+1)
+			}
+		}
+		usedIDs[id] = true
+		spec.Compose = append(spec.Compose, ComposeSpec{ID: id, Dir: dir, File: file, Services: slices.Clone(c.Services)})
 	}
 
 	ids := map[string]bool{}

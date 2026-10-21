@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"fmt"
+	"net"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -119,11 +120,26 @@ func checkStack(p *parsed, s *StackFile, repoIDs map[string]bool) []Issue {
 		}
 	}
 
-	if s.Compose != nil {
-		known("/compose/repo", s.Compose.Repo)
-		if !insideRoot(s.Compose.File) {
-			out = append(out, p.issue("/compose/file", "The compose file must be inside the repo: relative, with no ..."))
+	// compose is written as one file or as a list, and the issue's path follows what was written.
+	value, _ := p.value.(map[string]any)
+	_, composeIsList := value["compose"].([]any)
+	for i, c := range s.Compose {
+		path := "/compose"
+		if composeIsList {
+			path = fmt.Sprintf("/compose/%d", i)
 		}
+		known(path+"/repo", c.Repo)
+		if !insideRoot(c.File) {
+			out = append(out, p.issue(path+"/file", "The compose file must be inside the repo: relative, with no ..."))
+		}
+	}
+	for i, r := range s.Requires {
+		if !loopbackAddr(r.TCP) {
+			out = append(out, p.issue(fmt.Sprintf("/requires/%d/tcp", i), "Only this machine can be checked: write 127.0.0.1:<port> (or localhost:<port>)."))
+		}
+	}
+	if len(s.Compose) == 0 && len(s.Services) == 0 {
+		out = append(out, p.issue("", "A stack needs services, compose files, or both."))
 	}
 
 	svcIDs := map[string]bool{}
@@ -136,6 +152,9 @@ func checkStack(p *parsed, s *StackFile, repoIDs map[string]bool) []Issue {
 			out = append(out, p.issue(path+"/id", fmt.Sprintf("Service id %q is used more than once.", sv.ID)))
 		}
 		svcIDs[sv.ID] = true
+		if sv.ID == "compose" || strings.HasPrefix(sv.ID, "compose-") {
+			out = append(out, p.issue(path+"/id", `Ids starting with "compose" are what devdeck calls the compose files of a stack. Pick another id.`))
+		}
 		order = append(order, sv.ID)
 		deps[sv.ID] = sv.After
 		known(path+"/repo", sv.Repo)
@@ -290,4 +309,21 @@ func findCycle(order []string, deps map[string][]string) []string {
 		}
 	}
 	return nil
+}
+
+// loopbackAddr reports whether addr is host:port with a host on this machine
+// and a real port. A stack may only ask devdeck to connect to such an address.
+func loopbackAddr(addr string) bool {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 // has fails unless some issue is on the given line, with the given severity and text.
@@ -297,4 +299,73 @@ func must(t *testing.T, err error) {
 func write(t *testing.T, path, content string) {
 	t.Helper()
 	must(t, os.WriteFile(path, []byte(content), 0o644))
+}
+
+func TestStackComposeAndRequires(t *testing.T) {
+	repos := map[string]bool{"api": true, "vault": true, "storage": true}
+	valid := []struct{ name, yaml string }{
+		{"one compose file", "version: 1\nname: s\ncompose:\n  repo: vault\n  file: docker-compose.yml\nservices:\n  - id: a\n    repo: api\n    kind: go\n"},
+		{"a list of compose files", "version: 1\nname: s\ncompose:\n  - repo: vault\n    file: docker-compose.yml\n  - repo: storage\n    file: docker-compose.yml\n    services: [garage]\nservices:\n  - id: a\n    repo: api\n    kind: go\n"},
+		{"compose files and no services", "version: 1\nname: s\ncompose:\n  - repo: vault\n    file: docker-compose.yml\n"},
+		{"requires on this machine", "version: 1\nname: s\nrequires:\n  - name: Postgres\n    tcp: 127.0.0.1:5432\n  - name: Cache\n    tcp: localhost:6379\nservices:\n  - id: a\n    repo: api\n    kind: go\n"},
+	}
+	for _, tt := range valid {
+		t.Run(tt.name, func(t *testing.T) {
+			if issues := Check(KindStack, "stacks/s.yaml", []byte(tt.yaml), repos, Options{}); len(issues) != 0 {
+				t.Errorf("unexpected issues:\n%s", dump(issues))
+			}
+		})
+	}
+
+	// the stack decodes the same whichever way compose was written
+	for name, src := range map[string]string{
+		"object": "version: 1\nname: s\ncompose:\n  repo: vault\n  file: f.yml\n",
+		"list":   "version: 1\nname: s\ncompose:\n  - repo: vault\n    file: f.yml\n",
+	} {
+		var st StackFile
+		if err := yaml.Unmarshal([]byte(src), &st); err != nil || len(st.Compose) != 1 || st.Compose[0].Repo != "vault" {
+			t.Errorf("%s: %+v, %v", name, st.Compose, err)
+		}
+	}
+
+	problems := []struct {
+		name string
+		yaml string
+		line int
+		want string
+	}{
+		{"unknown repo in a list", "version: 1\nname: s\ncompose:\n  - repo: vault\n    file: f.yml\n  - repo: ghost\n    file: f.yml\n", 6, `no repo with id "ghost"`},
+		{"unknown repo in one file", "version: 1\nname: s\ncompose:\n  repo: ghost\n  file: f.yml\n", 4, `no repo with id "ghost"`},
+		{"compose file outside its repo", "version: 1\nname: s\ncompose:\n  - repo: vault\n    file: ../f.yml\n", 5, "inside the repo"},
+		{"nothing to run", "version: 1\nname: s\n", 0, "needs services, compose files, or both"},
+		{"a service called compose", "version: 1\nname: s\nservices:\n  - id: compose-vault\n    repo: api\n    kind: go\n", 4, `Ids starting with "compose"`},
+		{"requires another machine", "version: 1\nname: s\nrequires:\n  - name: Db\n    tcp: db.example.com:5432\nservices:\n  - id: a\n    repo: api\n    kind: go\n", 5, "Only this machine"},
+		{"requires a port out of range", "version: 1\nname: s\nrequires:\n  - name: Db\n    tcp: 127.0.0.1:99999\nservices:\n  - id: a\n    repo: api\n    kind: go\n", 5, "Only this machine"},
+	}
+	for _, tt := range problems {
+		t.Run(tt.name, func(t *testing.T) {
+			issues := Check(KindStack, "stacks/s.yaml", []byte(tt.yaml), repos, Options{})
+			if tt.line == 0 {
+				for _, i := range issues {
+					if strings.Contains(i.Message, tt.want) {
+						return
+					}
+				}
+				t.Errorf("no issue containing %q:\n%s", tt.want, dump(issues))
+				return
+			}
+			has(t, issues, tt.line, SeverityError, tt.want)
+		})
+	}
+}
+
+func TestLoopbackAddr(t *testing.T) {
+	for addr, want := range map[string]bool{
+		"127.0.0.1:5432": true, "localhost:80": true, "[::1]:8080": true,
+		"example.com:80": false, "10.0.0.5:80": false, "127.0.0.1": false, "127.0.0.1:0": false, "127.0.0.1:70000": false, "127.0.0.1:x": false,
+	} {
+		if got := loopbackAddr(addr); got != want {
+			t.Errorf("loopbackAddr(%q) = %v, want %v", addr, got, want)
+		}
+	}
 }

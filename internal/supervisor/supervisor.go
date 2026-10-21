@@ -162,10 +162,22 @@ func (s *Supervisor) dockerCompose(ctx context.Context, c ComposeSpec, action st
 	if err != nil {
 		return err
 	}
-	if !res.OK() {
-		return fmt.Errorf("docker compose %s exited with code %d", action, res.ExitCode)
+	if res.OK() {
+		return nil
 	}
-	return nil
+	if action == "up" && s.composeSettled(ctx, c) {
+		out("devdeck: up --wait reported a finished one-shot container; everything else is up, so this counts as started")
+		return nil
+	}
+	return fmt.Errorf("docker compose %s exited with code %d", action, res.ExitCode)
+}
+
+// composeSettled asks Compose what state the stack's containers are in, after an
+// `up --wait` that failed, and says whether they are all where they should be.
+func (s *Supervisor) composeSettled(ctx context.Context, c ComposeSpec) bool {
+	args := append([]string{"compose", "-f", c.File, "ps", "--all", "--format", "json"}, c.Services...)
+	res, err := proc.Run(ctx, proc.Cmd{Name: "docker", Args: args, Dir: c.Dir, Timeout: 30 * time.Second})
+	return err == nil && res.OK() && composeSettled(res.Stdout)
 }
 
 // Start checks the machine, then starts the stack in the background and returns
@@ -247,7 +259,7 @@ func (s *Supervisor) RestartService(workspace, stack, service string) error {
 		return ErrNotRunning
 	}
 	sv, ok := r.svcs[service]
-	if !ok || service == composeID {
+	if !ok || sv.compose != nil {
 		return ErrNoSuchService
 	}
 	select {

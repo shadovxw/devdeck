@@ -8,7 +8,7 @@ import { ServiceStateMark } from "../design/ServiceStateMark";
 import { StatusMark } from "../design/StatusMark";
 import { stagger } from "../lib/motion";
 import { useRuns, useWorkspaces } from "../lib/queries";
-import { formatUptime, isProblem, tally } from "../lib/runs";
+import { formatUptime, isProblem, serviceLabel, tally } from "../lib/runs";
 import { useSocketStatus } from "../lib/socket";
 import type { RunStatus } from "../lib/types";
 import { useNow } from "../lib/use-now";
@@ -38,7 +38,7 @@ function RunServices({ run, now }: { run: RunStatus; now: number }) {
               <span className="w-32 shrink-0 text-[14px]">
                 <ServiceStateMark state={s.state} />
               </span>
-              <span className="min-w-0 flex-1 text-[14px] font-medium">{s.id === "compose" ? "Dependencies" : s.id}</span>
+              <span className="min-w-0 flex-1 text-[14px] font-medium">{serviceLabel(s.id)}</span>
               {s.port && s.state === "ready" ? (
                 <a
                   href={`http://127.0.0.1:${s.port}`}

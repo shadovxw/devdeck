@@ -46,8 +46,8 @@ const (
 //	DEVDECK_LOG_LEVEL      zerolog level (default info)
 //	DEVDECK_EXTRA_ORIGINS  comma-separated extra allowed origins
 func Load(getenv func(string) string) (Config, error) {
-	addr := orDefault(getenv("DEVDECK_ADDR"), defaultAddr)
-	if err := checkLoopback(addr); err != nil {
+	addr, err := ListenAddr(getenv)
+	if err != nil {
 		return Config{}, err
 	}
 
@@ -74,6 +74,16 @@ func Load(getenv func(string) string) (Config, error) {
 		LogLevel:      level,
 		ExtraOrigins:  splitList(getenv("DEVDECK_EXTRA_ORIGINS")),
 	}, nil
+}
+
+// ListenAddr returns the address the server listens on (DEVDECK_ADDR) and that
+// the command line talks to. It rejects anything that is not a loopback address.
+func ListenAddr(getenv func(string) string) (string, error) {
+	addr := orDefault(getenv("DEVDECK_ADDR"), defaultAddr)
+	if err := checkLoopback(addr); err != nil {
+		return "", err
+	}
+	return addr, nil
 }
 
 // checkLoopback rejects any listen address that is reachable from the network.

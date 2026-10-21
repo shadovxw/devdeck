@@ -39,6 +39,4 @@ The Doctor page has a workspace picker, a stack picker ("Whole workspace" by def
 ## Not done yet (rest of Phase 2)
 
 - 2.1.3 Install missing tools from the UI (needs a confirm step and streamed output)
-- 2.3 Supervisor: start, stop and watch the stacks
-- 2.4 Stacks page, boot sequence and Home wiring
-- 2.5 `devdeck up / down / status`
+- 2.5 `devdeck up / down / status`: done, see `2026-10-19-cli/`

@@ -93,8 +93,8 @@ func newRun(s *Supervisor, spec StackSpec) *run {
 		r.svcs[sv.id] = sv
 		r.order = append(r.order, sv)
 	}
-	if spec.Compose != nil {
-		add(&svc{id: composeID, compose: spec.Compose}, "compose", 0)
+	for _, c := range spec.Compose {
+		add(&svc{id: c.ID, compose: &c}, "compose", 0)
 	}
 	for _, sp := range spec.Services {
 		add(&svc{id: sp.ID, spec: sp}, sp.Kind, sp.Port)
@@ -269,8 +269,8 @@ func (r *run) lifecycleCompose(s *svc) end {
 // It returns endDone to go on, endFailed if one of them failed, endStopped on stop.
 func (r *run) waitDeps(s *svc) end {
 	deps := slices.Clone(s.spec.After)
-	if r.spec.Compose != nil {
-		deps = append(deps, composeID)
+	for _, c := range r.spec.Compose {
+		deps = append(deps, c.ID)
 	}
 	r.set(s, StateWaiting, "")
 	tick := time.NewTicker(depPollTime)
@@ -577,7 +577,8 @@ func (r *run) doStop(ctx context.Context) {
 			wait(r.svcs[id])
 		}
 	}
-	if c, ok := r.svcs[composeID]; ok {
+	for _, spec := range r.spec.Compose {
+		c := r.svcs[spec.ID]
 		c.cancel()
 		wait(c)
 		stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), r.o.ComposeTimeout)

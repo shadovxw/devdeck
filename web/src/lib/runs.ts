@@ -25,7 +25,8 @@ export function startOrder(stack: StackDef): string[][] {
   const services = stack.services ?? [];
   const known = new Set(services.map((s) => s.id));
   const columns: string[][] = [];
-  if (stack.compose) columns.push(["compose"]);
+  const compose = composeIds(stack);
+  if (compose.length > 0) columns.push(compose);
 
   const placed = new Set<string>();
   while (placed.size < services.length) {
@@ -64,4 +65,30 @@ export function formatUptime(ms: number): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ${m % 60}m`;
   return `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+/**
+ * The ids devdeck gives a stack's compose files in a run: "compose" for one
+ * file, "compose-<repo>" for each when there are several (a second file of the
+ * same repo gets its position added). Mirrors the server, which names them.
+ */
+export function composeIds(stack: StackDef): string[] {
+  const files = stack.compose ?? [];
+  if (files.length === 0) return [];
+  if (files.length === 1) return ["compose"];
+  const used = new Set<string>();
+  return files.map((c, i) => {
+    let id = `compose-${c.repo}`;
+    if (used.has(id)) id += `-${i + 1}`;
+    used.add(id);
+    return id;
+  });
+}
+
+export const isComposeId = (id: string) => id === "compose" || id.startsWith("compose-");
+
+/** What to call a service of a run: a stack's compose files are its "Dependencies". */
+export function serviceLabel(id: string): string {
+  if (id === "compose") return "Dependencies";
+  return id.startsWith("compose-") ? `Dependencies · ${id.slice("compose-".length)}` : id;
 }

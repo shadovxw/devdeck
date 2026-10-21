@@ -445,7 +445,7 @@ func TestComposeComesFirstAndGoesLast(t *testing.T) {
 	s, _ := newSup(t, func(o *Options) { o.Compose = rec.run })
 	api := fakeService(t, "api")
 	spec := stackOf(api)
-	spec.Compose = &ComposeSpec{Dir: t.TempDir(), File: "docker-compose.yml", Services: []string{"db"}}
+	spec.Compose = []ComposeSpec{{ID: composeID, Dir: t.TempDir(), File: "docker-compose.yml", Services: []string{"db"}}}
 
 	start(t, s, spec)
 	st := waitFor(t, s, "running", func(st RunStatus) bool { return st.State == RunRunning })
@@ -473,7 +473,7 @@ func TestComposeFailureBlocksEverything(t *testing.T) {
 	rec := &recorder{fail: true}
 	s, _ := newSup(t, func(o *Options) { o.Compose = rec.run })
 	spec := stackOf(fakeService(t, "api"))
-	spec.Compose = &ComposeSpec{Dir: t.TempDir(), File: "x.yml"}
+	spec.Compose = []ComposeSpec{{ID: composeID, Dir: t.TempDir(), File: "x.yml"}}
 
 	start(t, s, spec)
 	st := waitFor(t, s, "api blocked", inState("api", StateBlocked))
@@ -530,5 +530,83 @@ func TestListOwnPortsAndStopAll(t *testing.T) {
 	s.StopAll(t.Context())
 	if len(s.List()) != 0 {
 		t.Error("StopAll should leave nothing running")
+	}
+}
+
+// byFile is a fake Compose that records "<action>:<file>" for each call.
+type byFile struct {
+	mu    sync.Mutex
+	calls []string
+	times map[string]time.Time
+}
+
+func (c *byFile) run(_ context.Context, spec ComposeSpec, action string, out func(string)) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.times == nil {
+		c.times = map[string]time.Time{}
+	}
+	call := action + ":" + spec.File
+	c.calls = append(c.calls, call)
+	c.times[call] = time.Now()
+	out("compose " + call)
+	return nil
+}
+
+func TestSeveralComposeFilesAllComeFirstAndGoLast(t *testing.T) {
+	rec := &byFile{}
+	s, _ := newSup(t, func(o *Options) { o.Compose = rec.run })
+	spec := stackOf(fakeService(t, "api"))
+	spec.Compose = []ComposeSpec{
+		{ID: "compose-vault", Dir: t.TempDir(), File: "vault.yml"},
+		{ID: "compose-storage", Dir: t.TempDir(), File: "storage.yml"},
+	}
+
+	start(t, s, spec)
+	st := waitFor(t, s, "running", func(st RunStatus) bool { return st.State == RunRunning })
+	for _, id := range []string{"compose-vault", "compose-storage"} {
+		if c := service(st, id); c.Kind != "compose" || c.State != StateReady {
+			t.Errorf("%s = %+v", id, c)
+		}
+	}
+	rec.mu.Lock()
+	latestUp := rec.times["up:vault.yml"]
+	if t2 := rec.times["up:storage.yml"]; t2.After(latestUp) {
+		latestUp = t2
+	}
+	rec.mu.Unlock()
+	if started := service(st, "api").StartedAt; started == nil || started.Before(latestUp) {
+		t.Errorf("api started at %v, before the last compose up at %v", started, latestUp)
+	}
+	if err := s.RestartService("demo", "full", "compose-vault"); !errors.Is(err, ErrNoSuchService) {
+		t.Errorf("restarting a compose file = %v, want ErrNoSuchService", err)
+	}
+
+	if err := s.Stop(t.Context(), "demo", "full"); err != nil {
+		t.Fatal(err)
+	}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	for _, want := range []string{"up:vault.yml", "up:storage.yml", "stop:vault.yml", "stop:storage.yml"} {
+		if !slices.Contains(rec.calls, want) {
+			t.Errorf("compose calls = %v, missing %s", rec.calls, want)
+		}
+	}
+}
+
+func TestComposeOnlyStackRuns(t *testing.T) {
+	rec := &byFile{}
+	s, _ := newSup(t, func(o *Options) { o.Compose = rec.run })
+	spec := StackSpec{Workspace: "demo", Name: "full", Compose: []ComposeSpec{{ID: composeID, Dir: t.TempDir(), File: "x.yml"}}}
+
+	start(t, s, spec)
+	waitFor(t, s, "running", func(st RunStatus) bool { return st.State == RunRunning })
+	if err := s.Stop(t.Context(), "demo", "full"); err != nil {
+		t.Fatal(err)
+	}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if !slices.Equal(rec.calls, []string{"up:x.yml", "stop:x.yml"}) {
+		t.Errorf("compose calls = %v", rec.calls)
 	}
 }
