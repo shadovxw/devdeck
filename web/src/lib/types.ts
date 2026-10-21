@@ -140,3 +140,31 @@ export type RunStatus = {
 
 /** The body of a 422 from starting a stack when the machine isn't ready. */
 export type StartRefusal = { message: string; report?: DoctorReport };
+
+/** What the server answers when a stack file is saved: where it went, and warnings found in it. */
+export type StackSaved = { name: string; file: string; issues: Issue[] };
+
+// Service logs (internal/logs).
+
+/** One stored line of a service's output. */
+export type LogEntry = {
+  seq: number;
+  time: string;
+  workspace: string;
+  stack: string;
+  /** The service id, or "<compose file id>/<container service>". */
+  service: string;
+  stream: string;
+  text: string;
+  truncated?: number;
+};
+
+/** What the live topic "logs.<workspace>.<stack>" carries. */
+export type LogBatch = { workspace: string; stack: string; from_seq: number; to_seq: number; entries: LogEntry[] };
+
+export type LogsPage = { entries: LogEntry[]; next_before?: number };
+
+/** Which of a service's lines are stored: all, only those matching a pattern, or none. */
+export type CaptureRule = { store: "all" | "matching" | "off"; match?: string };
+
+export type CaptureInfo = CaptureRule & { service: string; source: "default" | "file" | "override" };

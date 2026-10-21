@@ -123,14 +123,34 @@ func checkStack(p *parsed, s *StackFile, repoIDs map[string]bool) []Issue {
 	// compose is written as one file or as a list, and the issue's path follows what was written.
 	value, _ := p.value.(map[string]any)
 	_, composeIsList := value["compose"].([]any)
+	named := 0
+	for _, c := range s.Compose {
+		if c.ID != "" {
+			named++
+		}
+	}
+	if named != 0 && named != len(s.Compose) {
+		out = append(out, p.issue("/compose", "Give every compose file an id, or none of them: the ones with an id are started in the order you give, the others first."))
+	}
 	for i, c := range s.Compose {
 		path := "/compose"
 		if composeIsList {
 			path = fmt.Sprintf("/compose/%d", i)
 		}
 		known(path+"/repo", c.Repo)
+		if c.ID == "" && (len(c.After) > 0 || c.Optional) {
+			out = append(out, p.issue(path, "after and optional need an id on this compose file."))
+		}
+		if c.ID == "compose" || strings.HasPrefix(c.ID, "compose-") {
+			out = append(out, p.issue(path+"/id", `Ids starting with "compose" are what devdeck calls compose files that have no id. Pick another id.`))
+		}
 		if !insideRoot(c.File) {
 			out = append(out, p.issue(path+"/file", "The compose file must be inside the repo: relative, with no ..."))
+		}
+		for name, rule := range c.Logs {
+			if err := rule.Validate(); err != nil {
+				out = append(out, p.issue(path+"/logs/"+escape(name), "logs: "+err.Error()+"."))
+			}
 		}
 	}
 	for i, r := range s.Requires {
@@ -146,6 +166,22 @@ func checkStack(p *parsed, s *StackFile, repoIDs map[string]bool) []Issue {
 	ports := map[int]string{}
 	deps := map[string][]string{}
 	var order []string
+	// Compose files with an id are steps in the order, next to the services.
+	for i, c := range s.Compose {
+		if c.ID == "" {
+			continue
+		}
+		if svcIDs[c.ID] {
+			path := "/compose"
+			if composeIsList {
+				path = fmt.Sprintf("/compose/%d", i)
+			}
+			out = append(out, p.issue(path+"/id", fmt.Sprintf("Id %q is used more than once.", c.ID)))
+		}
+		svcIDs[c.ID] = true
+		order = append(order, c.ID)
+		deps[c.ID] = c.After
+	}
 	for i, sv := range s.Services {
 		path := fmt.Sprintf("/services/%d", i)
 		if svcIDs[sv.ID] {
@@ -159,6 +195,11 @@ func checkStack(p *parsed, s *StackFile, repoIDs map[string]bool) []Issue {
 		deps[sv.ID] = sv.After
 		known(path+"/repo", sv.Repo)
 
+		if sv.Logs != nil {
+			if err := sv.Logs.Validate(); err != nil {
+				out = append(out, p.issue(path+"/logs", "logs: "+err.Error()+"."))
+			}
+		}
 		if sv.Kind == "command" && sv.Cmd == "" {
 			out = append(out, p.issue(path, "A service of kind command needs cmd: what to run."))
 		}
@@ -192,8 +233,25 @@ func checkStack(p *parsed, s *StackFile, repoIDs map[string]bool) []Issue {
 			}
 		}
 	}
+	for i, c := range s.Compose {
+		if c.ID == "" {
+			continue
+		}
+		path := "/compose"
+		if composeIsList {
+			path = fmt.Sprintf("/compose/%d", i)
+		}
+		for j, dep := range c.After {
+			switch {
+			case dep == c.ID:
+				out = append(out, p.issue(fmt.Sprintf("%s/after/%d", path, j), "A compose file can't wait for itself."))
+			case !svcIDs[dep]:
+				out = append(out, p.issue(fmt.Sprintf("%s/after/%d", path, j), fmt.Sprintf("There is no service or compose file %q in this stack. Defined: %s.", dep, list(order))))
+			}
+		}
+	}
 	if cycle := findCycle(order, deps); cycle != nil {
-		out = append(out, p.issue("/services", "These services wait for each other in a loop, so none could start: "+strings.Join(cycle, " → ")+"."))
+		out = append(out, p.issue("/services", "These steps wait for each other in a loop, so none could start: "+strings.Join(cycle, " → ")+"."))
 	}
 	return out
 }

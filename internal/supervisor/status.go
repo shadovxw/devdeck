@@ -53,11 +53,3 @@ type RunStatus struct {
 	StartedAt time.Time       `json:"started_at"`
 	Services  []ServiceStatus `json:"services"`
 }
-
-// LogLine is one line of a service's output.
-type LogLine struct {
-	Service string    `json:"service"`
-	Stream  string    `json:"stream"` // stdout, stderr or build
-	Text    string    `json:"text"`
-	Time    time.Time `json:"time"`
-}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/shadovxw/devdeck/internal/doctor"
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/sdk"
 	"github.com/shadovxw/devdeck/sdk/proc"
 )
@@ -22,6 +23,25 @@ var (
 	ErrNotRunning     = errors.New("that stack isn't running")
 	ErrNoSuchService  = errors.New("that service isn't in the stack")
 )
+
+// LogSink takes the output of the services a supervisor runs (internal/logs.Sink
+// is the real one). Line must not block: a service's pipe waits for it.
+type LogSink interface {
+	// Line is one raw output line. stream is stdout, stderr, build or compose.
+	Line(workspace, stack, service, stream, text string, at time.Time)
+	// Env is the extra environment a service was (re)started with, so values of its
+	// secret-named variables can be masked in its output.
+	Env(workspace, stack, service string, env []string)
+	// Defaults are the capture rules a stack's file gives its services.
+	Defaults(workspace, stack string, rules map[string]logs.Rule)
+}
+
+// noLogs is the sink used when none is given.
+type noLogs struct{}
+
+func (noLogs) Line(_, _, _, _, _ string, _ time.Time)       {}
+func (noLogs) Env(_, _, _ string, _ []string)               {}
+func (noLogs) Defaults(_, _ string, _ map[string]logs.Rule) {}
 
 // PreflightError means the pre-start check found problems, so nothing was started.
 type PreflightError struct{ Report doctor.Report }
@@ -56,8 +76,8 @@ type Options struct {
 	Preflight func(ctx context.Context, spec StackSpec) (doctor.Report, error)
 	// Compose replaces how Docker Compose is run.
 	Compose ComposeFunc
-	// OnLine receives every output line of every service.
-	OnLine func(LogLine)
+	// Logs receives every output line of every service. Nil discards them.
+	Logs LogSink
 
 	// Backoff is the wait before restart number n (1 for the first). Default 1s doubling up to 30s.
 	Backoff func(n int) time.Duration
@@ -120,6 +140,9 @@ type Supervisor struct {
 // New returns a Supervisor.
 func New(o Options) *Supervisor {
 	s := &Supervisor{o: o.withDefaults(), runs: map[string]*run{}}
+	if s.o.Logs == nil {
+		s.o.Logs = noLogs{}
+	}
 	if s.o.Preflight == nil {
 		s.o.Preflight = s.doctorPreflight
 	}
@@ -208,6 +231,7 @@ func (s *Supervisor) Start(ctx context.Context, spec StackSpec) (RunStatus, erro
 	r := newRun(s, spec)
 	s.runs[k] = r
 	s.mu.Unlock()
+	s.o.Logs.Defaults(spec.Workspace, spec.Name, spec.LogRules())
 
 	r.begin()
 	return r.status(), nil
@@ -333,19 +357,6 @@ func (s *Supervisor) OwnPorts(workspace, stack string) map[int]bool {
 		}
 	}
 	return ports
-}
-
-// Lines returns the most recent output of one service, oldest first.
-func (s *Supervisor) Lines(workspace, stack, service string) ([]LogLine, bool) {
-	r, ok := s.get(workspace, stack)
-	if !ok {
-		return nil, false
-	}
-	sv, ok := r.svcs[service]
-	if !ok {
-		return nil, false
-	}
-	return r.lines(sv), true
 }
 
 func (s *Supervisor) get(workspace, stack string) (*run, bool) {

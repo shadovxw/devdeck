@@ -6,10 +6,12 @@ package supervisor
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
 
+	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/workspace"
 )
 
@@ -24,6 +26,25 @@ type ComposeSpec struct {
 	Dir      string // the repo folder
 	File     string // absolute path of the compose file
 	Services []string
+	// Logs holds the capture rule of each container, keyed by compose service name.
+	Logs map[string]logs.Rule
+}
+
+// LogRules lists the capture rules the stack's file sets, keyed by the id the
+// log store knows each service by: the service id, or "<compose id>/<container>".
+func (sp StackSpec) LogRules() map[string]logs.Rule {
+	rules := map[string]logs.Rule{}
+	for _, s := range sp.Services {
+		if s.Logs.Store != "" {
+			rules[s.ID] = s.Logs
+		}
+	}
+	for _, c := range sp.Compose {
+		for name, r := range c.Logs {
+			rules[c.ID+"/"+name] = r
+		}
+	}
+	return rules
 }
 
 // ReadySpec says how to tell a service is ready. All empty means: as soon as it
@@ -51,6 +72,8 @@ type ServiceSpec struct {
 	// ReadyTimeout is how long to wait for ready before giving up.
 	ReadyTimeout time.Duration
 	Restart      string // never, on-failure or always
+	// Logs says which of its output lines are stored (the zero value: all).
+	Logs logs.Rule
 }
 
 // StackSpec is a stack ready to run.
@@ -116,7 +139,7 @@ func Plan(workspaceID, root string, w *workspace.WorkspaceFile, stacks []workspa
 			}
 		}
 		usedIDs[id] = true
-		spec.Compose = append(spec.Compose, ComposeSpec{ID: id, Dir: dir, File: file, Services: slices.Clone(c.Services)})
+		spec.Compose = append(spec.Compose, ComposeSpec{ID: id, Dir: dir, File: file, Services: slices.Clone(c.Services), Logs: maps.Clone(c.Logs)})
 	}
 
 	ids := map[string]bool{}
@@ -157,6 +180,9 @@ func planService(sv workspace.Service, repoDir map[string]string, ids map[string
 	svc := ServiceSpec{
 		ID: sv.ID, Kind: sv.Kind, Dir: dir, Port: sv.Port, After: slices.Clone(sv.After),
 		Env: sv.Env, Restart: sv.Restart, ReadyTimeout: defaultReadyTimeout,
+	}
+	if sv.Logs != nil {
+		svc.Logs = *sv.Logs
 	}
 	if svc.Restart == "" {
 		svc.Restart = "on-failure"

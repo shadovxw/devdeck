@@ -77,3 +77,26 @@ func TestLoadRejects(t *testing.T) {
 		})
 	}
 }
+
+func TestLogSettings(t *testing.T) {
+	cfg, err := Load(env(map[string]string{"DEVDECK_DATA_DIR": "/data"}))
+	if err != nil || cfg.LogDir != filepath.Join("/data", "logs") || cfg.LogRetentionDays != 7 || cfg.LogMaxMB != 500 {
+		t.Fatalf("defaults: %+v %v", cfg, err)
+	}
+	cfg, err = Load(env(map[string]string{"DEVDECK_DATA_DIR": "/data", "DEVDECK_LOG_DIR": "/elsewhere", "DEVDECK_LOG_RETENTION_DAYS": "14", "DEVDECK_LOG_MAX_MB": " 100 "}))
+	if err != nil || cfg.LogDir != "/elsewhere" || cfg.LogRetentionDays != 14 || cfg.LogMaxMB != 100 {
+		t.Fatalf("overrides: %+v %v", cfg, err)
+	}
+	for _, bad := range []map[string]string{
+		{"DEVDECK_LOG_RETENTION_DAYS": "0"},
+		{"DEVDECK_LOG_RETENTION_DAYS": "-3"},
+		{"DEVDECK_LOG_RETENTION_DAYS": "a week"},
+		{"DEVDECK_LOG_MAX_MB": "0"},
+		{"DEVDECK_LOG_MAX_MB": "lots"},
+	} {
+		bad["DEVDECK_DATA_DIR"] = "/data"
+		if _, err := Load(env(bad)); err == nil {
+			t.Errorf("%v should be refused", bad)
+		}
+	}
+}

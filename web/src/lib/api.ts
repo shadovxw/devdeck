@@ -18,7 +18,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: "GET" | "POST" | "DELETE", path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+async function request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const res = await fetch(base + path, {
@@ -49,5 +49,6 @@ async function request<T>(method: "GET" | "POST" | "DELETE", path: string, body?
 export const api = {
   get: <T>(path: string, signal?: AbortSignal) => request<T>("GET", path, undefined, signal),
   post: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>("POST", path, body, signal),
+  put: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>("PUT", path, body, signal),
   delete: <T>(path: string, signal?: AbortSignal) => request<T>("DELETE", path, undefined, signal),
 };

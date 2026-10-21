@@ -369,3 +369,35 @@ func TestLoopbackAddr(t *testing.T) {
 		}
 	}
 }
+
+func TestStackLogsRules(t *testing.T) {
+	repos := map[string]bool{"api": true, "kc": true}
+	valid := "version: 1\nname: s\ncompose:\n  repo: kc\n  file: docker-compose.yml\n  logs:\n    keycloak: { store: off }\n    db: { store: matching, match: \"(?i)error\" }\nservices:\n  - id: a\n    repo: api\n    kind: go\n    logs: { store: matching, match: \"WARN|ERROR\" }\n  - id: b\n    repo: api\n    kind: go\n    logs: { store: all }\n"
+	if issues := Check(KindStack, "stacks/s.yaml", []byte(valid), repos, Options{}); len(issues) != 0 {
+		t.Fatalf("a valid file got issues:\n%s", dump(issues))
+	}
+
+	var st StackFile
+	if err := yaml.Unmarshal([]byte(valid), &st); err != nil || st.Services[0].Logs == nil || st.Services[0].Logs.Match != "WARN|ERROR" || st.Compose[0].Logs["keycloak"].Store != "off" {
+		t.Errorf("decoded %+v, %v", st, err)
+	}
+
+	problems := []struct {
+		name string
+		yaml string
+		line int
+		want string
+	}{
+		{"matching without a pattern", "version: 1\nname: s\nservices:\n  - id: a\n    repo: api\n    kind: go\n    logs: { store: matching }\n", 7, "needs match"},
+		{"a pattern that doesn't compile", "version: 1\nname: s\nservices:\n  - id: a\n    repo: api\n    kind: go\n    logs: { store: matching, match: \"(\" }\n", 7, "isn't a valid pattern"},
+		{"a pattern with store all", "version: 1\nname: s\nservices:\n  - id: a\n    repo: api\n    kind: go\n    logs: { store: all, match: x }\n", 7, "only applies"},
+		{"an unknown mode", "version: 1\nname: s\nservices:\n  - id: a\n    repo: api\n    kind: go\n    logs: { store: sometimes }\n", 7, "sometimes"},
+		{"a bad pattern in a compose container", "version: 1\nname: s\ncompose:\n  repo: kc\n  file: f.yml\n  logs:\n    keycloak: { store: matching, match: \"[\" }\n", 7, "isn't a valid pattern"},
+		{"a bad pattern in a compose list", "version: 1\nname: s\ncompose:\n  - repo: kc\n    file: f.yml\n    logs:\n      keycloak: { store: matching, match: \"[\" }\n", 7, "isn't a valid pattern"},
+	}
+	for _, tt := range problems {
+		t.Run(tt.name, func(t *testing.T) {
+			has(t, Check(KindStack, "stacks/s.yaml", []byte(tt.yaml), repos, Options{}), tt.line, SeverityError, tt.want)
+		})
+	}
+}

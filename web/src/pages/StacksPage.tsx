@@ -1,4 +1,5 @@
-import { Layers, Play, RotateCw, Square, Stethoscope } from "lucide-react";
+import { FileText, Layers, Pencil, Play, Plus, RotateCw, Square, Stethoscope, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { navByPath } from "../app/nav";
@@ -10,10 +11,12 @@ import { PageHeader } from "../design/PageHeader";
 import { ServiceStateMark } from "../design/ServiceStateMark";
 import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
-import { useRestartService, useRuns, useStartStack, useStopStack, useWorkspace, useWorkspaces } from "../lib/queries";
+import { useDeleteStack, useRestartService, useRuns, useStartStack, useStopStack, useWorkspace, useWorkspaces } from "../lib/queries";
 import { formatUptime, isComposeId, serviceLabel } from "../lib/runs";
 import type { DoctorReport, RunState, RunStatus, ServiceState, StackDef, WorkspaceDetail } from "../lib/types";
 import { useNow } from "../lib/use-now";
+import { StackEditor, stackTemplate } from "./StackEditor";
+import { StackLogs } from "./StackLogs";
 
 const select =
   "h-9 max-w-[16rem] rounded-ctl bg-inset px-3 text-[14px] text-ink outline-none " +
@@ -135,6 +138,10 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
   const start = useStartStack();
   const stop = useStopStack();
   const restart = useRestartService();
+  const del = useDeleteStack(workspace.id);
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
 
   const sample = workspace.source === "example";
   const broken = workspace.errors > 0;
@@ -170,6 +177,40 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
         >
           <Stethoscope size={17} aria-hidden />
         </Link>
+        <button
+          type="button"
+          onClick={() => setShowLogs((v) => !v)}
+          aria-expanded={showLogs}
+          title={showLogs ? "Hide the logs" : "Show the logs"}
+          aria-label={`Logs of ${stack.name}`}
+          className={`${quietButton} !h-9 !px-2.5`}
+        >
+          <FileText size={16} aria-hidden />
+        </button>
+        {!sample && (
+          <>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              disabled={Boolean(run)}
+              title={run ? "Stop the stack before editing it" : "Edit this stack"}
+              aria-label={`Edit ${stack.name}`}
+              className={`${quietButton} !h-9 !px-2.5 disabled:cursor-not-allowed disabled:opacity-45`}
+            >
+              <Pencil size={16} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              disabled={Boolean(run)}
+              title={run ? "Stop the stack before deleting it" : "Delete this stack"}
+              aria-label={`Delete ${stack.name}`}
+              className={`${quietButton} !h-9 !px-2.5 disabled:cursor-not-allowed disabled:opacity-45`}
+            >
+              <Trash2 size={16} aria-hidden />
+            </button>
+          </>
+        )}
         {run ? (
           <button type="button" onClick={() => stop.mutate(ref)} disabled={stopping} className={stopButton}>
             <Square size={14} fill="currentColor" aria-hidden />
@@ -182,6 +223,41 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
           </button>
         )}
       </div>
+
+      {confirming && (
+        <div role="group" aria-label={`Confirm deleting ${stack.name}`} className="mx-4 mb-3 flex flex-col gap-2.5 rounded-ctl bg-inset p-3">
+          <p className="m-0 text-[13px] leading-5 text-ink-2">
+            Delete “{stack.name}”? Its file moves to a trash folder inside the workspace. Your repositories aren’t touched.
+          </p>
+          {del.error && (
+            <p role="alert" className="m-0 text-[13px] text-critical">
+              {del.error.message}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => del.mutate(stack.name, { onSuccess: () => setConfirming(false) })}
+              disabled={del.isPending}
+              className="inline-flex h-8 items-center rounded-ctl bg-critical px-3 text-[13px] font-medium text-white transition hover:brightness-110 active:scale-[.97] disabled:opacity-50"
+            >
+              {del.isPending ? "Deleting…" : "Delete"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirming(false);
+                del.reset();
+              }}
+              disabled={del.isPending}
+              className={`${quietButton} !h-8 !px-3 !text-[13px]`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {editing && <StackEditor workspace={workspace.id} stack={stack.name} template="" onClose={() => setEditing(false)} />}
 
       {start.error && !run && <StartProblem error={start.error} workspace={workspace.id} stack={stack.name} />}
       {stop.error && (
@@ -199,6 +275,8 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
         <BootSequence stack={stack} services={byId} />
       </div>
 
+      {showLogs && <StackLogs workspace={workspace.id} stack={stack.name} canControl={!sample} />}
+
       {run && (
         <ServiceRows
           run={run}
@@ -215,6 +293,7 @@ export function StacksPage() {
   const item = navByPath("/stacks");
   const [params, setParams] = useSearchParams();
   const workspaces = useWorkspaces();
+  const [adding, setAdding] = useState(false);
 
   // Default to the first workspace that has no errors and can run: the user's own ones first.
   const list = workspaces.data ?? [];
@@ -267,6 +346,18 @@ export function StacksPage() {
           ))}
         </select>
         <span className="text-[13px] text-ink-3">{detail.data ? `${stacks.length} stack${stacks.length === 1 ? "" : "s"}` : ""}</span>
+        {detail.data && (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            disabled={detail.data.source === "example"}
+            title={detail.data.source === "example" ? "Sample workspaces can’t be changed. Add your own workspace to add stacks." : "Add a stack to this workspace"}
+            className={`${startButton} ms-auto`}
+          >
+            <Plus size={16} aria-hidden />
+            Add stack
+          </button>
+        )}
       </div>
 
       {detail.isPending && id && (
@@ -283,8 +374,10 @@ export function StacksPage() {
           icon={Layers}
           empty={{
             headline: "This workspace has no stacks",
-            text: "A stack is a file in the workspace’s stacks folder. Add one and it will show up here.",
+            text: "A stack is a group of services and containers that start together, written as a file in the workspace’s stacks folder. Add one and it will show up here.",
+            cta: detail.data.source === "example" ? undefined : { label: "Add stack" },
           }}
+          onCta={() => setAdding(true)}
         />
       )}
 
@@ -294,6 +387,10 @@ export function StacksPage() {
             <StackCard key={s.name} workspace={detail.data} stack={s} run={mine.find((r) => r.stack === s.name)} now={now} index={i} />
           ))}
         </div>
+      )}
+
+      {adding && detail.data && (
+        <StackEditor workspace={detail.data.id} template={stackTemplate(detail.data.workspace?.repos?.[0]?.id)} onClose={() => setAdding(false)} />
       )}
     </>
   );

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { api } from "./api";
 import { mergeRun } from "./runs";
 import { useSocketStatus, useTopicHandler } from "./socket";
-import type { DoctorReport, Health, Plugin, RunStatus, ScanResult, Validation, WorkspaceDetail, WorkspaceSummary } from "./types";
+import type { DoctorReport, Health, Plugin, RunStatus, ScanResult, StackSaved, Validation, WorkspaceDetail, WorkspaceSummary } from "./types";
 
 export const keys = {
   health: ["health"] as const,
@@ -157,5 +157,59 @@ export function useStopStack() {
 export function useRestartService() {
   return useMutation({
     mutationFn: (ref: StackRef & { service: string }) => api.post<void>(`${stackUrl(ref)}/services/${encodeURIComponent(ref.service)}/restart`),
+  });
+}
+
+// ---- a stack's file: add, read, change, delete --------------------------------
+
+/** Checks a stack's YAML as it is typed, against the workspace's repos. An empty draft is not checked. */
+export function useValidateStack(workspace: string, yaml: string) {
+  return useQuery({
+    queryKey: ["workspaces", "validate-stack", workspace, yaml],
+    queryFn: ({ signal }) => api.post<Validation>("/workspaces/validate", { kind: "stack", yaml, workspace_id: workspace }, signal),
+    enabled: yaml.trim() !== "",
+    placeholderData: (previous) => previous,
+  });
+}
+
+/** The text of a stack's file, for the editor. Read fresh each time the editor opens. */
+export function useStackFile(workspace: string, stack: string | undefined) {
+  return useQuery({
+    queryKey: ["stack-file", workspace, stack ?? ""],
+    queryFn: ({ signal }) => api.get<{ yaml: string }>(`${stackUrl({ workspace, stack: stack ?? "" })}/file`, signal),
+    enabled: Boolean(stack),
+    gcTime: 0,
+  });
+}
+
+/** After a stack file changes, the workspace's stack list and counts are stale. */
+function refreshWorkspace(qc: ReturnType<typeof useQueryClient>, workspace: string) {
+  return Promise.all([qc.invalidateQueries({ queryKey: keys.workspace(workspace) }), qc.invalidateQueries({ queryKey: keys.workspaces })]);
+}
+
+/** Saves a new stack. The name inside the YAML decides the file name. */
+export function useCreateStack(workspace: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (yaml: string) => api.post<StackSaved>(`/workspaces/${encodeURIComponent(workspace)}/stacks`, { yaml }),
+    onSuccess: () => refreshWorkspace(qc, workspace),
+  });
+}
+
+/** Replaces a stack's file. The name inside must stay the same. */
+export function useUpdateStack(workspace: string, stack: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (yaml: string) => api.put<StackSaved>(stackUrl({ workspace, stack }), { yaml }),
+    onSuccess: () => refreshWorkspace(qc, workspace),
+  });
+}
+
+/** Moves a stack's file to the workspace's trash folder. */
+export function useDeleteStack(workspace: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (stack: string) => api.delete<void>(stackUrl({ workspace, stack })),
+    onSuccess: () => refreshWorkspace(qc, workspace),
   });
 }

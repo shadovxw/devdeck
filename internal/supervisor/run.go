@@ -13,12 +13,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/sdk/proc"
 )
 
 const (
 	composeID   = "compose"
-	ringSize    = 500
 	maxErrLine  = 200
 	depPollTime = 25 * time.Millisecond
 )
@@ -57,8 +57,9 @@ type svc struct {
 	// guarded by run.mu
 	status    ServiceStatus
 	everReady bool
-	ring      []LogLine
-	lastLine  string
+	// red masks secrets in the one-line summaries shown in error messages.
+	red      logs.Redactor
+	lastLine string
 
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -183,26 +184,17 @@ func (r *run) markReady(s *svc) {
 
 // ---- output ---------------------------------------------------------------
 
+// record hands one output line to the log sink, and remembers the last line of the
+// service (cleaned and with secrets masked) for its error messages. The supervisor
+// keeps nothing else: storing and showing output is the log store's job.
 func (r *run) record(s *svc, stream, text string) {
-	line := LogLine{Service: s.id, Stream: stream, Text: text, Time: time.Now()}
-	r.mu.Lock()
-	if len(s.ring) >= ringSize {
-		s.ring = slices.Delete(s.ring, 0, 1)
-	}
-	s.ring = append(s.ring, line)
-	if t := strings.TrimSpace(text); t != "" {
+	if t := strings.TrimSpace(logs.Clean(text)); t != "" {
+		t = s.red.Mask(t)
+		r.mu.Lock()
 		s.lastLine = t
+		r.mu.Unlock()
 	}
-	r.mu.Unlock()
-	if r.o.OnLine != nil {
-		r.o.OnLine(line)
-	}
-}
-
-func (r *run) lines(s *svc) []LogLine {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return slices.Clone(s.ring)
+	r.o.Logs.Line(r.spec.Workspace, r.spec.Name, s.id, stream, text, time.Now())
 }
 
 func (r *run) last(s *svc) string {
@@ -447,6 +439,8 @@ func (r *run) once(s *svc) (outcome, exitInfo) {
 		r.fail(s, err.Error())
 		return outNotReady, exitInfo{}
 	}
+	s.red.SetEnv(env)
+	r.o.Logs.Env(r.spec.Workspace, r.spec.Name, s.id, env)
 	name, args := "", []string(nil)
 	if s.spec.Kind == "go" {
 		name = s.exe

@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/sdk"
@@ -30,6 +31,9 @@ type Deps struct {
 	// Supervisor is optional too: it adds the routes that start and stop stacks.
 	// It needs Workspaces.
 	Supervisor *supervisor.Supervisor
+	// Logs is optional: it adds the routes that read a stack's collected output and
+	// control what is collected. It needs Workspaces.
+	Logs *logs.Store
 	// FolderPicker is optional: it adds the route that opens the system's folder dialog.
 	FolderPicker FolderPicker
 }
@@ -52,6 +56,10 @@ func Register(e *echo.Echo, d Deps) {
 	if d.Workspaces != nil {
 		registerWorkspaces(v1, d.Workspaces, d.Supervisor)
 		registerDoctor(v1, d.Workspaces, d.Plugins, d.Supervisor)
+		registerStackFiles(v1, d.Workspaces, d.Supervisor)
+		if d.Logs != nil {
+			registerLogs(v1, d.Logs, d.Workspaces)
+		}
 		if d.Supervisor != nil {
 			registerStacks(v1, d.Workspaces, d.Supervisor)
 		}

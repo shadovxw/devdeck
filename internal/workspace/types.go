@@ -14,7 +14,11 @@
 // Issue with its file and line.
 package workspace
 
-import "go.yaml.in/yaml/v3"
+import (
+	"go.yaml.in/yaml/v3"
+
+	"github.com/shadovxw/devdeck/internal/logs"
+)
 
 // WorkspaceFile is workspace.yaml.
 type WorkspaceFile struct {
@@ -103,9 +107,21 @@ type Require struct {
 
 // Compose points at a Docker Compose file that provides dependencies.
 type Compose struct {
+	// ID names the file in the start order, so services and other compose files can
+	// wait for it. Give every compose file an id, or none: without ids every service
+	// waits for all of them, as always.
+	ID       string   `yaml:"id,omitempty" json:"id,omitempty"`
 	Repo     string   `yaml:"repo" json:"repo"`
 	File     string   `yaml:"file" json:"file"`
 	Services []string `yaml:"services,omitempty" json:"services,omitempty"`
+	// After lists the services and compose files (by id) that must be done first.
+	After []string `yaml:"after,omitempty" json:"after,omitempty"`
+	// Optional means: if this file fails, say so and carry on, and don't hold back
+	// what comes after it.
+	Optional bool `yaml:"optional,omitempty" json:"optional,omitempty"`
+	// Logs sets which output lines of the file's containers are stored, keyed by the
+	// compose service name. A container with no entry stores everything.
+	Logs map[string]logs.Rule `yaml:"logs,omitempty" json:"logs,omitempty"`
 }
 
 // Service is one process in a stack.
@@ -121,7 +137,9 @@ type Service struct {
 	After     []string          `yaml:"after,omitempty" json:"after,omitempty"`
 	Ready     *Ready            `yaml:"ready,omitempty" json:"ready,omitempty"`
 	LogParser string            `yaml:"log_parser,omitempty" json:"log_parser,omitempty"`
-	Restart   string            `yaml:"restart,omitempty" json:"restart,omitempty"`
+	// Logs says which of the service's output lines are stored (default: all).
+	Logs    *logs.Rule `yaml:"logs,omitempty" json:"logs,omitempty"`
+	Restart string     `yaml:"restart,omitempty" json:"restart,omitempty"`
 }
 
 // Ready says how to tell that a service is up: exactly one of HTTP, TCP or Log.

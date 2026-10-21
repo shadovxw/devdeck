@@ -29,7 +29,7 @@ var (
 	// ErrNoDir means no folder is configured for the user's own workspaces.
 	ErrNoDir = errors.New("no folder is set up for workspaces")
 	// ErrReadOnly means the workspace ships with devdeck and can't be changed or deleted.
-	ErrReadOnly = errors.New("sample workspaces can't be deleted")
+	ErrReadOnly = errors.New("sample workspaces can't be changed")
 
 	idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
 )
