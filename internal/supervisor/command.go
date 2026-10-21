@@ -80,8 +80,9 @@ func SplitCommand(line string) ([]string, error) {
 }
 
 // LoadEnvFile reads KEY=VALUE lines into KEY=VALUE entries. Blank lines and
-// lines starting with # are skipped, "export " is allowed, and one pair of
-// surrounding quotes is removed. Nothing is expanded. Errors never contain
+// lines starting with # are skipped, "export " is allowed, one pair of
+// surrounding quotes is removed, and a " #" after the value starts a comment
+// (as in `RATE=100 # per second`). Nothing is expanded. Errors never contain
 // values, since an env file usually holds secrets.
 func LoadEnvFile(path string) ([]string, error) {
 	f, err := os.Open(path) //nolint:gosec // the path comes from the workspace file and was kept inside its repo
@@ -108,10 +109,27 @@ func LoadEnvFile(path string) ([]string, error) {
 			return nil, fmt.Errorf("line %d is not KEY=VALUE", n)
 		}
 		val = strings.TrimSpace(val)
-		if len(val) >= 2 && (val[0] == '"' || val[0] == '\'') && val[len(val)-1] == val[0] {
-			val = val[1 : len(val)-1]
-		}
+		val = envValue(val)
 		out = append(out, key+"="+val)
 	}
 	return out, sc.Err()
+}
+
+// envValue reads the value part of an env line: a quoted value is whatever is
+// inside the quotes (a comment may follow them); an unquoted one ends at the
+// first " #", so `100 # per second` is 100 but `pa#ss` is kept whole.
+func envValue(val string) string {
+	if val != "" && (val[0] == '"' || val[0] == '\'') {
+		if end := strings.IndexByte(val[1:], val[0]); end >= 0 {
+			if rest := strings.TrimSpace(val[end+2:]); rest == "" || strings.HasPrefix(rest, "#") {
+				return val[1 : end+1]
+			}
+		}
+	}
+	for i := 1; i < len(val); i++ {
+		if val[i] == '#' && (val[i-1] == ' ' || val[i-1] == '\t') {
+			return strings.TrimSpace(val[:i])
+		}
+	}
+	return val
 }

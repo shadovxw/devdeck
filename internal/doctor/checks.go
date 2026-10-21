@@ -3,8 +3,11 @@ package doctor
 import (
 	"context"
 	"fmt"
+	"net"
 	"path/filepath"
 	"slices"
+	"strconv"
+	"time"
 
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/sdk"
@@ -96,7 +99,7 @@ func (b *builder) toolJobs() []job {
 	var jobs []job
 	hasCompose := false
 	for _, s := range b.stacks {
-		hasCompose = hasCompose || s.Compose != nil
+		hasCompose = hasCompose || len(s.Compose) > 0
 	}
 	for _, n := range b.needs() {
 		jobs = append(jobs, func(ctx context.Context) Check {
@@ -150,8 +153,8 @@ func (b *builder) repoIDs() []string {
 	}
 	used := map[string]bool{}
 	for _, s := range b.stacks {
-		if s.Compose != nil {
-			used[s.Compose.Repo] = true
+		for _, c := range s.Compose {
+			used[c.Repo] = true
 		}
 		for _, svc := range s.Services {
 			used[svc.Repo] = true
@@ -200,11 +203,18 @@ var envExamples = []string{".env.example", ".env.sample", ".env.template"}
 func (b *builder) stackJobs() []job {
 	var jobs []job
 	for _, s := range b.stacks {
-		if s.Compose != nil {
+		for i, cf := range s.Compose {
+			id := "stack:" + s.Name + ":compose"
+			if len(s.Compose) > 1 {
+				id += ":" + strconv.Itoa(i+1)
+			}
 			jobs = append(jobs, func(context.Context) Check {
-				c := Check{ID: "stack:" + s.Name + ":compose", Group: GroupStacks, Stack: s.Name, Title: "Compose file " + s.Compose.File}
-				base, ok := b.repoDir(b.repos[s.Compose.Repo])
-				path, inRepo := inside(base, s.Compose.File)
+				c := Check{ID: id, Group: GroupStacks, Stack: s.Name, Title: "Compose file " + cf.File}
+				if len(s.Compose) > 1 {
+					c.Title = cf.Repo + ": compose file " + cf.File
+				}
+				base, ok := b.repoDir(b.repos[cf.Repo])
+				path, inRepo := inside(base, cf.File)
 				switch {
 				case !ok || !inRepo:
 					c.Status, c.Detail = Fail, "The file's path leaves the repo."
@@ -213,6 +223,18 @@ func (b *builder) stackJobs() []job {
 				default:
 					c.Status, c.Detail = OK, path
 				}
+				return c
+			})
+		}
+		for i, req := range s.Requires {
+			jobs = append(jobs, func(ctx context.Context) Check {
+				c := Check{ID: "stack:" + s.Name + ":requires:" + strconv.Itoa(i+1), Group: GroupStacks, Stack: s.Name, Title: req.Name + " answers on " + req.TCP}
+				if b.p.Dial(ctx, req.TCP) {
+					c.Status = OK
+					return c
+				}
+				c.Status, c.Detail = Fail, req.Name+" doesn't answer on "+req.TCP+"."
+				c.Fix = []string{"Start " + req.Name + ", then check again."}
 				return c
 			})
 		}
@@ -360,3 +382,14 @@ func (b *builder) identityFor(r workspace.Repo) *workspace.Identity {
 // quote wraps a value in double quotes for a command the user will paste. Unlike
 // %q it leaves backslashes alone, so a Windows path stays a Windows path.
 func quote(s string) string { return `"` + s + `"` }
+
+// dial reports whether addr accepts a connection within a moment.
+func dial(ctx context.Context, addr string) bool {
+	d := net.Dialer{Timeout: 2 * time.Second}
+	c, err := d.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return false
+	}
+	_ = c.Close()
+	return true
+}

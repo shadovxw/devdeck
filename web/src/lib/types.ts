@@ -101,7 +101,7 @@ export type DoctorReport = {
 export type StackDef = {
   name: string;
   description?: string;
-  compose?: { repo: string; file: string; services?: string[] };
+  compose?: Array<{ repo: string; file: string; services?: string[] }>;
   services?: Array<{ id: string; kind: string; port?: number; after?: string[] }>;
 };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatUptime, mergeRun, startOrder, tally } from "./runs";
+import { composeIds, formatUptime, isComposeId, mergeRun, serviceLabel, startOrder, tally } from "./runs";
 import type { RunStatus, ServiceStatus, StackDef } from "./types";
 
 const svc = (id: string, state: ServiceStatus["state"]): ServiceStatus => ({ id, kind: "go", state, restarts: 0 });
@@ -38,7 +38,7 @@ describe("mergeRun", () => {
 describe("startOrder", () => {
   const stack: StackDef = {
     name: "full",
-    compose: { repo: "infra", file: "c.yml" },
+    compose: [{ repo: "infra", file: "c.yml" }],
     services: [
       { id: "web", kind: "node", after: ["api"] },
       { id: "api", kind: "go", after: ["db"] },
@@ -88,5 +88,28 @@ describe("formatUptime", () => {
     [-5, "0s"],
   ])("%d ms is %s", (ms, text) => {
     expect(formatUptime(ms)).toBe(text);
+  });
+});
+
+describe("compose files of a stack", () => {
+  const file = (repo: string) => ({ repo, file: "docker-compose.yml" });
+
+  it("names none, one and several files the way the server does", () => {
+    expect(composeIds({ name: "s" })).toEqual([]);
+    expect(composeIds({ name: "s", compose: [file("vault")] })).toEqual(["compose"]);
+    expect(composeIds({ name: "s", compose: [file("vault"), file("storage"), file("vault")] })).toEqual(["compose-vault", "compose-storage", "compose-vault-3"]);
+  });
+
+  it("starts all compose files in the first column, even with no services", () => {
+    const stack: StackDef = { name: "infra", compose: [file("vault"), file("storage")] };
+    expect(startOrder(stack)).toEqual([["compose-vault", "compose-storage"]]);
+  });
+
+  it("labels them as dependencies", () => {
+    expect(serviceLabel("compose")).toBe("Dependencies");
+    expect(serviceLabel("compose-vault")).toBe("Dependencies · vault");
+    expect(serviceLabel("api")).toBe("api");
+    expect(isComposeId("compose-vault")).toBe(true);
+    expect(isComposeId("composer")).toBe(false);
   });
 });

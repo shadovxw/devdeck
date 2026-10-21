@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -77,6 +78,8 @@ type Probes struct {
 	DockerUp func(ctx context.Context) error
 	// PortFree reports whether nothing is listening on the loopback port.
 	PortFree func(port int) bool
+	// Dial reports whether a connection to the loopback host:port is accepted.
+	Dial func(ctx context.Context, addr string) bool
 	// GitConfig returns a git setting, "" when it is not set. dir "" means the global config.
 	GitConfig func(ctx context.Context, dir, key string) string
 }
@@ -95,14 +98,7 @@ func DefaultProbes() Probes {
 			}
 			return nil
 		},
-		PortFree: func(port int) bool {
-			l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-			if err != nil {
-				return false
-			}
-			_ = l.Close()
-			return true
-		},
+		PortFree: portFree,
 		GitConfig: func(ctx context.Context, dir, key string) string {
 			args := []string{"config", "--get", key}
 			if dir == "" {
@@ -116,6 +112,7 @@ func DefaultProbes() Probes {
 			}
 			return strings.TrimSpace(res.Stdout)
 		},
+		Dial: dial,
 	}
 }
 
@@ -198,6 +195,9 @@ func withDefaults(p Probes) Probes {
 	if p.DockerUp == nil {
 		p.DockerUp = d.DockerUp
 	}
+	if p.Dial == nil {
+		p.Dial = d.Dial
+	}
 	if p.PortFree == nil {
 		p.PortFree = d.PortFree
 	}
@@ -241,4 +241,21 @@ func isDir(p string) bool {
 func isFile(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && !st.IsDir()
+}
+
+// portFree reports whether nothing holds the loopback port. Binding alone is
+// not enough: on Windows a program listening on all addresses (0.0.0.0) does not
+// stop a bind to 127.0.0.1, so a connection attempt is made as well.
+func portFree(port int) bool {
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	if c, err := net.DialTimeout("tcp", addr, 300*time.Millisecond); err == nil {
+		_ = c.Close()
+		return false
+	}
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return false
+	}
+	_ = l.Close()
+	return true
 }

@@ -4,10 +4,12 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -15,6 +17,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/shadovxw/devdeck/internal/api"
+	"github.com/shadovxw/devdeck/internal/cli"
 	"github.com/shadovxw/devdeck/internal/config"
 	"github.com/shadovxw/devdeck/internal/dialog"
 	"github.com/shadovxw/devdeck/internal/events"
@@ -33,6 +36,19 @@ func main() {
 	// itself this way, so the dialog can always be closed by ending the process.
 	if len(os.Args) > 1 && os.Args[1] == dialog.ChildArg {
 		os.Exit(dialog.RunChild(os.Args[2:], os.Stdout, os.Stderr, dialog.Native))
+	}
+
+	// devdeck up | down | status talk to the running server and exit.
+	if len(os.Args) > 1 && slices.Contains(cli.Commands, os.Args[1]) {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		code := cli.Run(ctx, os.Args[1:], cli.Env{Getenv: os.Getenv, Stdout: os.Stdout, Stderr: os.Stderr})
+		stop()
+		os.Exit(code)
+	}
+	// "serve" is the same as no command, for scripts that like to say so.
+	if len(os.Args) > 1 && os.Args[1] != "serve" {
+		_, _ = fmt.Fprintf(os.Stderr, "devdeck: unknown command %q: try `devdeck help`\n", os.Args[1])
+		os.Exit(2)
 	}
 
 	log.Logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.TimeOnly}).With().Timestamp().Logger()

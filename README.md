@@ -15,7 +15,7 @@ mise install
 mise run dev
 ```
 
-The Go server listens on `127.0.0.1:7070` and the web app on `http://127.0.0.1:5173`, which proxies `/api` and `/ws` to the server. Other tasks: `mise run build | test | lint`.
+The Go server listens on `127.0.0.1:7070` and the web app on `http://127.0.0.1:5174`, which proxies `/api` and `/ws` to the server. Other tasks: `mise run build | test | lint`.
 
 | What | Where |
 |---|---|

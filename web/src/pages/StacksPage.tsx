@@ -11,7 +11,7 @@ import { ServiceStateMark } from "../design/ServiceStateMark";
 import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
 import { useRestartService, useRuns, useStartStack, useStopStack, useWorkspace, useWorkspaces } from "../lib/queries";
-import { formatUptime } from "../lib/runs";
+import { formatUptime, isComposeId, serviceLabel } from "../lib/runs";
 import type { DoctorReport, RunState, RunStatus, ServiceState, StackDef, WorkspaceDetail } from "../lib/types";
 import { useNow } from "../lib/use-now";
 
@@ -91,8 +91,8 @@ function ServiceRows({ run, now, onRestart, restarting }: { run: RunStatus; now:
 }
 
 function ServiceRow({ service: s, now, onRestart, busy }: { service: RunStatus["services"][number]; now: number; onRestart: (id: string) => void; busy: boolean }) {
-  const isCompose = s.id === "compose";
-  const name = isCompose ? "Dependencies" : s.id;
+  const isCompose = isComposeId(s.id);
+  const name = serviceLabel(s.id);
   const upFor = s.state === "ready" && s.ready_at ? formatUptime(now - Date.parse(s.ready_at)) : "";
   return (
     <>

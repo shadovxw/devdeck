@@ -5,29 +5,48 @@
   "description": "stacks/<name>.yaml: the services that start together, and in what order.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "name", "services"],
+  "required": ["version", "name"],
   "properties": {
     "version": { "const": 1, "description": "Schema version. Always 1 for now." },
     "name": { "$ref": "#/$defs/id" },
     "description": { "type": "string", "maxLength": 200 },
     "compose": {
+      "description": "Docker Compose files that provide the dependencies (databases, queues, identity). One file, or a list of files that start together.",
+      "oneOf": [
+        { "$ref": "#/$defs/compose" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/compose" } }
+      ]
+    },
+    "requires": {
+      "type": "array",
+      "description": "Things this stack needs but devdeck doesn't start, such as a database running on this machine. The stack is refused until each one answers.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "tcp"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+          "tcp": { "type": "string", "description": "host:port on this machine that accepts connections, for example 127.0.0.1:5432.", "pattern": "^[A-Za-z0-9.:\\[\\]-]+:[0-9]{1,5}$" }
+        }
+      }
+    },
+    "services": {
+      "type": "array",
+      "description": "The processes devdeck runs. A stack with only compose files needs none.",
+      "items": { "$ref": "#/$defs/service" }
+    }
+  },
+  "$defs": {
+    "compose": {
       "type": "object",
       "additionalProperties": false,
       "required": ["repo", "file"],
-      "description": "A Docker Compose file that provides the dependencies (databases, queues).",
       "properties": {
         "repo": { "type": "string", "description": "Id of the repo that holds the file." },
         "file": { "type": "string", "minLength": 1 },
         "services": { "type": "array", "items": { "type": "string" }, "description": "Only start these compose services. Empty means all." }
       }
     },
-    "services": {
-      "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/service" }
-    }
-  },
-  "$defs": {
     "id": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]{0,39}$"

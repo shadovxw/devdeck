@@ -385,7 +385,7 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
   - 2.1.3 Install missing via winget/scoop/docker pull with streamed output
   - 2.1.4 UI: "system scan" page, fix buttons
 - **2.2 Stack definitions**
-  - 2.2.1 Stack YAML: compose file, services (repo, kind, cmd, port, readiness, after, env_file, log parser)
+  - 2.2.1 Stack YAML: compose files (one or several, a stack may be compose-only), `requires` (local things that must answer, checked by Doctor), services (repo, kind, cmd, port, readiness, after, env_file, log parser)
   - 2.2.2 Generate default stacks for infrabot (full, backend-only, frontend-only, db-only)
 - **2.3 Supervisor**
   - 2.3.1 Compose deps via `docker compose` CLI (up/down/ps) + Docker Engine API for status

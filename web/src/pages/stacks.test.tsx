@@ -25,7 +25,7 @@ const summary = (id: string, source: "local" | "example", errors = 0): Workspace
 const full: StackDef = {
   name: "full",
   description: "The database, the API and the web app.",
-  compose: { repo: "infra", file: "docker-compose.yml" },
+  compose: [{ repo: "infra", file: "docker-compose.yml" }],
   services: [
     { id: "api", kind: "go", port: 8080 },
     { id: "web", kind: "node", port: 5173, after: ["api"] },

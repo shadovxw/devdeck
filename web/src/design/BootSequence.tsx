@@ -1,4 +1,4 @@
-import { startOrder } from "../lib/runs";
+import { serviceLabel, startOrder } from "../lib/runs";
 import type { ServiceStatus, StackDef } from "../lib/types";
 import { ServiceStateMark } from "./ServiceStateMark";
 
@@ -8,7 +8,7 @@ type Props = {
   services: Record<string, ServiceStatus | undefined>;
 };
 
-const label = (id: string) => (id === "compose" ? "Dependencies" : id);
+const label = serviceLabel;
 
 /**
  * The order a stack starts in, as columns left to right. Every dot and every

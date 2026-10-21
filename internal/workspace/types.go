@@ -14,6 +14,8 @@
 // Issue with its file and line.
 package workspace
 
+import "go.yaml.in/yaml/v3"
+
 // WorkspaceFile is workspace.yaml.
 type WorkspaceFile struct {
 	Version           int           `yaml:"version" json:"version"`
@@ -58,13 +60,45 @@ type AccountRule struct {
 
 // StackFile is stacks/<name>.yaml.
 type StackFile struct {
-	Version     int       `yaml:"version" json:"version"`
-	Name        string    `yaml:"name" json:"name"`
-	Description string    `yaml:"description,omitempty" json:"description,omitempty"`
-	Compose     *Compose  `yaml:"compose,omitempty" json:"compose,omitempty"`
-	Services    []Service `yaml:"services" json:"services"`
+	Version     int      `yaml:"version" json:"version"`
+	Name        string   `yaml:"name" json:"name"`
+	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
+	Compose     Composes `yaml:"compose,omitempty" json:"compose,omitempty"`
+	// Requires are things outside devdeck's control that must answer before the stack starts.
+	Requires []Require `yaml:"requires,omitempty" json:"requires,omitempty"`
+	Services []Service `yaml:"services,omitempty" json:"services"`
 	// File is the file name it was read from (set by the loader, not in YAML).
 	File string `yaml:"-" json:"file"`
+}
+
+// Composes are a stack's Docker Compose files. In YAML it is one file
+// (`compose: {repo, file}`) or a list of them.
+type Composes []Compose
+
+// UnmarshalYAML accepts a single file or a list of files.
+func (c *Composes) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.SequenceNode {
+		var list []Compose
+		if err := n.Decode(&list); err != nil {
+			return err
+		}
+		*c = list
+		return nil
+	}
+	var one Compose
+	if err := n.Decode(&one); err != nil {
+		return err
+	}
+	*c = Composes{one}
+	return nil
+}
+
+// Require is something the stack needs but doesn't start, such as a database
+// that runs on this machine. devdeck checks that it answers on tcp (a loopback
+// host:port) and refuses to start the stack when it doesn't.
+type Require struct {
+	Name string `yaml:"name" json:"name"`
+	TCP  string `yaml:"tcp" json:"tcp"`
 }
 
 // Compose points at a Docker Compose file that provides dependencies.

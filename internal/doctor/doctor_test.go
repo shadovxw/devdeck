@@ -18,12 +18,14 @@ type fake struct {
 	missing  map[string]bool // tools that are not installed
 	dockerUp bool
 	busy     map[int]bool
+	down     map[string]bool   // host:port that does not answer
 	git      map[string]string // "dir|key" -> value; dir "" is the global config
 }
 
 func newFake() *fake {
 	return &fake{
 		dockerUp: true,
+		down:     map[string]bool{},
 		git: map[string]string{
 			"|user.name":  "Dev Eloper",
 			"|user.email": "dev@example.com",
@@ -46,6 +48,7 @@ func (f *fake) probes() Probes {
 			return nil
 		},
 		PortFree:  func(port int) bool { return !f.busy[port] },
+		Dial:      func(_ context.Context, addr string) bool { return !f.down[addr] },
 		GitConfig: func(_ context.Context, dir, key string) string { return f.git[dir+"|"+key] },
 	}
 }
@@ -82,7 +85,7 @@ func project(t *testing.T) (string, *workspace.WorkspaceFile, []workspace.StackF
 	stacks := []workspace.StackFile{
 		{
 			Name:    "full",
-			Compose: &workspace.Compose{Repo: "infra", File: "docker-compose.yml"},
+			Compose: workspace.Composes{{Repo: "infra", File: "docker-compose.yml"}},
 			Services: []workspace.Service{
 				{ID: "api", Repo: "api", Kind: "go", Port: 8080, EnvFile: ".env"},
 				{ID: "web", Repo: "web", Kind: "node", Dir: "app", Port: 5173},
@@ -304,5 +307,42 @@ func TestCommandsKeepPathsAsTheyAre(t *testing.T) {
 	want := `git clone https://github.com/acme/api.git "` + filepath.Join(root, "api") + `"`
 	if c := find(t, rep, "repo:api"); len(c.Fix) != 1 || c.Fix[0] != want {
 		t.Errorf("clone command = %v, want %q", c.Fix, want)
+	}
+}
+
+func TestRequiresAndSeveralComposeFiles(t *testing.T) {
+	root, w, stacks := project(t)
+	w.Repos = append(w.Repos, workspace.Repo{ID: "vault", Path: "vault", Type: "docker"})
+	must(t, os.MkdirAll(filepath.Join(root, "vault"), 0o750))
+	must(t, os.WriteFile(filepath.Join(root, "vault", "docker-compose.yml"), []byte("services: {}\n"), 0o600))
+	stacks[0].Compose = workspace.Composes{
+		{Repo: "infra", File: "docker-compose.yml"},
+		{Repo: "vault", File: "docker-compose.yml"},
+		{Repo: "vault", File: "missing.yml"},
+	}
+	stacks[0].Requires = []workspace.Require{
+		{Name: "Postgres", TCP: "127.0.0.1:5432"},
+		{Name: "Cache", TCP: "127.0.0.1:6379"},
+	}
+	f := newFake()
+	f.down["127.0.0.1:6379"] = true
+
+	rep := run(t, Input{Workspace: w, Stacks: stacks, Root: root, Stack: "full"}, f)
+
+	if c := find(t, rep, "stack:full:compose:2"); c.Status != OK || !strings.HasPrefix(c.Title, "vault: ") {
+		t.Errorf("second compose file = %+v", c)
+	}
+	if c := find(t, rep, "stack:full:compose:3"); c.Status != Fail || !strings.Contains(c.Detail, "There is no file") {
+		t.Errorf("third compose file = %+v", c)
+	}
+	if c := find(t, rep, "stack:full:requires:1"); c.Status != OK {
+		t.Errorf("Postgres = %+v", c)
+	}
+	c := find(t, rep, "stack:full:requires:2")
+	if c.Status != Fail || c.Detail != "Cache doesn't answer on 127.0.0.1:6379." || len(c.Fix) != 1 {
+		t.Errorf("Cache = %+v", c)
+	}
+	if rep.Ready() {
+		t.Error("a requirement that doesn't answer should stop the stack")
 	}
 }
