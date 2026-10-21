@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -86,7 +87,9 @@ func Run(ctx context.Context, args []string, env Env) int {
 	if env.Now == nil {
 		env.Now = time.Now
 	}
-	a := &app{env: env, api: &client{base: "http://" + addr, http: hc}}
+	// The server only listens on a loopback address (ListenAddr checked it), so plain HTTP never leaves the machine.
+	base := url.URL{Scheme: "http", Host: addr}
+	a := &app{env: env, api: &client{base: base.String(), http: hc}}
 
 	switch args[0] {
 	case "up":

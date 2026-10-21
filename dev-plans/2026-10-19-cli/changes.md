@@ -16,3 +16,8 @@
 ## Verified live (real server, real binary)
 
 `status` with nothing running; `up` catalog (go, built, ready on `/health`), frontend (node via `npm run dev`, ready), automation (go); a failing service ends with exit 1 and the reason; `up` of a running stack follows it; unknown stack and taken port give plain messages and exit 1; `down` leaves the ports free. No process of devdeck's was left behind.
+
+## CI on PR 16
+
+- **govulncheck** failed on GO-2026-6809 (crypto/x509, fixed in Go 1.26.10), reachable through the CLI's HTTP client. `go.mod` now says `go 1.26.10`, which CI's `go-version-file` picks up. A local `govulncheck@v1.9.0` run (the version CI uses) reports no vulnerabilities.
+- **SonarQube** gate failed only on new security rating (rule go:S5332, "Using HTTP protocol is insecure", `internal/cli/cli.go`). The base URL is now built with `net/url`, and a comment says why plain HTTP is fine: `config.ListenAddr` only accepts loopback addresses.
