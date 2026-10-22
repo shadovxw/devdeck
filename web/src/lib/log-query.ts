@@ -86,6 +86,7 @@ export function compilePattern(pattern: string | undefined): RegExp | undefined 
   if (!pattern) return undefined;
   const lead = /^\(\?([ims]+)\)/.exec(pattern);
   try {
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- the pattern is what the person typed in their own filter box, run in their own browser; a slow one only slows their own tab
     return lead ? new RegExp(pattern.slice(lead[0].length), lead[1]) : new RegExp(pattern);
   } catch {
     return undefined;
