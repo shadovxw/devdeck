@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
@@ -34,6 +35,9 @@ type Deps struct {
 	// Logs is optional: it adds the routes that read a stack's collected output and
 	// control what is collected. It needs Workspaces.
 	Logs *logs.Store
+	// GitX is optional: it adds the routes for git accounts (connections, rules, the
+	// credential helper setup, each repository's account). It needs Workspaces.
+	GitX *gitx.Service
 	// FolderPicker is optional: it adds the route that opens the system's folder dialog.
 	FolderPicker FolderPicker
 }
@@ -57,6 +61,9 @@ func Register(e *echo.Echo, d Deps) {
 		registerWorkspaces(v1, d.Workspaces, d.Supervisor)
 		registerDoctor(v1, d.Workspaces, d.Plugins, d.Supervisor)
 		registerStackFiles(v1, d.Workspaces, d.Supervisor)
+		if d.GitX != nil {
+			registerGit(v1, d.GitX, d.Workspaces)
+		}
 		registerLogFilters(v1, d.Workspaces)
 		if d.Logs != nil {
 			registerLogs(v1, d.Logs, d.Workspaces)

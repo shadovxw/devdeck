@@ -68,10 +68,10 @@ describe("pages", () => {
 
   it("shows the page's own empty state", async () => {
     mockServer();
-    renderAt("/repos");
-    expect(await screen.findByRole("heading", { name: "No repository connected yet" })).toBeTruthy();
+    renderAt("/databases");
+    expect(await screen.findByRole("heading", { name: "No database connected yet" })).toBeTruthy();
     // its button leads somewhere real
-    expect(screen.getByRole("link", { name: /Connect repository/ }).getAttribute("href")).toBe("/connections");
+    expect(screen.getByRole("link", { name: /Add connection/ }).getAttribute("href")).toBe("/connections");
   });
 
   it("disables the button on pages that are not built yet, with the phase in its tooltip", async () => {

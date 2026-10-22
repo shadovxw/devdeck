@@ -21,6 +21,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/config"
 	"github.com/shadovxw/devdeck/internal/dialog"
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/store"
 	"github.com/shadovxw/devdeck/internal/supervisor"
@@ -37,6 +38,12 @@ func main() {
 	// itself this way, so the dialog can always be closed by ending the process.
 	if len(os.Args) > 1 && os.Args[1] == dialog.ChildArg {
 		os.Exit(dialog.RunChild(os.Args[2:], os.Stdout, os.Stderr, dialog.Native))
+	}
+
+	// devdeck git-credential is git's credential helper: git runs it, reads its answer, and
+	// it exits at once. It never starts the server and never fails git.
+	if len(os.Args) > 1 && os.Args[1] == "git-credential" {
+		os.Exit(gitx.Command(os.Args[2:], os.Stdin, os.Stdout, os.Stderr, os.Getenv))
 	}
 
 	// devdeck up | down | status talk to the running server and exit.
@@ -115,6 +122,7 @@ func run() error {
 		Plugins:      registry,
 		Supervisor:   sup,
 		Logs:         logStore,
+		GitX:         gitx.NewService(cfg.DataDir, exePath()),
 		FolderPicker: dialog.PickFolder,
 		Workspaces: &workspace.Manager{
 			Dir:         cfg.WorkspacesDir,
@@ -162,4 +170,14 @@ func pluginIDs(reg *sdk.Registry) []string {
 		ids[i] = p.Manifest().ID
 	}
 	return ids
+}
+
+// exePath is where this program is, for git to run as its credential helper. When it can't
+// be told, git accounts still work except for the helper setup, which then refuses.
+func exePath() string {
+	p, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	return p
 }

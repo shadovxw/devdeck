@@ -28,6 +28,13 @@ describe("nav config", () => {
     for (const g of NAV) expect(g.items.length).toBeGreaterThan(0);
   });
 
+  it("nests GitHub under Connections, so other kinds can sit beside it", () => {
+    const connections = NAV.flatMap((g) => g.items).find((i) => i.path === "/connections");
+    expect(connections?.children?.map((c) => c.path)).toEqual(["/connections/github"]);
+    expect(navByPath("/connections/github").parent).toBe("Connections");
+    expect(navByPath("/connections/github").group).toBe("Platform");
+  });
+
   it("nests sub-pages under their parent and still lists them once as pages", () => {
     const databases = NAV.flatMap((g) => g.items).find((i) => i.path === "/databases");
     expect(databases?.children?.map((c) => c.path)).toEqual(["/migrations", "/sql", "/scripts"]);

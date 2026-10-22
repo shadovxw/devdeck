@@ -44,6 +44,9 @@ Flags for up:
   --detach                        don't wait for the stack to be ready
 
 The commands talk to the running server (DEVDECK_ADDR, default 127.0.0.1:7070).
+
+git calls this one itself (set it up on the Connections page; you don't run it):
+  devdeck git-credential <get|store|erase>
 `
 
 // Env is what the commands read and write. Tests replace the parts they need.

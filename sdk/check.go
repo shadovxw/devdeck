@@ -13,7 +13,10 @@ import (
 	"github.com/shadovxw/devdeck/sdk/proc"
 )
 
-const checkTimeout = 5 * time.Second
+// checkTimeout is how long one version command may take. A cold start of npm or node on Windows (the
+// virus scanner looks at every file) can take several seconds, and the checks of a stack run side by
+// side, so a short limit made "npm: command timed out" fail a start for no real reason.
+const checkTimeout = 20 * time.Second
 
 var versionRe = regexp.MustCompile(`\d+(?:\.\d+){1,3}`)
 

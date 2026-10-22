@@ -4,11 +4,14 @@ import type { RouteObject } from "react-router";
 
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
+import { ConnectionsPage } from "../pages/ConnectionsPage";
+import { GitHubConnectionPage } from "../pages/GitHubConnectionPage";
 import { DoctorPage } from "../pages/DoctorPage";
 import { HomePage } from "../pages/HomePage";
 import { LogsPage } from "../pages/LogsPage";
 import { Placeholder } from "../pages/Placeholder";
 import { PluginsPage } from "../pages/PluginsPage";
+import { ReposPage } from "../pages/ReposPage";
 import { StacksPage } from "../pages/StacksPage";
 import { WorkspacesPage } from "../pages/WorkspacesPage";
 import { FatalError, PageError } from "./ErrorPages";
@@ -23,6 +26,9 @@ const built: Record<string, ReactElement> = {
   "/stacks": <StacksPage />,
   "/doctor": <DoctorPage />,
   "/logs": <LogsPage />,
+  "/connections": <ConnectionsPage />,
+  "/connections/github": <GitHubConnectionPage />,
+  "/repos": <ReposPage />,
 };
 
 function NotFound() {
