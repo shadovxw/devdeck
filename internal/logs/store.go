@@ -473,6 +473,9 @@ func (d *dayFile) close() error {
 // until the ring would be full. The caller holds s.mu.
 func (s *Store) readBack(k svcKey) []Entry {
 	dir := s.serviceDir(k)
+	if !strings.HasPrefix(dir, filepath.Clean(s.o.Dir)+string(filepath.Separator)) {
+		return nil // never read outside the log folder, whatever the names were
+	}
 	files := dayFiles(dir)
 	var tail []Entry
 	for i := len(files) - 1; i >= 0 && len(tail) < s.o.Capacity; i-- {

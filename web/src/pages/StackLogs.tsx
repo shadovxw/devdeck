@@ -167,7 +167,7 @@ export function StackLogs({ workspace, stack, canControl }: { workspace: string;
     const set = new Set<string>(captures.data?.map((c) => c.service) ?? []);
     for (const e of entries) set.add(e.service);
     if (service) set.add(service);
-    return [...set].sort();
+    return [...set].sort((a, b) => a.localeCompare(b));
   }, [captures.data, entries, service]);
 
   return (

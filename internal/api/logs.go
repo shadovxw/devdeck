@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -40,7 +41,7 @@ func registerLogs(g *echo.Group, store *logs.Store, m *workspace.Manager) {
 			return echo.NewHTTPError(http.StatusNotFound, "no such stack or service")
 		}
 		if err != nil {
-			c.Logger().Error(err)
+			c.Logger().Error(oneLine(err))
 			return echo.NewHTTPError(http.StatusInternalServerError, "the logs couldn't be read")
 		}
 		return c.JSON(http.StatusOK, res)
@@ -74,7 +75,7 @@ func registerLogs(g *echo.Group, store *logs.Store, m *workspace.Manager) {
 			if verr := rule.Validate(); verr != nil {
 				return echo.NewHTTPError(http.StatusUnprocessableEntity, verr.Error())
 			}
-			c.Logger().Error(err)
+			c.Logger().Error(oneLine(err))
 			return echo.NewHTTPError(http.StatusInternalServerError, "the rule couldn't be saved")
 		}
 		return c.JSON(http.StatusOK, captureOf(store, c.Param("id"), c.Param("stack"), service))
@@ -90,7 +91,7 @@ func registerLogs(g *echo.Group, store *logs.Store, m *workspace.Manager) {
 			if errors.Is(err, logs.ErrBadName) {
 				return echo.NewHTTPError(http.StatusNotFound, "no such stack or service")
 			}
-			c.Logger().Error(err)
+			c.Logger().Error(oneLine(err))
 			return echo.NewHTTPError(http.StatusInternalServerError, "the rule couldn't be reset")
 		}
 		return c.JSON(http.StatusOK, captureOf(store, c.Param("id"), c.Param("stack"), service))
@@ -121,8 +122,13 @@ func workspaceExists(c echo.Context, m *workspace.Manager) error {
 		if errors.Is(err, workspace.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "no such workspace")
 		}
-		c.Logger().Error(err)
+		c.Logger().Error(oneLine(err))
 		return echo.NewHTTPError(http.StatusInternalServerError, "the workspace couldn't be read")
 	}
 	return nil
+}
+
+// oneLine keeps an error to one line so a name that came from the request can't forge log entries.
+func oneLine(err error) string {
+	return strings.NewReplacer("\n", " ", "\r", " ").Replace(err.Error())
 }
