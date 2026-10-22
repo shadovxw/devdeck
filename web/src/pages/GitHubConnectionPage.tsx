@@ -2,9 +2,10 @@ import { KeyRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { navByPath } from "../app/nav";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
-import { pill, pillDanger, pillPrimary, pillSelect } from "../design/pills";
+import { pill, pillDanger, pillInput, pillPrimary, pillSelect, squareAdd } from "../design/pills";
 import { stagger } from "../lib/motion";
 import {
   useChangeSetup,
@@ -20,8 +21,6 @@ import {
 } from "../lib/git";
 import { useDebounced } from "../lib/use-debounced";
 
-const field =
-  "h-9 rounded-ctl bg-inset px-3 text-[14px] text-ink outline-none placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-accent";
 // Inside a table the fields look like text until pointed at.
 const cell =
   "h-9 w-full min-w-0 rounded-ctl bg-transparent px-2 text-[14px] text-ink outline-none placeholder:text-ink-3 hover:bg-fill focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-accent";
@@ -46,15 +45,19 @@ function Section({ title, hint, aside, children }: { title: string; hint?: strin
   );
 }
 
-/** A state as a small shape and a word, never colour alone. */
+/**
+ * A state as a pill with no fill and a green border with a dot when it is fine, a red border with a triangle when it is not.
+ * The shape and the word say it too, so the colour is never the only sign.
+ */
 function Status({ ok, children }: { ok: boolean; children: ReactNode }) {
+  const tone = ok ? "var(--good)" : "var(--critical)";
   return (
-    <span className="inline-flex items-center gap-2 text-[13px] text-ink-2">
-      <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden className="shrink-0">
-        {ok ? <circle cx="6" cy="6" r="4.5" fill="var(--accent)" /> : <path d="M6 1.2 11 10.2H1Z" fill="var(--warning)" />}
+    <Badge variant="outline" className="h-6 gap-1.5 bg-transparent px-2.5 text-[12px] font-medium text-ink" style={{ borderColor: tone }}>
+      <svg width="9" height="9" viewBox="0 0 12 12" aria-hidden className="shrink-0">
+        {ok ? <circle cx="6" cy="6" r="4.5" fill={tone} /> : <path d="M6 1.2 11 10.2H1Z" fill={tone} />}
       </svg>
       {children}
-    </span>
+    </Badge>
   );
 }
 
@@ -144,7 +147,7 @@ function AddressTester() {
         placeholder="https://github.com/owner/repo"
         spellCheck={false}
         autoComplete="off"
-        className={`${field} w-96 max-w-full font-mono text-[13px]`}
+        className={`${pillInput} w-96 max-w-full font-mono`}
       />
       <span role="status" className="text-[13px] text-ink-2">
         {settled === "" || match.isPending
@@ -281,7 +284,15 @@ function Editor({ overview }: { overview: GitOverview }) {
 
   return (
     <>
-      <Section title="Connection profiles" hint="Each profile is one GitHub account that gh is signed in to, with the name and email its commits should carry.">
+      <Section
+        title="Connection profiles"
+        hint="Each profile is one GitHub account that gh is signed in to, with the name and email its commits should carry."
+        aside={
+          <button type="button" onClick={addConnection} className={squareAdd}>
+            Add a connection
+          </button>
+        }
+      >
         {draft.connections.length === 0 ? (
           <p className="m-0 text-[14px] text-ink-3">No profile yet. Add one for each account you use.</p>
         ) : (
@@ -320,10 +331,10 @@ function Editor({ overview }: { overview: GitOverview }) {
                         </select>
                       </td>
                       <td className="px-1 py-1.5">
-                        <input aria-label={`Commit name of ${name}`} value={c.name ?? ""} onChange={(e) => setConn(i, { name: e.target.value })} placeholder="Commit name" className={`${pillSelect} w-44`} />
+                        <input aria-label={`Commit name of ${name}`} value={c.name ?? ""} onChange={(e) => setConn(i, { name: e.target.value })} placeholder="Commit name" className={`${pillInput} w-44`} />
                       </td>
                       <td className="px-1 py-1.5">
-                        <input aria-label={`Commit email of ${name}`} value={c.email ?? ""} onChange={(e) => setConn(i, { email: e.target.value })} placeholder="Commit email" className={`${cell} w-60`} />
+                        <input aria-label={`Commit email of ${name}`} value={c.email ?? ""} onChange={(e) => setConn(i, { email: e.target.value })} placeholder="Commit email" className={`${pillInput} w-60`} />
                       </td>
                       <td className="whitespace-nowrap px-3 py-2.5">
                         {c.gh_user === "" ? <Status ok={false}>No account</Status> : there ? <Status ok>Available</Status> : <Status ok={false}>Not signed in</Status>}
@@ -368,14 +379,17 @@ function Editor({ overview }: { overview: GitOverview }) {
             </div>
           );
         })}
-        <div>
-          <button type="button" onClick={addConnection} className={button}>
-            Add a connection
-          </button>
-        </div>
       </Section>
 
-      <Section title="Repository routing rules" hint="Which profile a repository uses, by its address. The most specific rule wins: github.com/owner/repo, then github.com/owner/*, then github.com/*.">
+      <Section
+        title="Repository routing rules"
+        hint="Which profile a repository uses, by its address. The most specific rule wins: github.com/owner/repo, then github.com/owner/*, then github.com/*."
+        aside={
+          <button type="button" onClick={() => setDraft((d) => ({ ...d, rules: [...d.rules, { match: "", connection: d.connections[0]?.id ?? "" }] }))} className={squareAdd}>
+            Add a rule
+          </button>
+        }
+      >
         {draft.rules.length === 0 ? (
           <p className="m-0 text-[14px] text-ink-3">No rule yet. A repository no rule matches is flagged on the Repositories page.</p>
         ) : (
@@ -420,11 +434,6 @@ function Editor({ overview }: { overview: GitOverview }) {
             </table>
           </div>
         )}
-        <div>
-          <button type="button" onClick={() => setDraft((d) => ({ ...d, rules: [...d.rules, { match: "", connection: d.connections[0]?.id ?? "" }] }))} className={button}>
-            Add a rule
-          </button>
-        </div>
         <AddressTester />
       </Section>
 
@@ -516,7 +525,7 @@ export function GitHubConnectionPage() {
           aside={
             <span className="flex items-center gap-3">
               <Status ok={o.accounts.length > 0}>{o.accounts.length > 0 ? "gh authenticated" : "gh not signed in"}</Status>
-              <button type="button" aria-expanded={adding} onClick={() => setAdding((v) => !v)} className={button}>
+              <button type="button" aria-expanded={adding} onClick={() => setAdding((v) => !v)} className={squareAdd}>
                 Add account
               </button>
             </span>
