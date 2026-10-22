@@ -83,6 +83,7 @@ type Store struct {
 	stacks    map[stackKey]*stackState
 	svcs      map[svcKey]*svcState
 	overrides map[svcKey]Rule
+	groups    map[stackKey]map[string]*Group
 
 	stop chan struct{}
 	done chan struct{}
@@ -117,6 +118,7 @@ func Open(o Options) (*Store, error) {
 		stacks:    map[stackKey]*stackState{},
 		svcs:      map[svcKey]*svcState{},
 		overrides: map[svcKey]Rule{},
+		groups:    map[stackKey]map[string]*Group{},
 		stop:      make(chan struct{}),
 		done:      make(chan struct{}),
 	}
@@ -215,6 +217,7 @@ func (s *Store) service(k svcKey) *svcState {
 	s.applyRule(k, sv)
 	for _, e := range s.readBack(k) {
 		sv.ring.push(e)
+		s.countGroup(e) // the errors of earlier runs are still on the Errors list
 	}
 	return sv
 }
@@ -272,6 +275,21 @@ func (s *Store) Wanted(workspace, stack, service string) bool {
 	defer s.mu.Unlock()
 	r, _ := s.effective(svcKey{workspace, stack, service})
 	return r.Store != StoreOff
+}
+
+// ParserName is the parser a service's lines are read with: the run-time choice if
+// there is one, else the stack file's, else "" (auto).
+func (s *Store) ParserName(workspace, stack, service string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k := svcKey{workspace, stack, service}
+	if r, ok := s.overrides[k]; ok && r.Parser != "" {
+		return r.Parser
+	}
+	if st := s.stacks[stackKey{workspace, stack}]; st != nil {
+		return st.defaults[service].Parser
+	}
+	return ""
 }
 
 // effective is the rule that applies to a service and where it came from.
@@ -434,6 +452,7 @@ func (s *Store) Append(e Entry) (Entry, error) {
 	k := svcKey{e.Workspace, e.Stack, e.Service}
 	sv := s.service(k)
 	sv.ring.push(e)
+	s.countGroup(e)
 
 	day := e.Time.UTC().Format("2006-01-02")
 	if sv.file == nil || sv.file.day != day {

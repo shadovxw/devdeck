@@ -161,6 +161,31 @@ export type LogEntry = {
   stream: string;
   text: string;
   truncated?: number;
+  /** Read when the line arrived: trace, debug, info, warn, error or fatal. */
+  level?: LogLevel;
+  /** The human part of a structured line, or the first line of a panic. Empty for plain text. */
+  message?: string;
+  /** "file:line" of the code that logged it, when the line says so. */
+  caller?: string;
+  /** The other values of a structured line. */
+  fields?: Record<string, unknown>;
+  /** The same for the same kind of error; only error and fatal entries have one. */
+  fingerprint?: string;
+};
+
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
+
+/** One kind of error seen in a stack. */
+export type LogGroup = {
+  fingerprint: string;
+  service: string;
+  level: LogLevel;
+  message: string;
+  caller?: string;
+  count: number;
+  first_seen: string;
+  last_seen: string;
+  sample_seq: number;
 };
 
 /** What the live topic "logs.<workspace>.<stack>" carries. */
@@ -169,6 +194,6 @@ export type LogBatch = { workspace: string; stack: string; from_seq: number; to_
 export type LogsPage = { entries: LogEntry[]; next_before?: number };
 
 /** Which of a service's lines are stored: all, only those matching a pattern, or none. */
-export type CaptureRule = { store: "all" | "matching" | "off"; match?: string };
+export type CaptureRule = { store: "all" | "matching" | "off"; match?: string; parser?: "auto" | "zerolog" | "go-panic" | "vite-log" | "plain" };
 
 export type CaptureInfo = CaptureRule & { service: string; source: "default" | "file" | "override" };

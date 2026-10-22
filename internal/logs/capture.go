@@ -28,10 +28,16 @@ type Rule struct {
 	Store string `json:"store" yaml:"store"`
 	// Match is a Go (RE2) regular expression, for StoreMatching only.
 	Match string `json:"match,omitempty" yaml:"match,omitempty"`
+	// Parser is how the service's lines are read: auto (the default), zerolog,
+	// go-panic, vite-log or plain. Empty keeps what the stack file says.
+	Parser string `json:"parser,omitempty" yaml:"parser,omitempty"`
 }
 
 // Validate reports why a rule can't be used, in plain words.
 func (r Rule) Validate() error {
+	if !ValidParser(r.Parser) {
+		return fmt.Errorf("parser must be one of %s, not %q", strings.Join(Parsers, ", "), r.Parser)
+	}
 	switch r.Store {
 	case "", StoreAll, StoreOff:
 		if r.Match != "" {

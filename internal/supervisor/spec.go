@@ -42,7 +42,7 @@ type ComposeSpec struct {
 func (sp StackSpec) LogRules() map[string]logs.Rule {
 	rules := map[string]logs.Rule{}
 	for _, s := range sp.Services {
-		if s.Logs.Store != "" {
+		if s.Logs.Store != "" || s.Logs.Parser != "" {
 			rules[s.ID] = s.Logs
 		}
 	}
@@ -201,6 +201,9 @@ func planService(sv workspace.Service, repoDir map[string]string, ids map[string
 	}
 	if sv.Logs != nil {
 		svc.Logs = *sv.Logs
+	}
+	if svc.Logs.Parser == "" {
+		svc.Logs.Parser = sv.LogParser // log_parser: is the short way to name it
 	}
 	if svc.Restart == "" {
 		svc.Restart = "on-failure"

@@ -24,6 +24,21 @@ type Entry struct {
 	Text string `json:"text"`
 	// Truncated is the original length in bytes when Text was cut short.
 	Truncated int `json:"truncated,omitempty"`
+
+	// What the parser found (read once, when the line arrives).
+	// Level is trace, debug, info, warn, error or fatal; a line whose level can't
+	// be told is info.
+	Level string `json:"level,omitempty"`
+	// Message is the human part of a structured line, or the first line of a panic.
+	// Empty for plain text: Text is the message then.
+	Message string `json:"message,omitempty"`
+	// Caller is "file:line" of the code that logged it, when the line says so.
+	Caller string `json:"caller,omitempty"`
+	// Fields are the other values of a structured line.
+	Fields map[string]any `json:"fields,omitempty"`
+	// Fingerprint is the same for the same kind of error; only error and fatal
+	// entries have one. See Fingerprint and Groups.
+	Fingerprint string `json:"fingerprint,omitempty"`
 }
 
 // Batch is what the live topic carries: entries stored since the last batch.

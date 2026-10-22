@@ -58,11 +58,11 @@
     "log_rule": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["store"],
-      "description": "Which lines of a service's output are stored.",
+      "description": "Which lines of a service's output are stored, and how they are read.",
       "properties": {
         "store": { "enum": ["all", "matching", "off"], "description": "all: every line. matching: only lines that match. off: none (the service still runs)." },
-        "match": { "type": "string", "maxLength": 500, "description": "A regular expression a line must match. Only with store: matching." }
+        "match": { "type": "string", "maxLength": 500, "description": "A regular expression a line must match. Only with store: matching." },
+        "parser": { "enum": ["auto", "zerolog", "go-panic", "vite-log", "plain"], "description": "How the lines are read. Same choices as log_parser." }
       }
     },
     "id": {
@@ -100,7 +100,7 @@
             "timeout": { "$ref": "#/$defs/duration" }
           }
         },
-        "log_parser": { "$ref": "#/$defs/id", "description": "Which log parser plugin reads this service's output." },
+        "log_parser": { "enum": ["auto", "zerolog", "go-panic", "vite-log", "plain"], "description": "How this service's lines are read into a level, message and fields. auto (the default) tries each." },
         "logs": { "$ref": "#/$defs/log_rule" },
         "restart": { "enum": ["never", "on-failure", "always"] }
       }
