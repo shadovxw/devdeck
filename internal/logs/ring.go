@@ -31,6 +31,9 @@ func (r *ring) push(e Entry) {
 // at returns the i-th entry counting from the oldest (0).
 func (r *ring) at(i int) Entry { return r.buf[(r.start+i)%len(r.buf)] }
 
+// ptr is at without the copy: for scans that only read.
+func (r *ring) ptr(i int) *Entry { return &r.buf[(r.start+i)%len(r.buf)] }
+
 // each calls f for every entry, oldest first, until f returns false.
 func (r *ring) each(f func(Entry) bool) {
 	for i := 0; i < r.n; i++ {

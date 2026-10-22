@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -18,11 +19,15 @@ import (
 func registerLogs(g *echo.Group, store *logs.Store, m *workspace.Manager) {
 	lg := g.Group("/workspaces/:id/stacks/:stack/logs", limitBody)
 
-	// GET returns stored lines, oldest first. service limits it to one service;
+	// GET returns stored lines, oldest first. service, level and field may repeat (or,
+	// for service and level, be a comma list); regex, since, until (a time, or how long
+	// ago: 15m, 2h, 7d) and group narrow it further, and every filter must match;
 	// before and after are entry numbers to page from; limit defaults to 500.
 	lg.GET("", func(c echo.Context) error {
-		q := logs.Query{Service: c.QueryParam("service")}
-		var err error
+		q, err := queryFromRequest(c, time.Now())
+		if err != nil {
+			return queryRefusal(err)
+		}
 		if q.Before, err = uintParam(c, "before"); err != nil {
 			return err
 		}
@@ -39,6 +44,9 @@ func registerLogs(g *echo.Group, store *logs.Store, m *workspace.Manager) {
 		res, err := store.Query(c.Param("id"), c.Param("stack"), q)
 		if errors.Is(err, logs.ErrBadName) {
 			return echo.NewHTTPError(http.StatusNotFound, "no such stack or service")
+		}
+		if refusal := queryRefusal(err); refusal != err {
+			return refusal
 		}
 		if err != nil {
 			c.Logger().Error(oneLine(err))

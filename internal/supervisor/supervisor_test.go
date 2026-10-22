@@ -321,8 +321,10 @@ func TestRestartPolicies(t *testing.T) {
 	s, _ := newSup(t)
 	never := fakeService(t, "never", "-crash-after", "200ms")
 	never.Restart = "never"
-	clean := fakeService(t, "clean", "-exit-after", "300ms")   // exits 0 after it was ready
-	early := fakeService(t, "early", "-exit-after", "10ms")    // exits 0 before it was ready
+	clean := fakeService(t, "clean", "-exit-after", "300ms") // exits 0 after it was ready
+	early := fakeService(t, "early", "-exit-after", "10ms")  // exits 0 before it was ready
+	// Nothing listens here, so it can never be ready, however slowly the machine starts it.
+	early.Ready.TCP = fmt.Sprintf("127.0.0.1:%d", freePort(t))
 	always := fakeService(t, "always", "-exit-after", "250ms") // exits 0, but should come back
 	always.Restart = "always"
 

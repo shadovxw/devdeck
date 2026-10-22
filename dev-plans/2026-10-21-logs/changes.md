@@ -25,7 +25,7 @@
 
 ## Known gaps (planned in later PRs)
 
-- Filter queries and saved filters (PR 4), the Logs page with histogram, Errors panel and VS Code links (PR 5).
+- The Logs page with histogram, Errors panel and VS Code links (PR 5).
 - A failed write of a log file is not reported anywhere yet (the lines still reach memory and the live view).
 - `TestRestartPolicies` in the supervisor package fails when run alone on a cold machine (a fresh test program starts slower than its 10 ms exit); it passes in the full package run.
 
@@ -78,3 +78,27 @@ Every stored line now carries what the parser found in it, read once when the li
 - The Logs page does not show levels or groups yet (PR 5); filtering by level, field or group is PR 4.
 - Groups reach only as far back as a service's in-memory window (50,000 lines), not the whole 7 days on disk.
 - `warn` lines have no fingerprint, so they are not grouped.
+
+# PR 4: query filters, reading the files, saved filters
+
+`GET /workspaces/:id/stacks/:stack/logs` now filters, and a workspace can keep saved filters.
+
+- **Filters** (`internal/logs/query.go`), all optional and all of them must match:
+  - `service` (repeat, or a comma list; `<compose id>/<container>` for a container), `level` (repeat or comma list; case blind; an entry with no level counts as `info`), `regex` (Go RE2, at most 500 characters, tested on the stored text, so it sees a whole panic), `field=path=value` or `path!=value` (repeat; the path is dotted for nested fields and also finds a key that itself has a dot; numbers compare as text without a needless `.0`; an entry without the field passes `!=`), `since` and `until` (RFC 3339, or how long ago: `90s`, `15m`, `2h`, `7d`, at most a year), `group` (an error group's fingerprint from `/logs/groups`), plus the paging that was already there (`before`, `after`, `limit`).
+  - A mistake in a filter is a **400** with the reason ("the pattern isn't valid: ...", "level must be one of ...", "until is before since"); an unsafe service name is still a 404. Limits: 50 services, 20 field filters.
+- **Where it reads:** each service's lines in memory, newest first, stopping as soon as it has one more than the page needs (that extra one tells whether there is a next page, so `next_before` is exact). Only when a service's memory is full and the page isn't filled does it read that service's day files, newest day first and not at all for days outside `since` and `until`; it skips what memory already covered by reading the entry number at the start of each line, and stops a file at the first line that is not older. The files are read without holding the store's lock, one goroutine per service, so a slow scan can't hold up new lines.
+- **The 500,000 line gate** (plan D10), a test in `query_test.go` (skipped with `-short`): 10 services of 50,000 lines each, a typical filter (4 services, level error, pattern) took **6 ms**; a pattern nothing matches, looking at every line in memory, **86 ms**; a rare match that is only in the files of 500,000 lines (memory held 10,000 per service) **0.7 s** on this machine. The test fails over 1 s for the first two and 5 s for the file scan. CI runs Go tests with `-race`, which is several times slower, so under it the limit is 15 s and the file-scan case is skipped (build tags in `race_on_test.go` / `race_off_test.go`); this wasn't run with `-race` here, since Windows has no C compiler for it. No per-file index was needed.
+- **Saved filters** (`internal/logs/filter.go`, `internal/workspace/logfilters.go`, `internal/api/logfilters.go`): kept in `log-filters.yaml` in the workspace folder (read strictly: an unknown key is an error; at most 100 filters and 256 KiB; written aside and renamed over the old file). A filter has `id`, `name` and any of `stack` (only offered for that stack), `services`, `levels`, `regex`, `fields` and `since` (relative or absolute, written as a query takes it). `GET /workspaces/:id/log-filters` lists them (sample workspaces too), `PUT .../log-filters/:id` adds or replaces (201, or 200 when it replaced one; 422 with the reason when it isn't valid), `DELETE .../log-filters/:id` removes it (404 if there is none). Sample workspaces can't be changed (403). A JSON Schema for editors is in `internal/workspace/schemas/log-filters.schema.json`; the server validates in Go, with the same checks a query gets.
+- **Web:** `lib/log-query.ts` with the query and saved-filter types and the query-string builder the Logs page will use (PR 5).
+- **Tests:** every filter and combinations, paging through filtered results, reaching into the files across days (and paging through a whole history without gaps or repeats), refusals, `ParseField`, `ParseWhen`, field comparison, filter validation, the 500k gate; the workspace store (add, replace in place, delete, strict reading, limit, samples read-only, no temporary files left); the routes (URL filters, specific refusals, saved-filter CRUD, samples); the web query builder.
+- `TestRestartPolicies` (PR 2's supervisor tests) failed on a loaded machine because its "exits before it was ready" case relied on the program starting within 100 ms; that case now has a readiness check that can never pass, so it no longer depends on speed.
+- One existing test changed on purpose: `TestRingKeepsOnlyTheNewest` now checks what memory holds directly, because a query goes on into the files.
+
+## Verified live
+
+On a throwaway workspace with the lines of PR 3 (read back from their files after a restart): filters by level, pattern, field (`user=43`, `user!=43`), group, and time gave exactly the expected entries; a bad pattern answered with its reason; a saved filter was created (201), listed, written to `log-filters.yaml`, and deleted (204), leaving no temporary file.
+
+## Known gaps
+
+- Counting for the level histogram (PR 5) isn't an endpoint yet; the page can count what it has loaded, and PR 5 adds a counting route if that isn't enough.
+- A query is limited to 5,000 entries a page; very large exports aren't a goal.

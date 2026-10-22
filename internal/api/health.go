@@ -57,6 +57,7 @@ func Register(e *echo.Echo, d Deps) {
 		registerWorkspaces(v1, d.Workspaces, d.Supervisor)
 		registerDoctor(v1, d.Workspaces, d.Plugins, d.Supervisor)
 		registerStackFiles(v1, d.Workspaces, d.Supervisor)
+		registerLogFilters(v1, d.Workspaces)
 		if d.Logs != nil {
 			registerLogs(v1, d.Logs, d.Workspaces)
 		}
