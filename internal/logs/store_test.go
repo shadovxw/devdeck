@@ -117,9 +117,15 @@ func TestRingKeepsOnlyTheNewest(t *testing.T) {
 	for i := 1; i <= 12; i++ {
 		add(t, s, "api", fmt.Sprintf("l%d", i), c.t)
 	}
+	var inMemory []string
+	s.svcs[svcKey{"demo", "full", "api"}].ring.each(func(e Entry) bool { inMemory = append(inMemory, e.Text); return true })
+	if strings.Join(inMemory, ",") != "l8,l9,l10,l11,l12" {
+		t.Errorf("ring = %q", inMemory)
+	}
+	// A query goes on into the files for what memory let go of.
 	got, _ := s.Query("demo", "full", Query{Limit: 100})
-	if texts(got) != "l8,l9,l10,l11,l12" {
-		t.Errorf("ring = %q", texts(got))
+	if len(got.Entries) != 12 || got.Entries[0].Text != "l1" {
+		t.Errorf("query = %q", texts(got))
 	}
 }
 

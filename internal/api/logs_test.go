@@ -191,3 +191,75 @@ func TestErrorGroupsAndParsedFields(t *testing.T) {
 		t.Errorf("an unsafe name has no groups, got %d %s", rec.Code, rec.Body)
 	}
 }
+
+func TestFilterTheLogsByUrl(t *testing.T) {
+	e, store := logsServer(t)
+	base := "/api/v1/workspaces/demo/stacks/full/logs"
+	add := func(service, level, text string, ago time.Duration, fields map[string]any) {
+		t.Helper()
+		if _, err := store.Append(logs.Entry{
+			Time: time.Now().Add(-ago), Workspace: "demo", Stack: "full", Service: service, Stream: "stdout",
+			Text: text, Level: level, Fields: fields,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add("api", "info", "listening", 3*time.Hour, nil)
+	add("api", "error", "db timeout", 10*time.Minute, map[string]any{"user": map[string]any{"id": float64(42)}})
+	add("api", "error", "db refused", 5*time.Minute, map[string]any{"user": map[string]any{"id": float64(7)}})
+	add("web", "warn", "slow render", 2*time.Minute, nil)
+	add("vault/openbao", "debug", "seal status", time.Minute, nil)
+
+	texts := func(url string) string {
+		t.Helper()
+		rec := do(e, http.MethodGet, url)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s = %d %s", url, rec.Code, rec.Body)
+		}
+		var out []string
+		for _, en := range decode[logs.Result](t, rec.Body.Bytes()).Entries {
+			out = append(out, en.Text)
+		}
+		return strings.Join(out, "|")
+	}
+	for url, want := range map[string]string{
+		base + "?level=error":                                      "db timeout|db refused",
+		base + "?level=error,warn":                                 "db timeout|db refused|slow render",
+		base + "?level=error&level=debug":                          "db timeout|db refused|seal status",
+		base + "?service=web&service=vault/openbao":                "slow render|seal status",
+		base + "?service=web,api&level=warn":                       "slow render",
+		base + "?regex=" + url.QueryEscape("db (timeout|refused)"): "db timeout|db refused",
+		base + "?field=user.id%3D42":                               "db timeout",
+		base + "?field=user.id!%3D42&service=api&level=error":      "db refused",
+		base + "?since=1h":                                         "db timeout|db refused|slow render|seal status",
+		base + "?since=1h&until=3m":                                "db timeout|db refused",
+		base + "?since=" + url.QueryEscape(time.Now().Add(-6*time.Minute).UTC().Format(time.RFC3339)): "db refused|slow render|seal status",
+		base + "?level=error&limit=1": "db refused",
+	} {
+		if got := texts(url); got != want {
+			t.Errorf("%s\n got %q\nwant %q", url, got, want)
+		}
+	}
+}
+
+func TestFilterRefusalsAreSpecific(t *testing.T) {
+	e, _ := logsServer(t)
+	base := "/api/v1/workspaces/demo/stacks/full/logs"
+	for url, want := range map[string]string{
+		base + "?regex=%28":                         "pattern",
+		base + "?level=loud":                        "level must be one of",
+		base + "?field=nonsense":                    "path=value",
+		base + "?since=yesterday":                   "isn't a time",
+		base + "?until=never":                       "isn't a time",
+		base + "?since=1h&until=2h":                 "until is before since",
+		base + "?regex=" + strings.Repeat("a", 501): "too long",
+	} {
+		rec := do(e, http.MethodGet, url)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("%s = %d %s, want 400 mentioning %q", url, rec.Code, rec.Body, want)
+		}
+	}
+	if rec := do(e, http.MethodGet, base+"?service=..%2Fx&level=error"); rec.Code != http.StatusNotFound {
+		t.Errorf("an unsafe service = %d, want 404", rec.Code)
+	}
+}

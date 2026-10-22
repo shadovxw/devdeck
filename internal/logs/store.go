@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -23,6 +22,7 @@ const (
 	DefaultMaxBytes      = 500 << 20
 
 	maxLineBytes = 1 << 20 // longest line read back from a file
+	jsonlExt     = ".jsonl"
 	defaultLimit = 500
 	maxLimit     = 5000
 )
@@ -480,7 +480,7 @@ func (d *dayFile) open() error {
 	if err := os.MkdirAll(d.dir, 0o700); err != nil {
 		return err
 	}
-	d.path = filepath.Join(d.dir, d.day+".jsonl")
+	d.path = filepath.Join(d.dir, d.day+jsonlExt)
 	f, err := os.OpenFile(d.path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600) //nolint:gosec // the folder is built from validated names
 	if err != nil {
 		return err
@@ -552,7 +552,7 @@ func dayFiles(dir string) []string {
 	}
 	var out []string
 	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".jsonl") {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), jsonlExt) {
 			out = append(out, e.Name())
 		}
 	}
@@ -580,84 +580,6 @@ func readFile(path string, max int) []Entry {
 	out := make([]Entry, 0, r.len())
 	r.each(func(e Entry) bool { out = append(out, e); return true })
 	return out
-}
-
-// Query asks for entries of one stack.
-type Query struct {
-	// Service limits the answer to one service; empty means all of them.
-	Service string
-	// Before returns the entries just older than this number; After the ones newer.
-	// With neither, the newest entries are returned.
-	Before, After uint64
-	// Limit is how many entries to return (default 500, at most 5,000).
-	Limit int
-}
-
-// Result is the answer to a Query: entries oldest first.
-type Result struct {
-	Entries []Entry `json:"entries"`
-	// NextBefore is the Before to ask for the next older page, or 0 when there is none.
-	NextBefore uint64 `json:"next_before,omitempty"`
-}
-
-// Query returns stored entries of a stack, oldest first. Services nobody has
-// written to in this run are read back from their files the first time.
-func (s *Store) Query(workspace, stack string, q Query) (Result, error) {
-	if !validNames(workspace, stack, q.Service) {
-		return Result{}, ErrBadName
-	}
-	limit := q.Limit
-	if limit <= 0 {
-		limit = defaultLimit
-	}
-	limit = min(limit, maxLimit)
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	st := s.stack(workspace, stack)
-	if q.Service != "" {
-		s.service(svcKey{workspace, stack, q.Service})
-	} else if !st.discovered {
-		st.discovered = true
-		s.discover(workspace, stack)
-	}
-
-	var all []Entry
-	for k, sv := range s.svcs {
-		if k.workspace != workspace || k.stack != stack || (q.Service != "" && k.service != q.Service) {
-			continue
-		}
-		sv.ring.each(func(e Entry) bool {
-			if (q.After == 0 || e.Seq > q.After) && (q.Before == 0 || e.Seq < q.Before) {
-				all = append(all, e)
-			}
-			return true
-		})
-	}
-	slices.SortFunc(all, func(a, b Entry) int {
-		switch {
-		case a.Seq < b.Seq:
-			return -1
-		case a.Seq > b.Seq:
-			return 1
-		}
-		return 0
-	})
-
-	var res Result
-	switch {
-	case q.After > 0 && len(all) > limit:
-		res.Entries = all[:limit] // the next newer page
-	case len(all) > limit:
-		res.Entries = all[len(all)-limit:]
-		res.NextBefore = res.Entries[0].Seq
-	default:
-		res.Entries = all
-	}
-	if res.Entries == nil {
-		res.Entries = []Entry{}
-	}
-	return res, nil
 }
 
 // discover reads back every service folder a stack has on disk. The caller holds s.mu.
@@ -714,14 +636,14 @@ func (s *Store) Prune() (int, error) {
 	var files []item
 	var total int64
 	err := filepath.WalkDir(s.o.Dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".jsonl") {
+		if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), jsonlExt) {
 			return nil //nolint:nilerr // an unreadable entry is skipped, not fatal
 		}
 		info, err := d.Info()
 		if err != nil {
 			return nil //nolint:nilerr // as above
 		}
-		files = append(files, item{path: path, day: strings.TrimSuffix(d.Name(), ".jsonl"), size: info.Size()})
+		files = append(files, item{path: path, day: strings.TrimSuffix(d.Name(), jsonlExt), size: info.Size()})
 		total += info.Size()
 		return nil
 	})
