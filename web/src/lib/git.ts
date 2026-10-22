@@ -27,6 +27,10 @@ export type GitCheck = { login: string; scopes: string[] | null; orgs: string[] 
 export type GitSetup = {
   git_found: boolean;
   applied: boolean;
+  /** The devdeck helper configured for github.com now, the program it runs, and whether that file exists. */
+  registered: string;
+  registered_program: string;
+  registered_exists: boolean;
   helper: string;
   commands: string[];
   current_helpers: string[];

@@ -228,3 +228,46 @@ func TestHelpersOfTheSystemConfigStayAfterDevdeck(t *testing.T) {
 		t.Errorf("helpers for github.com = %q, want %q (Git Credential Manager must stay as the fallback)", got, want)
 	}
 }
+
+func TestPreviewRecognisesADevdeckHelperOfAnotherProgram(t *testing.T) {
+	s, _ := newSetup(t, exe)
+	program := filepath.ToSlash(filepath.Join(t.TempDir(), "other-devdeck.exe"))
+	line := `!"` + program + `" git-credential --data-dir "C:/somewhere"`
+	// set through git itself, which does the quoting a config file needs
+	for _, v := range []string{"", line, "manager"} {
+		if err := s.config(context.Background(), "--add", helperKey, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	st, err := s.Preview(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Applied || st.Registered != line || st.RegisteredProgram != program || st.RegisteredExists {
+		t.Fatalf("a helper whose program is gone: %+v", st)
+	}
+	// once the program exists the helper is in place, though not this program's own
+	if err := os.WriteFile(filepath.FromSlash(program), []byte("x"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ = s.Preview(context.Background()); st.Applied || !st.RegisteredExists || st.RegisteredProgram != program {
+		t.Errorf("a helper whose program is there: %+v", st)
+	}
+	// setting up from this program replaces it and keeps the helper after it
+	if err := s.Apply(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := gitValues(t, s, helperKey); !slices.Equal(got, []string{"", s.helperValue()}) {
+		t.Errorf("after applying from another program: %q", got)
+	}
+	// a helper that isn't devdeck's is not mistaken for it
+	for _, other := range []string{"manager", "!echo hi", `!"/bin/other" something`, `!""`, `!"/x`} {
+		if _, ok := helperProgram(other); ok {
+			t.Errorf("%q is not a devdeck helper", other)
+		}
+	}
+	if p, ok := helperProgram(`!"C:/a b/devdeck.exe" git-credential`); !ok || p != "C:/a b/devdeck.exe" {
+		t.Errorf("program = %q, %v", p, ok)
+	}
+}

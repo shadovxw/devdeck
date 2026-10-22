@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 
 import { stagger } from "../lib/motion";
 
@@ -8,6 +9,8 @@ type Props = {
   group: string;
   /** For a sub-page: the parent page, shown between the group and the title. */
   parent?: string;
+  /** Where the parent crumb goes, so the way back is one click. */
+  parentTo?: string;
   /** Buttons for the page, on the same line as the title, at the right. */
   actions?: ReactNode;
   /** One line under the title saying what the page is for. */
@@ -15,13 +18,19 @@ type Props = {
 };
 
 /** Breadcrumb and the page title: all a page needs at the top. */
-export function PageHeader({ title, group, parent, actions, description }: Props) {
+export function PageHeader({ title, group, parent, parentTo, actions, description }: Props) {
   return (
     <header className="enter" style={stagger(0)}>
       <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3">
         {[group, parent].filter(Boolean).map((crumb) => (
           <span key={crumb}>
-            {crumb}
+            {crumb === parent && parentTo ? (
+              <Link to={parentTo} className="hover:text-ink hover:underline">
+                {crumb}
+              </Link>
+            ) : (
+              crumb
+            )}
             <span className="mx-2" aria-hidden>
               /
             </span>

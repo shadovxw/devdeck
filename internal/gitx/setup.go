@@ -38,8 +38,16 @@ type Setup struct {
 // SetupState is what the setup would do and what is there now.
 type SetupState struct {
 	GitFound bool `json:"git_found"`
-	// Applied is true when devdeck is already one of the helpers for github.com.
+	// Applied is true when the helper this program would register is already one of the
+	// helpers for github.com.
 	Applied bool `json:"applied"`
+	// Registered is the devdeck helper that is configured for github.com now, whichever
+	// devdeck program it runs ("" when there is none); RegisteredProgram is that program
+	// and RegisteredExists says whether the file is still there. A helper whose program
+	// is missing does nothing, and git falls back to the next helper.
+	Registered        string `json:"registered"`
+	RegisteredProgram string `json:"registered_program"`
+	RegisteredExists  bool   `json:"registered_exists"`
 	// Helper is the helper command that is (or would be) registered.
 	Helper string `json:"helper"`
 	// Commands is the preview: what Apply runs, in order.
@@ -118,6 +126,20 @@ func (s *Setup) getAllIn(ctx context.Context, scope, key string) ([]string, erro
 	return strings.Split(out, "\n"), nil
 }
 
+// helperProgram reads the program out of a devdeck helper line (!"<program>" git-credential
+// ...). It reports false for any other helper.
+func helperProgram(h string) (string, bool) {
+	rest, ok := strings.CutPrefix(h, `!"`)
+	if !ok {
+		return "", false
+	}
+	program, after, ok := strings.Cut(rest, `"`)
+	if !ok || program == "" || !strings.HasPrefix(after, " git-credential") {
+		return "", false
+	}
+	return program, true
+}
+
 func quote(v string) string {
 	if v == "" || strings.ContainsAny(v, " \t\"!'") {
 		return "'" + strings.ReplaceAll(v, "'", `'\''`) + "'"
@@ -160,6 +182,14 @@ func (s *Setup) Preview(ctx context.Context) (SetupState, error) {
 		st.GeneralHelpers = []string{}
 	}
 	st.Applied = slices.Contains(st.CurrentHelpers, st.Helper)
+	for _, h := range st.CurrentHelpers {
+		if program, ok := helperProgram(h); ok {
+			st.Registered, st.RegisteredProgram = h, program
+			_, err := os.Stat(filepath.FromSlash(program))
+			st.RegisteredExists = err == nil
+			break
+		}
+	}
 	if _, err := os.Stat(filepath.Join(s.DataDir, backupFile)); err == nil {
 		st.CanUndo = true
 	}

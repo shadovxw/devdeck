@@ -6,6 +6,7 @@ import {
   FolderGit2,
   Gauge,
   GitBranch,
+  GitFork,
   HardDrive,
   History,
   House,
@@ -103,7 +104,7 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "No repository connected yet",
           text: "Connect a GitHub account, then pick the repositories this workspace uses.",
-          cta: { label: "Connect repository", to: "/connections" },
+          cta: { label: "Connect repository", to: "/connections/github" },
         },
       },
       {
@@ -300,6 +301,17 @@ const GROUPS: GroupDef[] = [
         },
       },
       {
+        path: "/connections/github",
+        label: "GitHub",
+        icon: GitFork,
+        phase: "Phase 4",
+        empty: {
+          headline: "No GitHub account yet",
+          text: "Sign in with the GitHub CLI, then add a connection for each account you use.",
+          cta: { label: "Back to Connections", to: "/connections" },
+        },
+      },
+      {
         path: "/notifications",
         label: "Notifications",
         icon: Bell,
@@ -339,6 +351,7 @@ const GROUPS: GroupDef[] = [
 const NESTED: Record<string, string[]> = {
   "/databases": ["/migrations", "/sql", "/scripts"],
   "/flows": ["/runs"],
+  "/connections": ["/connections/github"],
 };
 const nestedPaths = new Set(Object.values(NESTED).flat());
 

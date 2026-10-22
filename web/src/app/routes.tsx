@@ -5,6 +5,7 @@ import type { RouteObject } from "react-router";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { ConnectionsPage } from "../pages/ConnectionsPage";
+import { GitHubConnectionPage } from "../pages/GitHubConnectionPage";
 import { DoctorPage } from "../pages/DoctorPage";
 import { HomePage } from "../pages/HomePage";
 import { LogsPage } from "../pages/LogsPage";
@@ -26,6 +27,7 @@ const built: Record<string, ReactElement> = {
   "/doctor": <DoctorPage />,
   "/logs": <LogsPage />,
   "/connections": <ConnectionsPage />,
+  "/connections/github": <GitHubConnectionPage />,
   "/repos": <ReposPage />,
 };
 

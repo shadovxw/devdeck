@@ -12,7 +12,7 @@ import { useFixIdentity, useGitRepos, type GitRepo, type RepoState } from "../li
 const look: Record<RepoState, { label: string; hint: string; shape: "dot" | "triangle" | "square" | "ring"; color: string }> = {
   ok: { label: "Right account", hint: "A rule picks the account and the commit name and email match.", shape: "dot", color: "var(--good)" },
   "wrong-identity": { label: "Wrong identity", hint: "A rule picks the account, but this repository commits with another name or email.", shape: "triangle", color: "var(--warning)" },
-  "no-rule": { label: "No rule", hint: "No rule matches this repository, so git asks as before. Add a rule on the Connections page.", shape: "square", color: "var(--critical)" },
+  "no-rule": { label: "No rule", hint: "No rule matches this repository, so git asks as before. Add a rule on the GitHub connection page.", shape: "square", color: "var(--critical)" },
   "no-remote": { label: "No remote", hint: "This repository has no origin.", shape: "ring", color: "var(--ink-3)" },
   missing: { label: "Not found", hint: "The folder isn’t there, or isn’t a git repository.", shape: "ring", color: "var(--ink-3)" },
   "other-host": { label: "Not GitHub", hint: "Only github.com is handled.", shape: "ring", color: "var(--ink-3)" },
@@ -76,7 +76,7 @@ function Row({ r }: { r: GitRepo }) {
           </button>
         )}
         {r.state === "no-rule" && (
-          <Link to="/connections" className="text-[13px] text-accent hover:underline">
+          <Link to="/connections/github" className="text-[13px] text-accent hover:underline">
             Add a rule
           </Link>
         )}
