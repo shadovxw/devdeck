@@ -17,7 +17,13 @@ func gitEnv(t *testing.T) (env []string, file string) {
 		t.Skip("git isn't installed")
 	}
 	file = filepath.Join(t.TempDir(), "gitconfig")
-	return []string{"GIT_CONFIG_GLOBAL=" + file, "GIT_CONFIG_NOSYSTEM=1", "HOME=" + filepath.Dir(file), "USERPROFILE=" + filepath.Dir(file)}, file
+	// An empty system config of its own: `git config --system` reads the real one otherwise,
+	// where Git for Windows keeps Git Credential Manager.
+	system := filepath.Join(filepath.Dir(file), "empty-system-gitconfig")
+	if err := os.WriteFile(system, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return []string{"GIT_CONFIG_GLOBAL=" + file, "GIT_CONFIG_SYSTEM=" + system, "GIT_CONFIG_NOSYSTEM=1", "HOME=" + filepath.Dir(file), "USERPROFILE=" + filepath.Dir(file)}, file
 }
 
 func newSetup(t *testing.T, exe string) (*Setup, string) {
@@ -45,13 +51,13 @@ func TestPreviewOfAFreshConfig(t *testing.T) {
 	if !st.GitFound || st.Applied || st.CanUndo || len(st.CurrentHelpers) != 0 || len(st.GeneralHelpers) != 0 || st.UseHTTPPath != "" {
 		t.Errorf("state = %+v", st)
 	}
-	if st.Helper != `!"C:/Program Files/devdeck/devdeck.exe" git-credential` {
-		t.Errorf("helper = %q (the path is quoted, with forward slashes)", st.Helper)
+	if want := `!"C:/Program Files/devdeck/devdeck.exe" git-credential --data-dir "` + filepath.ToSlash(s.DataDir) + `"`; st.Helper != want {
+		t.Errorf("helper = %q, want %q (the paths are quoted, with forward slashes, and the data folder is named)", st.Helper, want)
 	}
 	want := []string{
 		"git config --global credential.https://github.com.useHttpPath true",
 		`git config --global --add credential.https://github.com.helper ""`,
-		`git config --global --add credential.https://github.com.helper '!"C:/Program Files/devdeck/devdeck.exe" git-credential'`,
+		`git config --global --add credential.https://github.com.helper '` + st.Helper + `'`,
 	}
 	if !slices.Equal(st.Commands, want) {
 		t.Errorf("preview:\n%s", strings.Join(st.Commands, "\n"))
@@ -192,5 +198,33 @@ func TestQuote(t *testing.T) {
 		if got := quote(in); got != want {
 			t.Errorf("quote(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestHelpersOfTheSystemConfigStayAfterDevdeck(t *testing.T) {
+	// Git for Windows puts Git Credential Manager in the system config, not the user's.
+	env, file := gitEnv(t)
+	system := filepath.Join(filepath.Dir(file), "system-gitconfig")
+	if err := os.WriteFile(system, []byte("[credential]\n\thelper = manager\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("[credential]\n\thelper =\n\thelper = cache\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env = slices.DeleteFunc(env, func(e string) bool { return strings.HasPrefix(e, "GIT_CONFIG_NOSYSTEM=") })
+	s := &Setup{Exe: exe, DataDir: t.TempDir(), Env: append(env, "GIT_CONFIG_SYSTEM="+system)}
+
+	st, err := s.Preview(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(st.GeneralHelpers, []string{"manager", "cache"}) {
+		t.Fatalf("general helpers = %q, want the system one then the user's, without the empty reset", st.GeneralHelpers)
+	}
+	if err := s.Apply(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := gitValues(t, s, helperKey), []string{"", s.helperValue(), "manager", "cache"}; !slices.Equal(got, want) {
+		t.Errorf("helpers for github.com = %q, want %q (Git Credential Manager must stay as the fallback)", got, want)
 	}
 }

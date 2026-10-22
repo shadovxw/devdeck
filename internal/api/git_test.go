@@ -58,7 +58,9 @@ func gitServer(t *testing.T, gh *gitx.GH) gitFixture {
 		t.Skip("git isn't installed")
 	}
 	cfgFile := filepath.Join(t.TempDir(), "gitconfig")
-	env := []string{"GIT_CONFIG_GLOBAL=" + cfgFile, "GIT_CONFIG_NOSYSTEM=1", "HOME=" + filepath.Dir(cfgFile), "USERPROFILE=" + filepath.Dir(cfgFile)}
+	system := filepath.Join(filepath.Dir(cfgFile), "empty-system-gitconfig")
+	must(t, os.WriteFile(system, nil, 0o600))
+	env := []string{"GIT_CONFIG_GLOBAL=" + cfgFile, "GIT_CONFIG_SYSTEM=" + system, "GIT_CONFIG_NOSYSTEM=1", "HOME=" + filepath.Dir(cfgFile), "USERPROFILE=" + filepath.Dir(cfgFile)}
 
 	root := t.TempDir()
 	for name, remote := range map[string]string{"api": "https://github.com/acme/api.git", "other": "https://github.com/stranger/thing.git"} {

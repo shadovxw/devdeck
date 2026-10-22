@@ -165,6 +165,17 @@ func TestCommand(t *testing.T) {
 	if code := Command([]string{"get"}, strings.NewReader("protocol=https\nhost=github.com\npath=acme/api.git\n\n"), &out, &errOut, getenv); code != 0 || out.String() != "username=office-dev\npassword=tok-from-gh\n" {
 		t.Errorf("get: code %d out %q err %q", code, out.String(), errOut.String())
 	}
+	// git runs the helper without the server's environment, so the setup names the data folder
+	out.Reset()
+	errOut.Reset()
+	noEnv := func(string) string { return "" }
+	if code := Command([]string{"--data-dir", dir, "get"}, strings.NewReader("protocol=https\nhost=github.com\npath=acme/api.git\n\n"), &out, &errOut, noEnv); code != 0 || out.String() != "username=office-dev\npassword=tok-from-gh\n" {
+		t.Errorf("with --data-dir: code %d out %q err %q", code, out.String(), errOut.String())
+	}
+	out.Reset()
+	if code := Command([]string{"--data-dir", dir}, strings.NewReader(""), &out, &errOut, noEnv); code != 2 {
+		t.Errorf("--data-dir without an action: code %d", code)
+	}
 	out.Reset()
 	if code := Command([]string{"store"}, strings.NewReader("protocol=https\nhost=github.com\n\n"), &out, &errOut, getenv); code != 0 || out.Len() != 0 {
 		t.Errorf("store: code %d out %q", code, out.String())

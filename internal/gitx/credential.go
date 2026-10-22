@@ -88,12 +88,26 @@ func Run(ctx context.Context, action string, in io.Reader, out io.Writer, d Deps
 // newGH makes the gh the helper asks for tokens. Tests replace it.
 var newGH = func() *GH { return NewGH("") }
 
-// Command is `devdeck git-credential <get|store|erase>`: it reads the configuration from
-// devdeck's data folder, asks gh for tokens, and answers on out. It returns the exit code.
+// Command is `devdeck git-credential [--data-dir <folder>] <get|store|erase>`: it reads the
+// configuration from devdeck's data folder (the one named, else the usual one), asks gh for
+// tokens, and answers on out. It returns the exit code.
 func Command(args []string, in io.Reader, out, errOut io.Writer, getenv func(string) string) int {
+	dataDir := ""
+	if len(args) >= 3 && args[0] == "--data-dir" {
+		dataDir, args = args[1], args[2:]
+	}
 	if len(args) != 1 || (args[0] != "get" && args[0] != "store" && args[0] != "erase") {
-		_, _ = fmt.Fprintln(errOut, "usage: devdeck git-credential get|store|erase (git calls this; see `devdeck help`)")
+		_, _ = fmt.Fprintln(errOut, "usage: devdeck git-credential [--data-dir <folder>] get|store|erase (git calls this; see `devdeck help`)")
 		return 2
+	}
+	if dataDir != "" {
+		env := getenv
+		getenv = func(k string) string {
+			if k == "DEVDECK_DATA_DIR" {
+				return dataDir
+			}
+			return env(k)
+		}
 	}
 	cfg, err := config.Load(getenv)
 	if err != nil {

@@ -67,9 +67,20 @@ func (s *Setup) git() string {
 	return "git"
 }
 
-// helperValue is the line git is given: a command run through the shell, with the path quoted.
+// helperValue is the line git is given: a command run through the shell, with the paths
+// quoted. It names devdeck's data folder, because git runs the helper without the
+// environment the server was started with (DEVDECK_DATA_DIR), and the helper must read
+// the same accounts file the server writes.
 func (s *Setup) helperValue() string {
-	return `!"` + filepath.ToSlash(s.Exe) + `" git-credential`
+	cmd := `!"` + filepath.ToSlash(s.Exe) + `" git-credential`
+	if s.DataDir == "" {
+		return cmd
+	}
+	dir := s.DataDir
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	return cmd + ` --data-dir "` + filepath.ToSlash(dir) + `"`
 }
 
 // config runs `git config --global args...`. An unset of a key that isn't there (exit 5) is not an error.
@@ -84,13 +95,20 @@ func (s *Setup) config(ctx context.Context, args ...string) error {
 	return nil
 }
 
-// getAll reads every value of a key, keeping empty values (an empty helper resets the list).
+// getAll reads every value of a key in the global git config, keeping empty values (an
+// empty helper resets the list).
 func (s *Setup) getAll(ctx context.Context, key string) ([]string, error) {
-	res, err := proc.Run(ctx, proc.Cmd{Name: s.git(), Args: []string{"config", "--global", "--get-all", key}, Env: s.Env, Timeout: 20 * time.Second})
+	return s.getAllIn(ctx, "--global", key)
+}
+
+// getAllIn is getAll for one scope of git's config: "--global" or "--system". A scope with
+// no file, or without the key, has no values.
+func (s *Setup) getAllIn(ctx context.Context, scope, key string) ([]string, error) {
+	res, err := proc.Run(ctx, proc.Cmd{Name: s.git(), Args: []string{"config", scope, "--get-all", key}, Env: s.Env, Timeout: 20 * time.Second})
 	if err != nil {
 		return nil, err
 	}
-	if res.ExitCode == 1 {
+	if res.ExitCode == 1 || (scope == "--system" && res.ExitCode == 128) {
 		return nil, nil
 	}
 	if res.ExitCode != 0 {
@@ -118,8 +136,19 @@ func (s *Setup) Preview(ctx context.Context) (SetupState, error) {
 	if st.CurrentHelpers, err = s.getAll(ctx, helperKey); err != nil {
 		return st, err
 	}
-	if st.GeneralHelpers, err = s.getAll(ctx, "credential.helper"); err != nil {
-		return st, err
+	// The helpers that apply to every host come from the system config (where Git for Windows
+	// puts Git Credential Manager) and from the user's own. The empty entry that puts devdeck
+	// first would clear them all for github.com, so they are listed again after devdeck.
+	for _, scope := range []string{"--system", "--global"} {
+		more, err := s.getAllIn(ctx, scope, "credential.helper")
+		if err != nil {
+			return st, err
+		}
+		for _, h := range more {
+			if h != "" { // an empty entry only resets the list; copying it would clear devdeck
+				st.GeneralHelpers = append(st.GeneralHelpers, h)
+			}
+		}
 	}
 	if paths, err := s.getAll(ctx, httpPathKey); err == nil && len(paths) > 0 {
 		st.UseHTTPPath = paths[len(paths)-1]

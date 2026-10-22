@@ -33,6 +33,14 @@ The plan is in [`plan.md`](plan.md). Everything here is new; the one existing fi
 - **git itself** (`git ls-remote`, in an isolated git config with the helper registered): the private infrabot repository could be read through the helper, and could not without it; the personal repository too.
 - The pages were opened in the browser pane. Against the real workspaces the Repositories page found 20 repositories (4 not on disk) and flagged the infrabot ones whose email is not the connection's: the real names and emails are for the owner to enter.
 
+## Found when setting it up for real
+
+Two mistakes in the first version, found by running git against the owner's real settings, and fixed:
+
+- **Git Credential Manager is in the system config, not the user's.** The setup read only the global config for the helpers that apply to every host, so it didn't see Git Credential Manager (Git for Windows puts it in the system config). The empty entry that puts devdeck first clears *every* earlier helper for github.com, so Git Credential Manager would have been dropped as the fallback. The setup now reads the system and the global config, and lists those helpers again after devdeck (empty entries are not copied). The tests give git their own system config (`GIT_CONFIG_SYSTEM`).
+- **git runs the helper without the server's environment.** The server finds its data folder through `DEVDECK_DATA_DIR`, which the helper doesn't have, so it looked in the default folder, found no accounts and said nothing. The helper line now names the folder: `devdeck git-credential --data-dir "<folder>"` (made absolute), and `Command` takes that flag.
+- Checked afterwards with the real settings and prompts switched off: the private infrabot repositories and the personal repository were read through the helper with no popup.
+
 ## Not in this PR (PR B)
 
 Fetch, pull, push, branches, commits, status with file watching, bulk "pull all", clone onto a new PC, the pull-request list and checks, repository detail pages.
@@ -40,5 +48,5 @@ Fetch, pull, push, branches, commits, status with file watching, bulk "pull all"
 ## Known limits
 
 - HTTPS only; SSH remotes are shown and not handled.
-- The helper command is registered with the path of the running devdeck program. In development that is the file `air` builds (it moves when the build does), so setup shows the path and is best done from a built `devdeck.exe` (`mise run build`); applying again later with a new path is safe.
+- The helper command is registered with the path of the running devdeck program and its data folder. In development `air` builds into `tmp/` and deletes the program when it stops, so setup is best done from a built program (`go build -o bin/devdeck.exe ./cmd/devdeck`, or `mise run build`), which the helper then keeps using whether or not `air` runs. Rebuild it when the helper's code changes; applying again later with a new path is safe.
 - `gh auth status` takes about a second (it asks GitHub), so the Connections page takes about that long to load.
