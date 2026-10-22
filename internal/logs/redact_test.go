@@ -26,7 +26,7 @@ func TestRedactShapes(t *testing.T) {
 		{"bare bearer", "got header Bearer " + longSecret, "got header Bearer ***"},
 		{"a JWT", "token seen " + fakeJWT + " end", "token seen *** end"},
 		{"credentials in a url", "dial postgres://app:" + longSecret + "@db:5432/x", "dial postgres://app:***@db:5432/x"},
-		{"api key", "x-api-key=ab12cd34ef", "x-api-key=***"},
+		{"api key", "x-api-key=ab12ab12", "x-api-key=***"},
 		// near misses that must stay readable
 		{"a number named token_count", "token_count=5 done", "token_count=5 done"},
 		{"a boolean", "password_set=true", "password_set=true"},
