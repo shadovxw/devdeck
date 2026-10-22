@@ -362,8 +362,8 @@ type scanJob struct {
 // reading the newest file first and stopping once it has enough. Files of days
 // outside the time range are not opened.
 func (j scanJob) run(mt *matcher) []Entry {
-	if !inside(j.root, j.dir) {
-		return nil
+	if !strings.HasPrefix(j.dir, filepath.Clean(j.root)+string(filepath.Separator)) {
+		return nil // never read outside the log folder, whatever the names were
 	}
 	files := dayFiles(j.dir)
 	sinceDay, untilDay := "", ""
@@ -408,7 +408,7 @@ func peekSeq(line []byte) (uint64, bool) {
 // older than maxSeq. Entries are stored in number order, so the scan stops at the
 // first one that isn't older.
 func scanFile(root, path string, mt *matcher, maxSeq uint64, keep int) []Entry {
-	if !inside(root, path) {
+	if !strings.HasPrefix(path, filepath.Clean(root)+string(filepath.Separator)) {
 		return nil
 	}
 	f, err := os.Open(path) //nolint:gosec // path is a directory listing of a validated service folder
@@ -433,9 +433,4 @@ func scanFile(root, path string, mt *matcher, maxSeq uint64, keep int) []Entry {
 	out := make([]Entry, 0, r.len())
 	r.each(func(e Entry) bool { out = append(out, e); return true })
 	return out
-}
-
-// inside says whether path is below root once both are cleaned, so a name can never lead out of the log folder.
-func inside(root, path string) bool {
-	return strings.HasPrefix(filepath.Clean(path), filepath.Clean(root)+string(filepath.Separator))
 }

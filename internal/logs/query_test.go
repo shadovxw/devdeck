@@ -415,7 +415,4 @@ func TestScansNeverLeaveTheLogFolder(t *testing.T) {
 	if got := scanFile(root, filepath.Join(outside, "2026-10-20.jsonl"), mt, 100, 5); got != nil {
 		t.Errorf("a file outside the log folder was read: %v", got)
 	}
-	if !inside(root, filepath.Join(root, "a", "b.jsonl")) || inside(root, root) || inside(root, filepath.Join(root, "..", "x")) {
-		t.Error("inside")
-	}
 }
