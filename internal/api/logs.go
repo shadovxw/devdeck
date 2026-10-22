@@ -47,6 +47,16 @@ func registerLogs(g *echo.Group, store *logs.Store, m *workspace.Manager) {
 		return c.JSON(http.StatusOK, res)
 	})
 
+	// GET .../groups lists the kinds of error seen in the stack (an error entry
+	// is "the same" as another when its fingerprint matches), the latest first.
+	lg.GET("/groups", func(c echo.Context) error {
+		list := store.Groups(c.Param("id"), c.Param("stack"))
+		if list == nil {
+			list = []logs.Group{}
+		}
+		return c.JSON(http.StatusOK, list)
+	})
+
 	// GET .../capture lists what is stored for each service: all, matching or off.
 	lg.GET("/capture", func(c echo.Context) error {
 		list := store.Captures(c.Param("id"), c.Param("stack"))

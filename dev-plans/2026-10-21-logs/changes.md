@@ -25,7 +25,7 @@
 
 ## Known gaps (planned in later PRs)
 
-- Parsers, levels and error groups (PR 3), filter queries and saved filters (PR 4), the Logs page with histogram, Errors panel and VS Code links (PR 5).
+- Filter queries and saved filters (PR 4), the Logs page with histogram, Errors panel and VS Code links (PR 5).
 - A failed write of a log file is not reported anywhere yet (the lines still reach memory and the live view).
 - `TestRestartPolicies` in the supervisor package fails when run alone on a cold machine (a fresh test program starts slower than its 10 ms exit); it passes in the full package run.
 
@@ -51,3 +51,30 @@ A compose file's containers now have their output collected like a service's, un
 
 - A container that is already running before devdeck starts shows only what it prints from the moment the stack starts (older output isn't imported).
 - The compose row itself still carries the output of `up` and `stop`; the Stacks page's Logs button lists containers by their `<id>/<container>` name.
+
+# PR 3: parsers, levels, panics and error groups
+
+Every stored line now carries what the parser found in it, read once when the line arrives (so a later query never re-parses). New fields on an entry, all optional in the JSON: `level` (trace, debug, info, warn, error, fatal), `message`, `caller` (`file:line`), `fields` and `fingerprint`.
+
+- **Parsers** (`internal/logs/parse.go`), chosen per service by `log_parser:` or `logs: { parser: ... }` in the stack file (also for compose containers) or at run time (`parser` in the capture PUT; a run-time rule without a parser keeps the file's). `auto` (the default) tries each of these on every line:
+  - **`zerolog`:** a JSON object with a level or a message. Level from `level`, `severity` or `lvl` (strings, and pino's numbers); message from `message` or `msg`; caller from `caller` or `source`; the time keys are left out because the entry has its own time; every other key is kept in `fields` (at most 64 keys, strings cut at 2 KiB, only for lines that fit the stored text). The usual spellings of zap, slog and pino parse too. JSON that isn't a log record stays plain text.
+  - **`vite-log`:** TypeScript errors (both layouts, with file and line as the caller), esbuild `[ERROR]`/`[WARNING]` lines, Vite's "Internal server error", "error during build" and "Pre-transform error".
+  - **`go-panic`:** the lines of a `panic:` or `fatal error:` become **one** entry (level `fatal`, the first line as the message, all lines as the text). The caller is the first frame that is the program's own code: not `runtime/`, not the Go standard library, not a vendored or downloaded module. The group ends at `exit status N`, at the first line that can't belong to a trace, at 300 lines or 32 KiB, or after 200 ms of silence (a ticker in the sink, so it is published without waiting for another line), and when the stack stops. Its time and stream are those of its first line. Lines are cleaned and redacted before they are put together.
+  - **`plain`:** the level is guessed from words (`ERROR`, `[warn]`, `level=debug`, `panic:`, TypeScript-style `error TS1234:` ...). Being on stderr says nothing. A line with no sign is `info`. Near misses stay `info` ("0 errors found", "terror").
+  - A named parser reads its own format and falls back to plain for other lines, so every line has a level.
+- **Capture rules see the whole record:** a `matching` rule is tested on the grouped text, so one matching line in a trace keeps the whole panic.
+- **Fingerprint and groups** (`internal/logs/groups.go`): only `error` and `fatal` entries get a fingerprint: a hash of service, level, the message with ids, numbers, addresses, durations and hex replaced by placeholders, and the caller. `GET /workspaces/:id/stacks/:stack/logs/groups` lists the groups (fingerprint, service, level, a sample message, caller, count, first and last seen, newest entry number), latest first. At most 1000 per stack (the one seen longest ago is dropped). Groups are counted as lines arrive and rebuilt from the stored lines when a service is first looked at after a restart (so as far back as its in-memory window).
+- **Stack file:** `log_parser` is now one of `auto, zerolog, go-panic, vite-log, plain` (the schema says so; it used to name a plugin), and a rule's `parser` takes the same names. `logs:` no longer needs `store` when it only sets a parser.
+- **Web:** types for the new entry fields, `LogGroup` and the rule's `parser` (the Logs page itself is PR 5).
+- **Tests:** every parser with sample lines (synthetic; no private code), near misses, field limits, the panic grouper (one record, caller choice, ended by a line, by silence, by `exit status`, capped, not fooled by ordinary lines), fingerprint stability and what must change it, group counting, order, the 1000 limit and rebuild after a restart, the sink end to end (levels, a panic put together, a quiet panic published, rules on whole panics, the service's parser), parser name precedence, the groups route, schema and planning of `log_parser`.
+
+## Verified live (real binary, a throwaway workspace, a made-up program printing each kind of line)
+
+- JSON lines gave level, message, caller and fields; three "user N not found" errors shared one fingerprint and became one group with count 3; the TypeScript error got its file and line; a colour code was stripped; a panic printed on stderr with no `exit status` was published as one fatal entry after the silence, with the right caller, and the line after it was a separate entry.
+- With `log_parser: plain` the same JSON lines stayed text (level still guessed), each error line was its own group, and the panic was a single fatal line.
+
+## Known gaps
+
+- The Logs page does not show levels or groups yet (PR 5); filtering by level, field or group is PR 4.
+- Groups reach only as far back as a service's in-memory window (50,000 lines), not the whole 7 days on disk.
+- `warn` lines have no fingerprint, so they are not grouped.

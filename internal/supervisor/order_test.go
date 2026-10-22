@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/workspace"
 )
 
@@ -302,4 +303,32 @@ func TestReadyLogIsMatchedWithoutColourCodes(t *testing.T) {
 	vite.Ready.Log = "Local:"
 	start(t, s, stackOf(vite))
 	waitFor(t, s, "ready from the log line", inState("vite", StateReady))
+}
+
+func TestLogParserReachesTheLogRules(t *testing.T) {
+	spec := stackOf(fakeService(t, "api"), fakeService(t, "web"), fakeService(t, "plain"))
+	spec.Services[0].Logs.Parser = "zerolog"
+	spec.Services[1].Logs = logs.Rule{Store: "matching", Match: "ERROR", Parser: "vite-log"}
+	spec.Compose = []ComposeSpec{{ID: "kc", File: "k.yml", Logs: map[string]logs.Rule{"keycloak": {Store: "off"}}}}
+	got := spec.LogRules()
+	if got["api"].Parser != "zerolog" || got["web"].Parser != "vite-log" || got["web"].Store != "matching" || got["kc/keycloak"].Store != "off" {
+		t.Errorf("rules = %+v", got)
+	}
+	if _, ok := got["plain"]; ok {
+		t.Error("a service with no rule and no parser needs no entry")
+	}
+}
+
+func TestPlanTakesLogParserFromTheStackFile(t *testing.T) {
+	w, stacks := planFixture()
+	stacks[0].Services[0].LogParser = "zerolog"
+	stacks[0].Services[1].LogParser = "plain"
+	stacks[0].Services[1].Logs = &logs.Rule{Store: "all", Parser: "vite-log"} // the rule's own parser wins
+	spec, err := Plan("demo", t.TempDir(), w, stacks, "full")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := spec.LogRules(); got[spec.Services[0].ID].Parser != "zerolog" || got[spec.Services[1].ID].Parser != "vite-log" {
+		t.Errorf("rules = %+v", got)
+	}
 }

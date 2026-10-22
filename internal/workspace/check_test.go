@@ -401,3 +401,15 @@ func TestStackLogsRules(t *testing.T) {
 		})
 	}
 }
+
+func TestStackLogParser(t *testing.T) {
+	repos := map[string]bool{"api": true}
+	ok := "version: 1\nname: s\nservices:\n  - id: a\n    repo: api\n    kind: go\n    log_parser: zerolog\n  - id: b\n    repo: api\n    kind: node\n    logs: { parser: vite-log }\n"
+	if issues := Check(KindStack, "stacks/s.yaml", []byte(ok), repos, Options{}); len(issues) != 0 {
+		t.Fatalf("valid parsers got issues:\n%s", dump(issues))
+	}
+	bad := "version: 1\nname: s\nservices:\n  - id: a\n    repo: api\n    kind: go\n    log_parser: logfmt\n"
+	has(t, Check(KindStack, "stacks/s.yaml", []byte(bad), repos, Options{}), 7, SeverityError, "Use one of: auto, zerolog")
+	bad = "version: 1\nname: s\nservices:\n  - id: a\n    repo: api\n    kind: go\n    logs: { parser: logfmt }\n"
+	has(t, Check(KindStack, "stacks/s.yaml", []byte(bad), repos, Options{}), 7, SeverityError, "logfmt")
+}

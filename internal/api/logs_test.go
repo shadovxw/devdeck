@@ -160,3 +160,34 @@ func TestCaptureRoutes(t *testing.T) {
 		t.Errorf("bad body = %d, want 400", rec.Code)
 	}
 }
+
+func TestErrorGroupsAndParsedFields(t *testing.T) {
+	e, store := logsServer(t)
+	base := "/api/v1/workspaces/demo/stacks/full/logs"
+
+	if rec := do(e, http.MethodGet, base+"/groups"); rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "[]" {
+		t.Fatalf("no errors yet = %d %s", rec.Code, rec.Body)
+	}
+	for i, id := range []string{"1", "2"} {
+		msg := "user " + id + " not found"
+		if _, err := store.Append(logs.Entry{
+			Time: time.Now().Add(time.Duration(i) * time.Second), Workspace: "demo", Stack: "full", Service: "api", Stream: "stdout",
+			Text: msg, Level: logs.LevelError, Message: msg, Caller: "users/get.go:9", Fields: map[string]any{"user": id},
+			Fingerprint: logs.Fingerprint("api", logs.LevelError, msg, "users/get.go:9"),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := decode[[]logs.Group](t, do(e, http.MethodGet, base+"/groups").Body.Bytes())
+	if len(got) != 1 || got[0].Count != 2 || got[0].Service != "api" || got[0].Caller != "users/get.go:9" || got[0].Level != "error" {
+		t.Fatalf("groups = %+v", got)
+	}
+	res := decode[logs.Result](t, do(e, http.MethodGet, base+"?service=api").Body.Bytes())
+	if len(res.Entries) != 2 || res.Entries[0].Level != "error" || res.Entries[0].Fields["user"] != "1" || res.Entries[0].Fingerprint != got[0].Fingerprint {
+		t.Errorf("entries = %+v", res.Entries)
+	}
+	if rec := do(e, http.MethodGet, "/api/v1/workspaces/DEMO/stacks/full/logs/groups"); rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "[]" {
+		t.Errorf("an unsafe name has no groups, got %d %s", rec.Code, rec.Body)
+	}
+}
