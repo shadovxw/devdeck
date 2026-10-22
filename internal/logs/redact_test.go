@@ -20,7 +20,7 @@ func TestRedactShapes(t *testing.T) {
 		want string
 	}{
 		{"password as key=value", "connecting with password=hunter22 to db", "connecting with password=*** to db"},
-		{"secret in JSON", `{"client_secret":"abcd1234efgh","user":"bob"}`, `{"client_secret":"***","user":"bob"}`},
+		{"secret in JSON", `{"client_secret":"abcd1234","user":"bob"}`, `{"client_secret":"***","user":"bob"}`},
 		{"token with a colon", "api_token: abcd1234", "api_token: ***"},
 		{"authorization header", "Authorization: Bearer abcdef.123456", "Authorization: Bearer ***"},
 		{"bare bearer", "got header Bearer " + longSecret, "got header Bearer ***"},

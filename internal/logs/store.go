@@ -123,7 +123,7 @@ func Open(o Options) (*Store, error) {
 			return nil, fmt.Errorf("logs: load capture rules: %w", err)
 		}
 		for _, c := range saved {
-			s.overrides[svcKey{c.Workspace, c.Stack, c.Service}] = c.Rule.normal()
+			s.overrides[svcKey{c.Workspace, c.Stack, c.Service}] = c.normal()
 		}
 	}
 	_, _ = s.Prune()

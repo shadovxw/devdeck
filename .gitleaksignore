@@ -3,3 +3,6 @@
 
 # Fake OpenSSH key placeholder in the Secrets design sample (replaced with plain text afterwards).
 29842ba5708076f1e33f1ace20ad08e1feb0d087:ui-design/secrets.html:private-key:99
+
+# Fake value in a test of the log redactor (commit bce773b, since changed to a shorter one); it is only there to be masked.
+bce773b96c3e4649944aab3e5f42e61cd7f5c99a:internal/logs/redact_test.go:generic-api-key:23
