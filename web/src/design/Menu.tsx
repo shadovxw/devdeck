@@ -1,5 +1,5 @@
 import { EllipsisVertical } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
 export type MenuItem = { label: string; onSelect: () => void; disabled?: boolean };
 
@@ -31,7 +31,8 @@ export function Menu({ label, items, className = "" }: Props) {
     return () => document.removeEventListener("pointerdown", away);
   }, [open]);
 
-  function toggle() {
+  function toggle(e: MouseEvent) {
+    e.stopPropagation(); // the button may sit inside something that reacts to clicks, such as a table row
     if (open) return setAt(null);
     const r = button.current?.getBoundingClientRect();
     setAt({ top: (r?.bottom ?? 0) + 4, right: window.innerWidth - (r?.right ?? 0) });
@@ -69,6 +70,7 @@ export function Menu({ label, items, className = "" }: Props) {
           role="menu"
           aria-label={label}
           onKeyDown={onKey}
+          onClick={(e) => e.stopPropagation()}
           style={{ position: "fixed", top: at.top, right: at.right }}
           className="z-50 flex min-w-48 flex-col rounded-ctl bg-fill p-1 shadow-none ring-1 ring-line-strong"
         >

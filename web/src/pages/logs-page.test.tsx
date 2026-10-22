@@ -418,6 +418,22 @@ describe("the Logs page", () => {
     expect(options(box).every((o) => o.getAttribute("aria-selected") === "false")).toBe(true);
   });
 
+  it("opens and closes a line with Enter or Space, on the list and on the row", async () => {
+    mockServer();
+    renderLogs();
+    const box = await list();
+    await waitFor(() => expect(options(box)).toHaveLength(3));
+    box.focus();
+    fireEvent.keyDown(box, { key: "Enter" }); // nothing selected yet: the first line opens
+    expect(options(box)[0].getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(box, { key: " " }); // and closes
+    expect(options(box)[0].getAttribute("aria-selected")).toBe("false");
+    fireEvent.keyDown(options(box)[2], { key: "Enter" });
+    expect(options(box)[2].getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(options(box)[2], { key: "a" }); // other keys do nothing
+    expect(options(box)[2].getAttribute("aria-selected")).toBe("true");
+  });
+
   it("shows only one kind of error when it is picked in the errors list or from a line", async () => {
     mockServer();
     renderLogs();

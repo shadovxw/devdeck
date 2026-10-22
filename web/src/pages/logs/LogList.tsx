@@ -97,6 +97,9 @@ export function LogList({ entries, label, selected, onSelect, follow, hasOlder, 
       move(keys[e.key]);
     } else if (e.key === "Escape") {
       onSelect(undefined);
+    } else if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget && entries.length > 0) {
+      e.preventDefault();
+      onSelect(selected === undefined ? entries[Math.max(index, 0)].seq : undefined);
     }
   }
 
@@ -142,6 +145,12 @@ export function LogList({ entries, label, selected, onSelect, follow, hasOlder, 
                   role="option"
                   aria-selected={open}
                   onClick={() => onSelect(open ? undefined : e.seq)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter" || ev.key === " ") {
+                      ev.preventDefault();
+                      onSelect(open ? undefined : e.seq);
+                    }
+                  }}
                   style={{ position: "absolute", top: (first + i) * rowHeight, height: rowHeight }}
                   className={`${columns} w-full cursor-pointer border-t border-line px-3 ${open ? "bg-accent-soft text-ink" : "hover:bg-fill"}`}
                 >
@@ -157,9 +166,7 @@ export function LogList({ entries, label, selected, onSelect, follow, hasOlder, 
                     {messageOf(e)}
                     {e.fields && <span className="ms-3 text-ink-3">{fieldHint(e)}</span>}
                   </span>
-                  <span onClick={(ev) => ev.stopPropagation()}>
-                    <Menu label={`More for the line at ${clock(e.time)}`} items={rowActions(e)} />
-                  </span>
+                  <Menu label={`More for the line at ${clock(e.time)}`} items={rowActions(e)} />
                 </div>
               );
             })}
