@@ -6,6 +6,8 @@ import type { LogHistogram, LogLevel } from "../../lib/types";
 const width = 600;
 const height = 72;
 /** Stack order, from the bottom: the loud levels sit on the baseline where they are easiest to read. */
+/** How far (in pixels) the pointer must move for a press to count as a drag and not a click. */
+const dragSlop = 4;
 const stack: LogLevel[] = ["fatal", "error", "warn", "info", "debug", "trace"];
 
 function count(counts: LogHistogram["buckets"][number]["counts"], level: LogLevel): number {
@@ -30,7 +32,7 @@ function span(seconds: number): string {
  */
 export function Histogram({ data, onBrush }: Props) {
   const svg = useRef<SVGSVGElement>(null);
-  const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
+  const [drag, setDrag] = useState<{ from: number; to: number; x0: number } | null>(null);
 
   if (!data) return <div className="skeleton h-[72px] w-full" role="status" aria-label="Counting lines…" />;
 
@@ -48,6 +50,11 @@ export function Histogram({ data, onBrush }: Props) {
 
   function finish(e: PointerEvent) {
     if (!drag) return;
+    // A click is not a selection: only dragging narrows the view, so a stray click can't zoom in on one empty bar.
+    if (Math.abs(e.clientX - drag.x0) < dragSlop) {
+      setDrag(null);
+      return;
+    }
     const a = Math.min(drag.from, drag.to);
     const b = Math.max(drag.from, indexAt(e), drag.to);
     setDrag(null);
@@ -70,9 +77,9 @@ export function Histogram({ data, onBrush }: Props) {
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture?.(e.pointerId);
           const i = indexAt(e);
-          setDrag({ from: i, to: i });
+          setDrag({ from: i, to: i, x0: e.clientX });
         }}
-        onPointerMove={(e) => drag && setDrag({ from: drag.from, to: indexAt(e) })}
+        onPointerMove={(e) => drag && setDrag({ ...drag, to: indexAt(e) })}
         onPointerUp={finish}
         onPointerCancel={() => setDrag(null)}
       >

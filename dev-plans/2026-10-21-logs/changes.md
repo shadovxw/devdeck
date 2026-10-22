@@ -128,6 +128,12 @@ The last piece of Phase 3. The phase summary is in [`../13-logs.md`](../13-logs.
 - The old per-stack panel on the Stacks page stays as it was, with its own capture controls ("What is stored").
 - **Test settings:** Testing Library's async wait is 5 s and Vitest's test timeout 15 s (`src/test/setup.ts`, `vite.config.ts`), because three of the older page tests failed now and then on a busy machine when the whole suite ran at once.
 
+## Histogram fixes (after the first look)
+
+- A plain click on the histogram used to narrow the view to that one bar, which left a single empty block and no way to see what was around it. Now only a drag (at least 4 px) narrows the view.
+- The bucket width now follows the range (the narrowest of 1 s, 5 s, 10 s, 15 s, 30 s, 1 min, 5 min, 15 min, 1 h, 6 h that keeps it to 90 bars or fewer; still at most 400 bars), so a stretch of a couple of minutes is drawn in bars of its own and not as one block.
+- A **Zoom out** button next to Back to live widens a stretch to three times as long around the same middle, and returns to live once that reaches the present.
+
 ## Tests
 
 - Go: clearing one service and all (files, memory, groups, rules kept, services never read in, unsafe names); the histogram (levels, a missing level as info, filters, the default range, bucket widths and the 400 limit, reading the files, refusals); caller resolution (relative, absolute, another machine's tail, outside the repo, bad lines) and the three routes.

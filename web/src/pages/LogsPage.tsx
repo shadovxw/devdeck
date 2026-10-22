@@ -1,4 +1,4 @@
-import { Bookmark, Eraser, Pause, Play, ScrollText, Trash2, X } from "lucide-react";
+import { Bookmark, Eraser, Pause, Play, ScrollText, Trash2, X, ZoomOut } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
@@ -65,6 +65,19 @@ export function filterId(name: string): string {
   if (!slug) return "filter";
   const id = /^[a-z]/.test(slug) ? slug : `f-${slug}`;
   return id.slice(0, 40).replace(/-+$/, "");
+}
+
+/**
+ * A stretch three times as long around the same middle. When that reaches the present the
+ * end is let go, so the view is live again; with no stretch to widen it goes back to any time.
+ */
+export function zoomedOut(q: LogQuery, now = Date.now()): LogQuery {
+  const since = Date.parse(q.since ?? "");
+  const until = Date.parse(q.until ?? "");
+  if (Number.isNaN(since) || Number.isNaN(until)) return { ...q, since: undefined, until: undefined };
+  const half = Math.max(until - since, 60_000) * 1.5;
+  const mid = (since + until) / 2;
+  return { ...q, since: new Date(mid - half).toISOString(), until: mid + half >= now ? undefined : new Date(mid + half).toISOString() };
 }
 
 type ViewProps = { workspace: string; stack: string; sample: boolean; query: LogQuery; onQuery: (q: LogQuery) => void };
@@ -152,10 +165,16 @@ function LogsView({ workspace, stack, sample, query, onQuery }: ViewProps) {
             {stream.paused ? "Resume" : "Pause"}
           </button>
         ) : (
-          <button type="button" onClick={() => onQuery({ ...query, until: undefined, since: undefined })} className={small}>
-            <Play size={14} aria-hidden />
-            Back to live
-          </button>
+          <>
+            <button type="button" onClick={() => onQuery(zoomedOut(query))} className={small}>
+              <ZoomOut size={14} aria-hidden />
+              Zoom out
+            </button>
+            <button type="button" onClick={() => onQuery({ ...query, until: undefined, since: undefined })} className={small}>
+              <Play size={14} aria-hidden />
+              Back to live
+            </button>
+          </>
         )}
         <button type="button" onClick={() => setSaving((v) => !v)} aria-expanded={saving} disabled={sample} title={sample ? "Sample workspaces can’t be changed" : "Keep these filters with the workspace"} className={small}>
           <Bookmark size={14} aria-hidden />

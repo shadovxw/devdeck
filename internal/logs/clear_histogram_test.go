@@ -92,7 +92,7 @@ func TestHistogramCountsByLevelAndTime(t *testing.T) {
 	seed(t, s) // minutes 0..6 after day0
 	now := day0.Add(10 * time.Minute)
 
-	h, err := s.Histogram("demo", "full", Query{Since: day0, Until: day0.Add(8 * time.Minute)}, now)
+	h, err := s.Histogram("demo", "full", Query{Since: day0, Until: day0.Add(time.Hour)}, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestHistogramCountsByLevelAndTime(t *testing.T) {
 	}
 
 	// the same filters as a query
-	h, _ = s.Histogram("demo", "full", Query{Services: []string{"api"}, Levels: []string{"error"}, Regex: "12s", Since: day0, Until: day0.Add(8 * time.Minute)}, now)
+	h, _ = s.Histogram("demo", "full", Query{Services: []string{"api"}, Levels: []string{"error"}, Regex: "12s", Since: day0, Until: day0.Add(time.Hour)}, now)
 	if h.Total != 1 || h.Buckets[2].Counts["error"] != 1 {
 		t.Errorf("filtered = %d %+v", h.Total, h.Buckets[2])
 	}
@@ -127,13 +127,14 @@ func TestHistogramBucketWidthFollowsTheRange(t *testing.T) {
 	s, _ := openStore(t)
 	now := day0
 	for span, want := range map[time.Duration]int{
-		30 * time.Minute: 60, 3 * time.Hour: 300, 12 * time.Hour: 900, 3 * 24 * time.Hour: 3600, 30 * 24 * time.Hour: 6 * 3600 * 2,
+		time.Minute: 1, 2 * time.Minute: 5, 30 * time.Minute: 30, time.Hour: 60, 3 * time.Hour: 300,
+		12 * time.Hour: 900, 3 * 24 * time.Hour: 3600, 30 * 24 * time.Hour: 6 * 3600, 365 * 24 * time.Hour: 86400,
 	} {
 		h, err := s.Histogram("demo", "full", Query{Since: now.Add(-span), Until: now}, now)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if h.BucketSeconds != want && !(span == 30*24*time.Hour && h.BucketSeconds >= 6*3600) {
+		if h.BucketSeconds != want {
 			t.Errorf("a range of %v: buckets of %ds, want %d", span, h.BucketSeconds, want)
 		}
 		if len(h.Buckets) > maxBuckets {

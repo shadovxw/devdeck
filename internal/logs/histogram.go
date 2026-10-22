@@ -29,20 +29,25 @@ type Histogram struct {
 	Buckets       []HistogramBucket `json:"buckets"`
 }
 
-// bucketFor picks the width of a bucket for a range, so a chart has a readable
-// number of bars: a minute for up to an hour, then 5 and 15 minutes, an hour, 6 hours.
+// bucketWidths are the widths a bucket may have, narrowest first.
+var bucketWidths = []time.Duration{
+	time.Second, 5 * time.Second, 10 * time.Second, 15 * time.Second, 30 * time.Second,
+	time.Minute, 5 * time.Minute, 15 * time.Minute, time.Hour, 6 * time.Hour,
+}
+
+// goodBuckets is the most bars a chart is given when a width can be picked freely.
+const goodBuckets = 90
+
+// bucketFor picks the narrowest width that keeps a range to at most 90 bars, so a
+// stretch dragged out of a chart (even one minute) is drawn in bars of its own and not
+// as one big block; for a very long range it falls back to the widest width.
 func bucketFor(span time.Duration) time.Duration {
-	switch {
-	case span <= time.Hour:
-		return time.Minute
-	case span <= 6*time.Hour:
-		return 5 * time.Minute
-	case span <= 24*time.Hour:
-		return 15 * time.Minute
-	case span <= 7*24*time.Hour:
-		return time.Hour
+	for _, w := range bucketWidths {
+		if span/w <= goodBuckets {
+			return w
+		}
 	}
-	return 6 * time.Hour
+	return bucketWidths[len(bucketWidths)-1]
 }
 
 // Histogram counts the entries of a stack that pass the query's filters (service,

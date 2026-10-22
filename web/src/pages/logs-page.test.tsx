@@ -10,7 +10,7 @@ import { SocketProvider } from "../lib/socket";
 import type { CaptureInfo, LogEntry, LogGroup, LogHistogram, WorkspaceSummary } from "../lib/types";
 import { TopicSocket, type WebSocketLike } from "../lib/ws";
 import { useUi } from "../store/ui";
-import { filterId, paramsOfQuery, queryOfParams } from "./LogsPage";
+import { filterId, paramsOfQuery, queryOfParams, zoomedOut } from "./LogsPage";
 
 const summary = (id: string, source: "local" | "example"): WorkspaceSummary => ({ id, name: id, source, root: "~/code", repos: 1, stacks: 1, flows: 0, errors: 0, warnings: 0 });
 
@@ -391,6 +391,29 @@ describe("the Logs page", () => {
     await waitFor(() => expect(router.state.location.search).not.toContain("until="));
   });
 
+  it("does nothing when the histogram is only clicked, and zooms out of a stretch step by step", async () => {
+    mockServer();
+    const { router } = renderLogs();
+    await waitFor(async () => expect(options(await list())).toHaveLength(3));
+
+    const chart = await screen.findByRole("img", { name: /Lines over time/ });
+    chart.getBoundingClientRect = () => ({ left: 0, top: 0, right: 400, bottom: 72, width: 400, height: 72, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.pointerDown(chart, { clientX: 110, pointerId: 1 });
+    fireEvent.pointerUp(chart, { clientX: 111, pointerId: 1 }); // a click
+    expect(router.state.location.search).not.toContain("until");
+    expect(screen.queryByRole("button", { name: "Zoom out" })).toBeNull();
+
+    fireEvent.pointerDown(chart, { clientX: 110, pointerId: 1 });
+    fireEvent.pointerUp(chart, { clientX: 210, pointerId: 1 });
+    await screen.findByRole("button", { name: "Back to live" });
+    const before = new URLSearchParams(router.state.location.search);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get("since")).not.toBe(before.get("since")));
+    const after = new URLSearchParams(router.state.location.search);
+    const span = (p: URLSearchParams) => Date.parse(p.get("until") ?? "") - Date.parse(p.get("since") ?? "");
+    expect(span(after)).toBe(span(before) * 3);
+  });
+
   it("saves the filters under a name, lists them, applies one and deletes one", async () => {
     mockServer({ filters: [{ id: "slow", name: "Slow pages", levels: ["warn"], regex: "slow" }] });
     const { router } = renderLogs("?level=error&q=timeout&field=user.id%3D42&since=15m");
@@ -478,6 +501,26 @@ describe("the Logs page", () => {
     const box = await list();
     await waitFor(() => expect(box.textContent).toContain("No stored lines match these filters."));
     expect(await screen.findByText("No errors so far.", {}, { timeout: 100 }).catch(() => null)).toBeNull(); // the sample group still shows
+  });
+});
+
+describe("zooming out", () => {
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const at = Date.parse("2026-10-21T12:00:00Z");
+
+  it("widens a stretch to three times as long around the same middle", () => {
+    const q = zoomedOut({ since: iso(at), until: iso(at + 600_000), regex: "x" }, at + 3_600_000);
+    expect(q).toEqual({ regex: "x", since: iso(at - 600_000), until: iso(at + 1_200_000) });
+  });
+
+  it("lets go of the end once it reaches the present, and widens a very short stretch to at least three minutes", () => {
+    expect(zoomedOut({ since: iso(at), until: iso(at + 600_000) }, at + 700_000).until).toBeUndefined();
+    const tiny = zoomedOut({ since: iso(at), until: iso(at + 1000) }, at + 3_600_000);
+    expect(Date.parse(tiny.until ?? "") - Date.parse(tiny.since ?? "")).toBe(180_000);
+  });
+
+  it("goes back to any time when there is no stretch", () => {
+    expect(zoomedOut({ since: "15m", regex: "x" })).toEqual({ regex: "x", since: undefined, until: undefined });
   });
 });
 
