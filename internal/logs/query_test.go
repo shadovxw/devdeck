@@ -3,6 +3,8 @@ package logs
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -394,5 +396,26 @@ func TestQueryReadingFilesOf500kLinesIsReasonable(t *testing.T) {
 	t.Logf("a rare match found in the files of 500k lines: %v", took)
 	if took > 5*time.Second {
 		t.Errorf("reading the files took %v", took)
+	}
+}
+
+func TestScansNeverLeaveTheLogFolder(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "2026-10-20.jsonl"), []byte(`{"seq":1,"text":"secret","level":"info"}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mt, err := Query{}.matcher()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := (scanJob{root: root, dir: outside, maxSeq: 100, need: 5}).run(mt); got != nil {
+		t.Errorf("a folder outside the log folder was read: %v", got)
+	}
+	if got := scanFile(root, filepath.Join(outside, "2026-10-20.jsonl"), mt, 100, 5); got != nil {
+		t.Errorf("a file outside the log folder was read: %v", got)
+	}
+	if !inside(root, filepath.Join(root, "a", "b.jsonl")) || inside(root, root) || inside(root, filepath.Join(root, "..", "x")) {
+		t.Error("inside")
 	}
 }

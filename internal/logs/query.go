@@ -281,7 +281,7 @@ func (s *Store) Query(workspace, stack string, q Query) (Result, error) {
 			if sv.file != nil {
 				_ = sv.file.flush()
 			}
-			jobs = append(jobs, scanJob{dir: s.serviceDir(k), maxSeq: maxSeq, need: want - len(got)})
+			jobs = append(jobs, scanJob{root: s.o.Dir, dir: s.serviceDir(k), maxSeq: maxSeq, need: want - len(got)})
 		}
 	}
 	s.mu.Unlock()
@@ -352,6 +352,7 @@ func ringMatches(r *ring, mt *matcher, q Query, want int, newest bool) []Entry {
 
 // scanJob reads one service's day files for entries older than maxSeq.
 type scanJob struct {
+	root   string // the log folder: nothing outside it is read
 	dir    string
 	maxSeq uint64
 	need   int
@@ -361,6 +362,9 @@ type scanJob struct {
 // reading the newest file first and stopping once it has enough. Files of days
 // outside the time range are not opened.
 func (j scanJob) run(mt *matcher) []Entry {
+	if !inside(j.root, j.dir) {
+		return nil
+	}
 	files := dayFiles(j.dir)
 	sinceDay, untilDay := "", ""
 	if !mt.since.IsZero() {
@@ -378,7 +382,7 @@ func (j scanJob) run(mt *matcher) []Entry {
 		if sinceDay != "" && day < sinceDay {
 			break // the files before this one are older still
 		}
-		older := scanFile(filepath.Join(j.dir, files[i]), mt, j.maxSeq, j.need-len(got))
+		older := scanFile(j.root, filepath.Join(j.dir, files[i]), mt, j.maxSeq, j.need-len(got))
 		got = append(older, got...)
 	}
 	return got
@@ -403,7 +407,10 @@ func peekSeq(line []byte) (uint64, bool) {
 // scanFile returns the last keep entries of a file that pass the filters and are
 // older than maxSeq. Entries are stored in number order, so the scan stops at the
 // first one that isn't older.
-func scanFile(path string, mt *matcher, maxSeq uint64, keep int) []Entry {
+func scanFile(root, path string, mt *matcher, maxSeq uint64, keep int) []Entry {
+	if !inside(root, path) {
+		return nil
+	}
 	f, err := os.Open(path) //nolint:gosec // path is a directory listing of a validated service folder
 	if err != nil {
 		return nil
@@ -426,4 +433,9 @@ func scanFile(path string, mt *matcher, maxSeq uint64, keep int) []Entry {
 	out := make([]Entry, 0, r.len())
 	r.each(func(e Entry) bool { out = append(out, e); return true })
 	return out
+}
+
+// inside says whether path is below root once both are cleaned, so a name can never lead out of the log folder.
+func inside(root, path string) bool {
+	return strings.HasPrefix(filepath.Clean(path), filepath.Clean(root)+string(filepath.Separator))
 }
