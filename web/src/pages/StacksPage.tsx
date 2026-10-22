@@ -93,7 +93,7 @@ function ServiceRows({ run, now, controls }: { run: RunStatus; now: number; cont
         </thead>
         <tbody>
           {run.services.map((s) => (
-            <ServiceRow key={s.id} service={s} now={now} controls={controls} />
+            <ServiceRow key={s.id} service={s} now={now} controls={controls} logsTo={`/logs?workspace=${encodeURIComponent(run.workspace)}&stack=${encodeURIComponent(run.stack)}&service=${encodeURIComponent(s.id)}`} />
           ))}
         </tbody>
       </table>
@@ -108,7 +108,7 @@ const startable: ServiceState[] = ["stopped", "failed", "blocked"];
 const rowButton =
   "grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-accent-soft hover:text-ink active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
 
-function ServiceRow({ service: s, now, controls }: { service: RunStatus["services"][number]; now: number; controls: Controls }) {
+function ServiceRow({ service: s, now, controls, logsTo }: { service: RunStatus["services"][number]; now: number; controls: Controls; logsTo: string }) {
   const isCompose = s.kind === "compose" || isComposeId(s.id);
   const busy = controls.busy === s.id;
   const name = serviceLabel(s.id);
@@ -128,6 +128,11 @@ function ServiceRow({ service: s, now, controls }: { service: RunStatus["service
         <td className="px-4 py-2.5 tabular-nums text-ink-2">{s.restarts > 0 ? s.restarts : ""}</td>
         <td className="px-3 py-1 text-end">
           <span className="inline-flex items-center gap-1">
+            {!isCompose && (
+              <Link to={logsTo} title="Open this service’s logs" aria-label={`Logs of ${name}`} className={rowButton}>
+                <FileText size={14} aria-hidden />
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => controls.onStop(s.id)}

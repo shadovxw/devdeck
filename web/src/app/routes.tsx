@@ -6,6 +6,7 @@ import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { DoctorPage } from "../pages/DoctorPage";
 import { HomePage } from "../pages/HomePage";
+import { LogsPage } from "../pages/LogsPage";
 import { Placeholder } from "../pages/Placeholder";
 import { PluginsPage } from "../pages/PluginsPage";
 import { StacksPage } from "../pages/StacksPage";
@@ -21,6 +22,7 @@ const built: Record<string, ReactElement> = {
   "/": <HomePage />,
   "/stacks": <StacksPage />,
   "/doctor": <DoctorPage />,
+  "/logs": <LogsPage />,
 };
 
 function NotFound() {

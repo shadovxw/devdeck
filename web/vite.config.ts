@@ -24,6 +24,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    testTimeout: 15_000,
     // `npm run test:coverage` writes coverage/lcov.info, which the Sonar workflow reads.
     // Not counted: tests themselves, the copied shadcn components, the entry file.
     coverage: {

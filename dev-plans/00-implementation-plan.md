@@ -429,6 +429,8 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 
 **Done when**: an error in any infrabot service appears in the Errors panel with a working VS Code link within 1 s; filtering 500k lines returns in under 1 s.
 
+> Built: see [`13-logs.md`](13-logs.md). Left for later: 3.4.4 (needs Phase 10) and 3.4.6 (needs the Settings page).
+
 > **Milestone M1, daily driver**: Phases 0, 2 and 3 (with the Phase 1 shell) replace the current manual routine.
 
 ---
