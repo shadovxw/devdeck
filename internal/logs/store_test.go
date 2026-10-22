@@ -328,3 +328,34 @@ func TestOverridesAreSavedAndComeBack(t *testing.T) {
 		t.Errorf("a cleared rule must not come back: %s", src)
 	}
 }
+
+func TestAnnouncedServicesShowInCapturesBeforeTheyPrintAnything(t *testing.T) {
+	s, _ := openStore(t)
+	s.Announce("demo", "full", []string{"vault/openbao", "vault/init", "../escape", "bad name"})
+	var names []string
+	for _, c := range s.Captures("demo", "full") {
+		names = append(names, c.Service+":"+c.Store)
+	}
+	if got := strings.Join(names, ","); got != "vault/init:all,vault/openbao:all" {
+		t.Errorf("captures = %q, want the two safe names with the default rule", got)
+	}
+}
+
+func TestWantedIsFalseOnlyForOff(t *testing.T) {
+	s, _ := openStore(t)
+	s.SetDefaults("demo", "full", map[string]Rule{
+		"vault/off":      {Store: StoreOff},
+		"vault/matching": {Store: StoreMatching, Match: "ERROR"},
+	})
+	for svc, want := range map[string]bool{"vault/off": false, "vault/matching": true, "vault/unknown": true} {
+		if got := s.Wanted("demo", "full", svc); got != want {
+			t.Errorf("Wanted(%s) = %v, want %v", svc, got, want)
+		}
+	}
+	if err := s.SetOverride("demo", "full", "vault/off", Rule{Store: StoreAll}); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Wanted("demo", "full", "vault/off") {
+		t.Error("a run-time rule beats the file's: switching it on must make it wanted")
+	}
+}

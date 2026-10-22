@@ -35,6 +35,13 @@ type LogSink interface {
 	Env(workspace, stack, service string, env []string)
 	// Defaults are the capture rules a stack's file gives its services.
 	Defaults(workspace, stack string, rules map[string]logs.Rule)
+	// Announce names services that exist but may not have printed yet (a compose
+	// file's containers, as "<compose id>/<container>").
+	Announce(workspace, stack string, services []string)
+	// Wanted says whether any of a service's lines are stored, that is whether its
+	// capture rule is anything but "off". A container's Docker logs are followed only
+	// while this is true.
+	Wanted(workspace, stack, service string) bool
 }
 
 // noLogs is the sink used when none is given.
@@ -43,6 +50,8 @@ type noLogs struct{}
 func (noLogs) Line(_, _, _, _, _ string, _ time.Time)       {}
 func (noLogs) Env(_, _, _ string, _ []string)               {}
 func (noLogs) Defaults(_, _ string, _ map[string]logs.Rule) {}
+func (noLogs) Announce(_, _ string, _ []string)             {}
+func (noLogs) Wanted(_, _, _ string) bool                   { return true }
 
 // PreflightError means the pre-start check found problems, so nothing was started.
 type PreflightError struct{ Report doctor.Report }
@@ -82,6 +91,15 @@ type Options struct {
 	ComposePorts func(ctx context.Context, c ComposeSpec) []int
 	// Logs receives every output line of every service. Nil discards them.
 	Logs LogSink
+	// ComposeNames lists the services (containers) of a compose file. By default it
+	// asks Docker, but only when Compose is the real one.
+	ComposeNames func(ctx context.Context, c ComposeSpec) []string
+	// ComposeFollow follows the logs of one container from a time on, calling line
+	// for each, until ctx ends or it fails. By default it runs "docker compose logs
+	// -f", but only when Compose is the real one.
+	ComposeFollow func(ctx context.Context, c ComposeSpec, service string, since time.Time, line func(at time.Time, text string)) error
+	// FollowPoll is how often the containers' capture rules are looked at. Default 1s.
+	FollowPoll time.Duration
 
 	// Backoff is the wait before restart number n (1 for the first). Default 1s doubling up to 30s.
 	Backoff func(n int) time.Duration
@@ -109,6 +127,9 @@ func (o Options) withDefaults() Options {
 			d := time.Second << min(max(n-1, 0), 5)
 			return min(d, 30*time.Second)
 		}
+	}
+	if o.FollowPoll == 0 {
+		o.FollowPoll = followPoll
 	}
 	if o.MaxRestarts == 0 {
 		o.MaxRestarts = 5
@@ -154,6 +175,12 @@ func New(o Options) *Supervisor {
 		s.o.Compose = s.dockerCompose
 		if s.o.ComposePorts == nil {
 			s.o.ComposePorts = s.dockerComposePorts
+		}
+		if s.o.ComposeNames == nil {
+			s.o.ComposeNames = composeWanted
+		}
+		if s.o.ComposeFollow == nil {
+			s.o.ComposeFollow = s.dockerComposeFollow
 		}
 	}
 	return s

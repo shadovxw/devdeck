@@ -79,6 +79,16 @@ func (s *Sink) Defaults(workspace, stack string, rules map[string]Rule) {
 	s.store.SetDefaults(workspace, stack, rules)
 }
 
+// Announce tells the sink which services exist in a stack, before they print anything.
+func (s *Sink) Announce(workspace, stack string, services []string) {
+	s.store.Announce(workspace, stack, services)
+}
+
+// Wanted says whether a service's lines are stored at all (its rule isn't "off").
+func (s *Sink) Wanted(workspace, stack, service string) bool {
+	return s.store.Wanted(workspace, stack, service)
+}
+
 func (s *Sink) redactor(k svcKey) *Redactor {
 	if r, ok := s.redactors.Load(k); ok {
 		return r.(*Redactor)

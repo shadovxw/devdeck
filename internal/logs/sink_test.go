@@ -157,3 +157,17 @@ func TestSinkIgnoresNamesItCannotStore(t *testing.T) {
 		t.Errorf("stored %+v", got)
 	}
 }
+
+func TestSinkPassesAnnouncementsAndWantedToTheStore(t *testing.T) {
+	sink, s, _ := newSinkFor(t, 100)
+	sink.Announce("demo", "full", []string{"vault/openbao"})
+	if got := s.Captures("demo", "full"); len(got) != 1 || got[0].Service != "vault/openbao" {
+		t.Errorf("captures = %+v", got)
+	}
+	if err := s.SetOverride("demo", "full", "vault/openbao", Rule{Store: StoreOff}); err != nil {
+		t.Fatal(err)
+	}
+	if sink.Wanted("demo", "full", "vault/openbao") {
+		t.Error("an off container is not wanted")
+	}
+}

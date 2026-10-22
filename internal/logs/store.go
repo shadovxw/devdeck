@@ -62,6 +62,9 @@ type stackState struct {
 	seq        uint64
 	discovered bool
 	defaults   map[string]Rule
+	// known are services announced before they print anything (a compose file's
+	// containers), so their capture rule can be shown and changed from the start.
+	known map[string]bool
 }
 
 type svcState struct {
@@ -244,6 +247,33 @@ func (s *Store) SetDefaults(workspace, stack string, rules map[string]Rule) {
 	}
 }
 
+// Announce records services that exist in a stack before they have printed
+// anything, so they show up in Captures. Names that aren't safe to use are ignored.
+func (s *Store) Announce(workspace, stack string, services []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, svc := range services {
+		if !validNames(workspace, stack, svc) {
+			continue
+		}
+		st := s.stack(workspace, stack)
+		if st.known == nil {
+			st.known = map[string]bool{}
+		}
+		st.known[svc] = true
+	}
+}
+
+// Wanted says whether anything of a service is stored at all, that is whether its
+// rule is anything but "off". The supervisor uses it to follow a container's Docker
+// logs only while they are wanted.
+func (s *Store) Wanted(workspace, stack, service string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, _ := s.effective(svcKey{workspace, stack, service})
+	return r.Store != StoreOff
+}
+
 // effective is the rule that applies to a service and where it came from.
 func (s *Store) effective(k svcKey) (Rule, string) {
 	if r, ok := s.overrides[k]; ok {
@@ -343,6 +373,9 @@ func (s *Store) Captures(workspace, stack string) []CaptureInfo {
 	}
 	if st := s.stacks[stackKey{workspace, stack}]; st != nil {
 		for svc := range st.defaults {
+			names[svc] = true
+		}
+		for svc := range st.known {
 			names[svc] = true
 		}
 	}
