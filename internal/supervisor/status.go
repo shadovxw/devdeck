@@ -43,6 +43,11 @@ type ServiceStatus struct {
 	// LastError says in plain words why it is failed, blocked or restarting.
 	LastError string `json:"last_error,omitempty"`
 	ExitCode  *int   `json:"exit_code,omitempty"`
+	// Ports are the host ports a compose file's containers publish (Port is for a
+	// service devdeck runs itself).
+	Ports []int `json:"ports,omitempty"`
+	// Optional is set for a compose file whose failure doesn't hold anything back.
+	Optional bool `json:"optional,omitempty"`
 }
 
 // RunStatus is a stack that devdeck started.

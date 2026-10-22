@@ -269,14 +269,22 @@ func (a *app) follow(ctx context.Context, ws, stack string) int {
 }
 
 func (a *app) summary(run *supervisor.RunStatus, ws, stack string) int {
-	var bad []string
+	var bad, skipped []string
 	for _, s := range run.Services {
-		if s.State == supervisor.StateFailed || s.State == supervisor.StateBlocked {
+		if s.State != supervisor.StateFailed && s.State != supervisor.StateBlocked {
+			continue
+		}
+		if s.Optional {
+			skipped = append(skipped, s.ID) // optional: what came after it carried on
+		} else {
 			bad = append(bad, s.ID)
 		}
 	}
 	if len(bad) == 0 {
 		a.printf("%s/%s is running\n", ws, stack)
+		if len(skipped) > 0 {
+			a.errorf("devdeck: optional and didn't start: %s\n", strings.Join(skipped, ", "))
+		}
 		return exitOK
 	}
 	a.errorf("devdeck: %s/%s didn't start: %s\n", ws, stack, strings.Join(bad, ", "))

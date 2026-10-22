@@ -40,6 +40,7 @@ export function BootSequence({ stack, services }: Props) {
                   <ServiceStateMark state={state} label={false} />
                   <span className="font-medium text-ink">{label(id)}</span>
                   {status?.port ? <span className="font-mono text-xs text-ink-3">:{status.port}</span> : null}
+                  {!status?.port && status?.ports?.length ? <span className="font-mono text-xs text-ink-3">{status.ports.map((p) => `:${p}`).join(" ")}</span> : null}
                 </li>
               );
             })}

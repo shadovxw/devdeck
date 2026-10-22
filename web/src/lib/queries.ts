@@ -154,6 +154,20 @@ export function useStopStack() {
   });
 }
 
+/** Stops one service (or compose file) of a running stack and leaves it stopped. */
+export function useStopService() {
+  return useMutation({
+    mutationFn: (ref: StackRef & { service: string }) => api.post<void>(`${stackUrl(ref)}/services/${encodeURIComponent(ref.service)}/stop`),
+  });
+}
+
+/** Starts a service (or compose file) that was stopped, failed, or never got to start. */
+export function useStartService() {
+  return useMutation({
+    mutationFn: (ref: StackRef & { service: string }) => api.post<void>(`${stackUrl(ref)}/services/${encodeURIComponent(ref.service)}/start`),
+  });
+}
+
 export function useRestartService() {
   return useMutation({
     mutationFn: (ref: StackRef & { service: string }) => api.post<void>(`${stackUrl(ref)}/services/${encodeURIComponent(ref.service)}/restart`),

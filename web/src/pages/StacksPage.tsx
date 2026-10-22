@@ -11,7 +11,7 @@ import { PageHeader } from "../design/PageHeader";
 import { ServiceStateMark } from "../design/ServiceStateMark";
 import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
-import { useDeleteStack, useRestartService, useRuns, useStartStack, useStopStack, useWorkspace, useWorkspaces } from "../lib/queries";
+import { useDeleteStack, useRestartService, useRuns, useStartService, useStartStack, useStopService, useStopStack, useWorkspace, useWorkspaces } from "../lib/queries";
 import { formatUptime, isComposeId, serviceLabel } from "../lib/runs";
 import type { DoctorReport, RunState, RunStatus, ServiceState, StackDef, WorkspaceDetail } from "../lib/types";
 import { useNow } from "../lib/use-now";
@@ -67,7 +67,15 @@ function StartProblem({ error, workspace, stack }: { error: Error; workspace: st
 
 const th = "px-4 py-2 text-start text-[13px] font-medium text-ink-3";
 
-function ServiceRows({ run, now, onRestart, restarting }: { run: RunStatus; now: number; onRestart: (service: string) => void; restarting: string | undefined }) {
+type Controls = {
+  onRestart: (service: string) => void;
+  onStart: (service: string) => void;
+  onStop: (service: string) => void;
+  /** The service an action is being sent for, if any. */
+  busy: string | undefined;
+};
+
+function ServiceRows({ run, now, controls }: { run: RunStatus; now: number; controls: Controls }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-[14px]">
@@ -85,7 +93,7 @@ function ServiceRows({ run, now, onRestart, restarting }: { run: RunStatus; now:
         </thead>
         <tbody>
           {run.services.map((s) => (
-            <ServiceRow key={s.id} service={s} now={now} onRestart={onRestart} busy={restarting === s.id} />
+            <ServiceRow key={s.id} service={s} now={now} controls={controls} />
           ))}
         </tbody>
       </table>
@@ -93,8 +101,16 @@ function ServiceRows({ run, now, onRestart, restarting }: { run: RunStatus; now:
   );
 }
 
-function ServiceRow({ service: s, now, onRestart, busy }: { service: RunStatus["services"][number]; now: number; onRestart: (id: string) => void; busy: boolean }) {
-  const isCompose = isComposeId(s.id);
+/** States in which there is something to stop (a process, a build, a wait), and in which there is something to start. */
+const stoppable: ServiceState[] = ["waiting", "building", "starting", "ready", "restarting"];
+const startable: ServiceState[] = ["stopped", "failed", "blocked"];
+
+const rowButton =
+  "grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-accent-soft hover:text-ink active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+
+function ServiceRow({ service: s, now, controls }: { service: RunStatus["services"][number]; now: number; controls: Controls }) {
+  const isCompose = s.kind === "compose" || isComposeId(s.id);
+  const busy = controls.busy === s.id;
   const name = serviceLabel(s.id);
   const upFor = s.state === "ready" && s.ready_at ? formatUptime(now - Date.parse(s.ready_at)) : "";
   return (
@@ -103,23 +119,48 @@ function ServiceRow({ service: s, now, onRestart, busy }: { service: RunStatus["
         <td className="whitespace-nowrap px-4 py-2.5">
           <ServiceStateMark state={s.state} />
         </td>
-        <td className="px-4 py-2.5 font-medium">{name}</td>
-        <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-ink-2">{s.port ?? ""}</td>
+        <td className="px-4 py-2.5 font-medium">
+          {name}
+          {s.optional && <span className="ms-2 text-[12px] font-normal text-ink-3">optional</span>}
+        </td>
+        <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-ink-2">{s.ports?.length ? s.ports.join(", ") : (s.port ?? "")}</td>
         <td className="px-4 py-2.5 tabular-nums text-ink-2">{upFor}</td>
         <td className="px-4 py-2.5 tabular-nums text-ink-2">{s.restarts > 0 ? s.restarts : ""}</td>
         <td className="px-3 py-1 text-end">
-          {!isCompose && (
+          <span className="inline-flex items-center gap-1">
             <button
               type="button"
-              onClick={() => onRestart(s.id)}
-              disabled={busy}
-              title={s.state === "failed" || s.state === "blocked" ? "Try again" : "Restart"}
-              aria-label={`Restart ${name}`}
-              className="grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-accent-soft hover:text-ink active:scale-90 disabled:opacity-50"
+              onClick={() => controls.onStop(s.id)}
+              disabled={busy || !stoppable.includes(s.state)}
+              title="Stop it and leave it stopped"
+              aria-label={`Stop ${name}`}
+              className={rowButton}
             >
-              <RotateCw size={15} className={busy ? "animate-spin" : undefined} aria-hidden />
+              <Square size={13} fill="currentColor" aria-hidden />
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => controls.onStart(s.id)}
+              disabled={busy || !startable.includes(s.state)}
+              title="Start it"
+              aria-label={`Start ${name}`}
+              className={rowButton}
+            >
+              <Play size={13} fill="currentColor" aria-hidden />
+            </button>
+            {!isCompose && (
+              <button
+                type="button"
+                onClick={() => controls.onRestart(s.id)}
+                disabled={busy}
+                title={s.state === "failed" || s.state === "blocked" ? "Try again" : "Restart"}
+                aria-label={`Restart ${name}`}
+                className={rowButton}
+              >
+                <RotateCw size={15} className={busy ? "animate-spin" : undefined} aria-hidden />
+              </button>
+            )}
+          </span>
         </td>
       </tr>
       {s.last_error && (
@@ -138,6 +179,8 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
   const start = useStartStack();
   const stop = useStopStack();
   const restart = useRestartService();
+  const startService = useStartService();
+  const stopService = useStopService();
   const del = useDeleteStack(workspace.id);
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -265,9 +308,9 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
           {stop.error.message}
         </p>
       )}
-      {restart.error && (
+      {(restart.error ?? startService.error ?? stopService.error) && (
         <p role="alert" className="m-0 px-4 pb-3 text-[14px] text-critical">
-          {restart.error.message}
+          {(restart.error ?? startService.error ?? stopService.error)?.message}
         </p>
       )}
 
@@ -281,8 +324,12 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
         <ServiceRows
           run={run}
           now={now}
-          onRestart={(service) => restart.mutate({ ...ref, service })}
-          restarting={restart.isPending ? restart.variables?.service : undefined}
+          controls={{
+            onRestart: (service) => restart.mutate({ ...ref, service }),
+            onStart: (service) => startService.mutate({ ...ref, service }),
+            onStop: (service) => stopService.mutate({ ...ref, service }),
+            busy: [restart, startService, stopService].find((m) => m.isPending)?.variables?.service,
+          }}
         />
       )}
     </section>

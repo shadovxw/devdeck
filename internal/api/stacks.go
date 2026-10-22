@@ -91,6 +91,35 @@ func registerStacks(g *echo.Group, m *workspace.Manager, sup *supervisor.Supervi
 		return c.NoContent(http.StatusNoContent)
 	})
 
+	// POST .../services/:service/stop stops one service (or compose file) of a running
+	// stack and leaves it stopped. It answers when the process is gone.
+	st.POST("/services/:service/stop", func(c echo.Context) error {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(c.Request().Context()), stopTimeout)
+		defer cancel()
+		err := sup.StopService(ctx, c.Param("id"), c.Param("stack"), c.Param("service"))
+		if errors.Is(err, supervisor.ErrNotRunning) || errors.Is(err, supervisor.ErrNoSuchService) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		}
+		if err != nil {
+			c.Logger().Error(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "the service couldn't be stopped")
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	// POST .../services/:service/start starts a service (or compose file) that was stopped.
+	st.POST("/services/:service/start", func(c echo.Context) error {
+		err := sup.StartService(c.Param("id"), c.Param("stack"), c.Param("service"))
+		if errors.Is(err, supervisor.ErrNotRunning) || errors.Is(err, supervisor.ErrNoSuchService) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		}
+		if err != nil {
+			c.Logger().Error(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "the service couldn't be started")
+		}
+		return c.NoContent(http.StatusAccepted)
+	})
+
 	// POST .../services/:service/restart starts one service again, or retries a failed one.
 	st.POST("/services/:service/restart", func(c echo.Context) error {
 		err := sup.RestartService(c.Param("id"), c.Param("stack"), c.Param("service"))

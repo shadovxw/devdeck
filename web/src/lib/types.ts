@@ -101,7 +101,7 @@ export type DoctorReport = {
 export type StackDef = {
   name: string;
   description?: string;
-  compose?: Array<{ repo: string; file: string; services?: string[] }>;
+  compose?: Array<{ id?: string; repo: string; file: string; services?: string[]; after?: string[]; optional?: boolean }>;
   services?: Array<{ id: string; kind: string; port?: number; after?: string[] }>;
 };
 
@@ -128,6 +128,10 @@ export type ServiceStatus = {
   ready_at?: string;
   last_error?: string;
   exit_code?: number;
+  /** A compose file whose failure holds nothing back. */
+  optional?: boolean;
+  /** The host ports a compose file's containers publish. */
+  ports?: number[];
 };
 
 export type RunStatus = {

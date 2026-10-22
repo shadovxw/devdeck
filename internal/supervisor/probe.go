@@ -7,11 +7,16 @@ import (
 	"time"
 )
 
-// probeTimeout keeps one readiness check from holding up the next.
+// probeTimeout keeps one TCP readiness check from holding up the next.
 const probeTimeout = 2 * time.Second
 
+// httpProbeTimeout is longer: the first request to a development server (Vite,
+// say) compiles on the spot and can take several seconds, longer on a busy
+// machine. A check that gave up after 2 s would never see it answer.
+const httpProbeTimeout = 10 * time.Second
+
 var probeClient = &http.Client{
-	Timeout: probeTimeout,
+	Timeout: httpProbeTimeout,
 	// A redirect to a login page still means the service is up.
 	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 }

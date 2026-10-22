@@ -37,6 +37,12 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "build fakesvc: %v\n%s", err, out)
 		os.Exit(1)
 	}
+	// The first run of a freshly built program can take far longer than later ones (the
+	// virus scanner on Windows looks at it). Tests that count milliseconds from the start
+	// of a program, such as one that exits after 10 ms, need that cost paid up front.
+	for range 2 {
+		_ = exec.Command(fakeExe, "-exit-after", "1ms").Run() //nolint:gosec // the program built above
+	}
 	code := m.Run()
 	_ = os.RemoveAll(dir)
 	os.Exit(code)

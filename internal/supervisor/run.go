@@ -58,8 +58,10 @@ type svc struct {
 	status    ServiceStatus
 	everReady bool
 	// red masks secrets in the one-line summaries shown in error messages.
-	red      logs.Redactor
+	red      *logs.Redactor
 	lastLine string
+	// optional: when it fails, what waits for it carries on (a compose file's flag).
+	optional bool
 
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -90,12 +92,13 @@ func newRun(s *Supervisor, spec StackSpec) *run {
 		sv.ctx, sv.cancel = context.WithCancel(context.Background())
 		sv.done = make(chan struct{})
 		sv.restartReq = make(chan struct{}, 1)
-		sv.status = ServiceStatus{ID: sv.id, Kind: kind, State: StateWaiting, Port: port}
+		sv.red = &logs.Redactor{}
+		sv.status = ServiceStatus{ID: sv.id, Kind: kind, State: StateWaiting, Port: port, Optional: sv.optional}
 		r.svcs[sv.id] = sv
 		r.order = append(r.order, sv)
 	}
 	for _, c := range spec.Compose {
-		add(&svc{id: c.ID, compose: &c}, "compose", 0)
+		add(&svc{id: c.ID, compose: &c, optional: c.Optional}, "compose", 0)
 	}
 	for _, sp := range spec.Services {
 		add(&svc{id: sp.ID, spec: sp}, sp.Kind, sp.Port)
@@ -133,6 +136,9 @@ func (r *run) stateLocked() RunState {
 	}
 	allOK := true
 	for _, s := range r.order {
+		if s.optional && (s.status.State == StateFailed || s.status.State == StateBlocked) {
+			continue // said so in its own row and in the logs; the rest carries on
+		}
 		switch s.status.State {
 		case StateFailed, StateBlocked, StateRestarting:
 			return RunDegraded
@@ -241,6 +247,12 @@ func (r *run) runService(s *svc) {
 }
 
 func (r *run) lifecycleCompose(s *svc) end {
+	switch r.waitDeps(s) {
+	case endStopped:
+		return endStopped
+	case endFailed:
+		return endFailed
+	}
 	now := time.Now()
 	r.update(s, func(st *ServiceStatus) {
 		st.State, st.LastError, st.StartedAt, st.ReadyAt, st.ExitCode = StateStarting, "", &now, nil, nil
@@ -250,32 +262,65 @@ func (r *run) lifecycleCompose(s *svc) end {
 	case s.ctx.Err() != nil:
 		return endStopped
 	case err != nil:
-		r.fail(s, r.withLast(s, "Docker Compose couldn't start the dependencies"))
+		msg := r.withLast(s, "Docker Compose couldn't start the dependencies")
+		r.fail(s, msg)
+		if s.optional {
+			r.record(s, "stderr", "[devdeck] "+s.id+" failed to start, carrying on without it: "+msg)
+		}
 		return endFailed
+	}
+	// Show the ports the containers publish: devdeck doesn't read them from the file.
+	if r.o.ComposePorts != nil {
+		if ports := r.o.ComposePorts(s.ctx, *s.compose); len(ports) > 0 {
+			r.update(s, func(st *ServiceStatus) { st.Ports = ports })
+		}
 	}
 	r.markReady(s)
 	return endDone
 }
 
-// waitDeps waits until every service s comes after has been ready once.
+// svc returns the current record of a service. (Starting a stopped service by hand
+// replaces its record, so the map is read under the lock.)
+func (r *run) svc(id string) *svc {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.svcs[id]
+}
+
+// depsOf lists the steps s waits for. A compose file with an id waits for its own
+// after list. A service waits for its after list and, when the compose files have no
+// ids, for all of them.
+func (r *run) depsOf(s *svc) []string {
+	if s.compose != nil {
+		return slices.Clone(s.compose.After)
+	}
+	deps := slices.Clone(s.spec.After)
+	if !r.spec.Ordered() {
+		for _, c := range r.spec.Compose {
+			deps = append(deps, c.ID)
+		}
+	}
+	return deps
+}
+
+// waitDeps waits until every step s comes after has been ready once.
 // It returns endDone to go on, endFailed if one of them failed, endStopped on stop.
 func (r *run) waitDeps(s *svc) end {
-	deps := slices.Clone(s.spec.After)
-	for _, c := range r.spec.Compose {
-		deps = append(deps, c.ID)
-	}
+	deps := r.depsOf(s)
 	r.set(s, StateWaiting, "")
 	tick := time.NewTicker(depPollTime)
 	defer tick.Stop()
 	for {
 		pending := false
 		for _, id := range deps {
-			d := r.svcs[id]
+			d := r.svc(id)
 			r.mu.Lock()
 			ever, st := d.everReady, d.status.State
 			r.mu.Unlock()
 			switch {
 			case ever:
+			case (st == StateFailed || st == StateBlocked) && d.optional:
+				// optional: its failure is shown, and nothing waits for it any more
 			case st == StateFailed || st == StateBlocked:
 				r.set(s, StateBlocked, fmt.Sprintf("%s failed, so this wasn't started", id))
 				return endFailed
@@ -463,7 +508,8 @@ func (r *run) once(s *svc) (outcome, exitInfo) {
 			Name: name, Args: args, Dir: s.spec.Dir, Env: env,
 			OnLine: func(stream proc.Stream, line string) {
 				r.record(s, string(stream), line)
-				if want != "" && strings.Contains(line, want) {
+				// Tools such as Vite colour parts of a line ("Local" then ":"), so look at it clean.
+				if want != "" && strings.Contains(logs.Clean(line), want) {
 					select {
 					case logHit <- struct{}{}:
 					default:
@@ -562,24 +608,37 @@ func (r *run) doStop(ctx context.Context) {
 		}
 	}
 
-	levels, _ := Levels(r.spec.Services) // checked when the stack was planned
-	for _, level := range slices.Backward(levels) {
-		for _, id := range level {
-			r.svcs[id].cancel()
+	if r.spec.Ordered() {
+		// Compose files are steps in the order: stop in reverse, each at its own turn.
+		levels, _ := r.spec.Levels() // checked when the stack was planned
+		for _, level := range slices.Backward(levels) {
+			for _, id := range level {
+				r.svc(id).cancel()
+			}
+			for _, id := range level {
+				s := r.svc(id)
+				wait(s)
+				if s.compose != nil {
+					r.stopCompose(ctx, s)
+				}
+			}
 		}
-		for _, id := range level {
-			wait(r.svcs[id])
+	} else {
+		levels, _ := Levels(r.spec.Services) // checked when the stack was planned
+		for _, level := range slices.Backward(levels) {
+			for _, id := range level {
+				r.svc(id).cancel()
+			}
+			for _, id := range level {
+				wait(r.svc(id))
+			}
 		}
-	}
-	for _, spec := range r.spec.Compose {
-		c := r.svcs[spec.ID]
-		c.cancel()
-		wait(c)
-		stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), r.o.ComposeTimeout)
-		if err := r.o.Compose(stopCtx, *c.compose, "stop", func(line string) { r.record(c, "stdout", line) }); err != nil {
-			r.record(c, "stderr", "the dependencies couldn't be stopped: "+err.Error())
+		for _, spec := range r.spec.Compose {
+			c := r.svc(spec.ID)
+			c.cancel()
+			wait(c)
+			r.stopCompose(ctx, c)
 		}
-		cancel()
 	}
 
 	r.mu.Lock()
@@ -590,6 +649,96 @@ func (r *run) doStop(ctx context.Context) {
 	snap = r.snapshotLocked()
 	r.mu.Unlock()
 	r.publish(snap)
+}
+
+// stopOne stops one service (or compose file) by hand and leaves it stopped: it is
+// not restarted. What waits for it is left alone; stopping a service others need is
+// the person's choice. It returns when the process is gone.
+func (r *run) stopOne(ctx context.Context, id string) error {
+	r.mu.Lock()
+	s := r.svcs[id]
+	switch {
+	case r.phase != "":
+		r.mu.Unlock()
+		return ErrNotRunning
+	case s == nil:
+		r.mu.Unlock()
+		return ErrNoSuchService
+	case s.status.State == StateStopped || s.status.State == StateStopping:
+		r.mu.Unlock()
+		return nil
+	}
+	r.mu.Unlock()
+
+	r.set(s, StateStopping, "")
+	s.cancel()
+	select {
+	case <-s.done:
+	case <-time.After(r.o.StopTimeout):
+	case <-ctx.Done():
+	}
+	if s.compose != nil {
+		r.stopCompose(ctx, s)
+	}
+	r.set(s, StateStopped, "")
+	return nil
+}
+
+// startOne starts a service (or compose file) that was stopped. If it only
+// finished by itself, or failed, its own goroutine is still waiting and is asked to
+// go again. If it was stopped by hand, its goroutine is gone: a fresh record
+// replaces it and a new goroutine runs it, starting from its own start-up steps.
+func (r *run) startOne(id string) error {
+	r.mu.Lock()
+	old := r.svcs[id]
+	switch {
+	case r.phase != "":
+		r.mu.Unlock()
+		return ErrNotRunning
+	case old == nil:
+		r.mu.Unlock()
+		return ErrNoSuchService
+	}
+	select {
+	case <-old.done: // the goroutine ended: it was stopped by hand
+	default:
+		r.mu.Unlock()
+		if st := old.status.State; st == StateStopped || st == StateFailed || st == StateBlocked {
+			select {
+			case old.restartReq <- struct{}{}:
+			default:
+			}
+		}
+		return nil // anything else is already running or on its way
+	}
+
+	ns := &svc{
+		id: old.id, spec: old.spec, compose: old.compose, optional: old.optional,
+		everReady: old.everReady, red: old.red, lastLine: old.lastLine, startedOnce: old.startedOnce, status: old.status,
+	}
+	ns.ctx, ns.cancel = context.WithCancel(context.Background())
+	ns.done = make(chan struct{})
+	ns.restartReq = make(chan struct{}, 1)
+	r.svcs[id] = ns
+	for i, o := range r.order {
+		if o == old {
+			r.order[i] = ns
+		}
+	}
+	r.mu.Unlock()
+
+	r.set(ns, StateWaiting, "")
+	go r.runService(ns)
+	return nil
+}
+
+// stopCompose runs docker compose stop for a compose file's containers.
+func (r *run) stopCompose(ctx context.Context, c *svc) {
+	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), r.o.ComposeTimeout)
+	defer cancel()
+	if err := r.o.Compose(stopCtx, *c.compose, "stop", func(line string) { r.record(c, "stdout", line) }); err != nil {
+		r.record(c, "stderr", "the dependencies couldn't be stopped: "+err.Error())
+	}
 }
 
 // normalizeExit turns the unsigned exit codes Windows reports for a killed

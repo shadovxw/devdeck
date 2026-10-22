@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,6 +77,9 @@ type Options struct {
 	Preflight func(ctx context.Context, spec StackSpec) (doctor.Report, error)
 	// Compose replaces how Docker Compose is run.
 	Compose ComposeFunc
+	// ComposePorts says which host ports a compose file's containers publish, once it
+	// is up. By default it asks Docker, but only when Compose is the real one.
+	ComposePorts func(ctx context.Context, c ComposeSpec) []int
 	// Logs receives every output line of every service. Nil discards them.
 	Logs LogSink
 
@@ -148,6 +152,9 @@ func New(o Options) *Supervisor {
 	}
 	if s.o.Compose == nil {
 		s.o.Compose = s.dockerCompose
+		if s.o.ComposePorts == nil {
+			s.o.ComposePorts = s.dockerComposePorts
+		}
 	}
 	return s
 }
@@ -198,9 +205,41 @@ func (s *Supervisor) dockerCompose(ctx context.Context, c ComposeSpec, action st
 // composeSettled asks Compose what state the stack's containers are in, after an
 // `up --wait` that failed, and says whether they are all where they should be.
 func (s *Supervisor) composeSettled(ctx context.Context, c ComposeSpec) bool {
+	want := composeWanted(ctx, c)
+	out, ok := composePS(ctx, c)
+	return ok && composeSettled(out, want)
+}
+
+// dockerComposePorts asks Docker which host ports a compose file's containers publish.
+func (s *Supervisor) dockerComposePorts(ctx context.Context, c ComposeSpec) []int {
+	out, ok := composePS(ctx, c)
+	if !ok {
+		return nil
+	}
+	return composePorts(out, composeWanted(ctx, c))
+}
+
+// composeWanted lists the services a compose file is meant to bring up: the ones
+// asked for, or every one it defines. Nil when Docker can't say.
+func composeWanted(ctx context.Context, c ComposeSpec) []string {
+	if len(c.Services) > 0 {
+		return slices.Clone(c.Services)
+	}
+	res, err := proc.Run(ctx, proc.Cmd{Name: "docker", Args: []string{"compose", "-f", c.File, "config", "--services"}, Dir: c.Dir, Timeout: 30 * time.Second})
+	if err != nil || !res.OK() {
+		return nil
+	}
+	return strings.Fields(res.Stdout)
+}
+
+// composePS is the output of docker compose ps for a file's project, all containers.
+func composePS(ctx context.Context, c ComposeSpec) (string, bool) {
 	args := append([]string{"compose", "-f", c.File, "ps", "--all", "--format", "json"}, c.Services...)
 	res, err := proc.Run(ctx, proc.Cmd{Name: "docker", Args: args, Dir: c.Dir, Timeout: 30 * time.Second})
-	return err == nil && res.OK() && composeSettled(res.Stdout)
+	if err != nil || !res.OK() {
+		return "", false
+	}
+	return res.Stdout, true
 }
 
 // Start checks the machine, then starts the stack in the background and returns
@@ -282,8 +321,8 @@ func (s *Supervisor) RestartService(workspace, stack, service string) error {
 	if !ok {
 		return ErrNotRunning
 	}
-	sv, ok := r.svcs[service]
-	if !ok || sv.compose != nil {
+	sv := r.svc(service)
+	if sv == nil || sv.compose != nil {
 		return ErrNoSuchService
 	}
 	select {
@@ -291,6 +330,27 @@ func (s *Supervisor) RestartService(workspace, stack, service string) error {
 	default: // one request is already waiting
 	}
 	return nil
+}
+
+// StopService stops one service of a running stack and leaves it stopped (it is not
+// restarted). A compose file's containers are stopped with docker compose stop. It
+// returns when the process is gone.
+func (s *Supervisor) StopService(ctx context.Context, workspace, stack, service string) error {
+	r, ok := s.get(workspace, stack)
+	if !ok {
+		return ErrNotRunning
+	}
+	return r.stopOne(ctx, service)
+}
+
+// StartService starts a service of a running stack that was stopped (by hand, by
+// finishing or by failing). A compose file is brought up again.
+func (s *Supervisor) StartService(workspace, stack, service string) error {
+	r, ok := s.get(workspace, stack)
+	if !ok {
+		return ErrNotRunning
+	}
+	return r.startOne(service)
 }
 
 // Status reports a stack, or false when it isn't running.
