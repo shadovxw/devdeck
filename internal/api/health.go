@@ -60,6 +60,7 @@ func Register(e *echo.Echo, d Deps) {
 		registerLogFilters(v1, d.Workspaces)
 		if d.Logs != nil {
 			registerLogs(v1, d.Logs, d.Workspaces)
+			registerLogWhere(v1, d.Workspaces)
 		}
 		if d.Supervisor != nil {
 			registerStacks(v1, d.Workspaces, d.Supervisor)

@@ -1,4 +1,4 @@
-import type { LogLevel } from "./types";
+import type { LogEntry, LogLevel } from "./types";
 
 /** What the Logs page can ask the server to filter on. Every filter that is set must match. */
 export type LogQuery = {
@@ -50,4 +50,77 @@ export function logQueryString(q: LogQuery): string {
 /** A saved filter as a query, ready to add paging to. */
 export function queryOfFilter(f: SavedLogFilter): LogQuery {
   return { services: f.services, levels: f.levels, regex: f.regex, fields: f.fields, since: f.since };
+}
+
+/** `path=value` or `path!=value`, or undefined when it isn't one. */
+export function parseFieldFilter(raw: string): { path: string; value: string; not: boolean } | undefined {
+  const i = raw.indexOf("=");
+  if (i <= 0) return undefined;
+  const not = raw[i - 1] === "!";
+  const path = raw.slice(0, not ? i - 1 : i).trim();
+  return path ? { path, value: raw.slice(i + 1), not } : undefined;
+}
+
+function lookup(fields: Record<string, unknown>, path: string): { found: boolean; value?: unknown } {
+  if (path in fields) return { found: true, value: fields[path] };
+  const dot = path.indexOf(".");
+  if (dot < 0) return { found: false };
+  const next = fields[path.slice(0, dot)];
+  if (next && typeof next === "object" && !Array.isArray(next)) return lookup(next as Record<string, unknown>, path.slice(dot + 1));
+  return { found: false };
+}
+
+function fieldText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v === null) return "null";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
+/**
+ * The pattern as the browser reads it, or undefined when it doesn't compile. The server
+ * reads Go (RE2) patterns, whose flags come first as (?i), (?s) or (?m); those are turned
+ * into the browser's flags. Syntax only Go has isn't understood here.
+ */
+export function compilePattern(pattern: string | undefined): RegExp | undefined {
+  if (!pattern) return undefined;
+  const lead = /^\(\?([ims]+)\)/.exec(pattern);
+  try {
+    return lead ? new RegExp(pattern.slice(lead[0].length), lead[1]) : new RegExp(pattern);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether a line that arrived live belongs in a view with these filters: the same
+ * rules the server applies to stored lines (except time, which a live line is always
+ * inside). The pattern is read by the browser's engine, which differs from the
+ * server's in a few corners, so a stored line the server keeps is what counts after a reload.
+ */
+export function entryMatches(e: LogEntry, q: LogQuery, re: RegExp | undefined = compilePattern(q.regex)): boolean {
+  if (q.services?.length && !q.services.includes(e.service)) return false;
+  if (q.levels?.length && !q.levels.includes(e.level ?? "info")) return false;
+  if (q.group && e.fingerprint !== q.group) return false;
+  if (re && !re.test(e.text)) return false;
+  for (const raw of q.fields ?? []) {
+    const f = parseFieldFilter(raw);
+    if (!f) continue;
+    const hit = lookup(e.fields ?? {}, f.path);
+    if ((hit.found && fieldText(hit.value) === f.value) === f.not) return false;
+  }
+  return true;
+}
+
+/** The part of a line to show as its message. */
+export function messageOf(e: LogEntry): string {
+  const text = e.message || e.text;
+  const nl = text.indexOf("\n");
+  return nl < 0 ? text : text.slice(0, nl);
+}
+
+/** A link that opens a place in VS Code (the file is the absolute path the server resolved). */
+export function vscodeLink(file: string, line: number): string {
+  const path = file.replace(/\\/g, "/");
+  return `vscode://file${path.startsWith("/") ? "" : "/"}${encodeURI(path)}:${line}`;
 }

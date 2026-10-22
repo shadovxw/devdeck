@@ -55,6 +55,45 @@ func registerLogs(g *echo.Group, store *logs.Store, m *workspace.Manager) {
 		return c.JSON(http.StatusOK, res)
 	})
 
+	// GET .../histogram counts the entries that pass the same filters by level and
+	// time (the last hour up to now unless since and until say otherwise).
+	lg.GET("/histogram", func(c echo.Context) error {
+		q, err := queryFromRequest(c, time.Now())
+		if err != nil {
+			return queryRefusal(err)
+		}
+		h, err := store.Histogram(c.Param("id"), c.Param("stack"), q, time.Now())
+		if errors.Is(err, logs.ErrBadName) {
+			return echo.NewHTTPError(http.StatusNotFound, "no such stack or service")
+		}
+		if refusal := queryRefusal(err); refusal != err {
+			return refusal
+		}
+		if err != nil {
+			c.Logger().Error(oneLine(err))
+			return echo.NewHTTPError(http.StatusInternalServerError, "the logs couldn't be counted")
+		}
+		return c.JSON(http.StatusOK, h)
+	})
+
+	// DELETE deletes what is stored of the stack (or of one service, with ?service=):
+	// the lines, the files and the error groups. Capture rules are kept. The page
+	// asks the person to confirm first.
+	lg.DELETE("", func(c echo.Context) error {
+		if err := workspaceExists(c, m); err != nil {
+			return err
+		}
+		removed, err := store.Clear(c.Param("id"), c.Param("stack"), c.QueryParam("service"))
+		if errors.Is(err, logs.ErrBadName) {
+			return echo.NewHTTPError(http.StatusNotFound, "no such stack or service")
+		}
+		if err != nil {
+			c.Logger().Error(oneLine(err))
+			return echo.NewHTTPError(http.StatusInternalServerError, "the logs couldn't be deleted")
+		}
+		return c.JSON(http.StatusOK, map[string]int{"removed_files": removed})
+	})
+
 	// GET .../groups lists the kinds of error seen in the stack (an error entry
 	// is "the same" as another when its fingerprint matches), the latest first.
 	lg.GET("/groups", func(c echo.Context) error {

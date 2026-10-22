@@ -175,6 +175,15 @@ export type LogEntry = {
 
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
+/** How many entries of each level matched a query, over time (GET .../logs/histogram). */
+export type LogHistogram = {
+  from: string;
+  to: string;
+  bucket_seconds: number;
+  total: number;
+  buckets: { t: string; counts: Partial<Record<LogLevel, number>> }[];
+};
+
 /** One kind of error seen in a stack. */
 export type LogGroup = {
   fingerprint: string;

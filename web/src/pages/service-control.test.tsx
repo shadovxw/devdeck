@@ -94,6 +94,15 @@ describe("stopping and starting one service from its row", () => {
     expect(button(t, "Start cache").disabled).toBe(false);
   });
 
+  it("links each service (not a compose file) to its logs", async () => {
+    mockServer([svc("vault", "ready", "compose"), svc("api", "ready")]);
+    renderStacks();
+    const t = await table();
+
+    expect(t.getByRole("link", { name: "Logs of api" }).getAttribute("href")).toBe("/logs?workspace=demo&stack=full&service=api");
+    expect(t.queryByRole("link", { name: "Logs of vault" })).toBeNull();
+  });
+
   it("sends stop and start for the service in the row", async () => {
     mockServer([svc("api", "ready"), svc("web", "stopped")]);
     renderStacks();

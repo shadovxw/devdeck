@@ -25,7 +25,7 @@
 
 ## Known gaps (planned in later PRs)
 
-- The Logs page with histogram, Errors panel and VS Code links (PR 5).
+
 - A failed write of a log file is not reported anywhere yet (the lines still reach memory and the live view).
 - `TestRestartPolicies` in the supervisor package fails when run alone on a cold machine (a fresh test program starts slower than its 10 ms exit); it passes in the full package run.
 
@@ -102,3 +102,41 @@ On a throwaway workspace with the lines of PR 3 (read back from their files afte
 
 - Counting for the level histogram (PR 5) isn't an endpoint yet; the page can count what it has loaded, and PR 5 adds a counting route if that isn't enough.
 - A query is limited to 5,000 entries a page; very large exports aren't a goal.
+
+# PR 5: the Logs page
+
+The last piece of Phase 3. The phase summary is in [`../13-logs.md`](../13-logs.md).
+
+## Server
+
+- **`DELETE .../logs[?service=]`** deletes what is stored: the lines in memory, the day files and the error groups of one service or of the whole stack (`Store.Clear`; capture rules are kept; services that were never read in are found on disk; a folder outside the log folder is never touched). Answers `{"removed_files": n}`. The page asks for a confirmation first.
+- **`GET .../logs/histogram`** takes the same filters as the logs route and counts the matching entries by level and time (`Store.Histogram`): the range is `since` to `until` (the last hour up to now by default), the bucket is a minute for up to an hour, then 5 and 15 minutes, an hour, 6 hours (never more than 400 buckets). It reads memory, and the day files only for a service whose memory doesn't reach back to the start of the range.
+- **`GET .../logs/where?service=&caller=`** says where a line's caller points: `{file, line}`, with the absolute path, only when that file exists inside the service's own repo (for a container, its compose file's repo). The path may be relative, absolute inside the repo, or from another machine (matched by its longest tail of at least two folders and a name that exists in the repo). Anything else, a sample workspace, an unknown service or a file outside the repo is a 404.
+
+## Web
+
+- **`/logs`** (`pages/LogsPage.tsx`, `pages/logs/*`, `design/LevelMark.tsx`, `lib/log-stream.ts`, `lib/log-api.ts`, `lib/log-query.ts`):
+  - A workspace and a stack (the running one by default), the filter bar, and the filters in the address (`service`, `level`, `q`, `field`, `since`, `until`, `group`), so a view can be bookmarked and shared.
+  - **Filter bar:** a service picker (the services that have lines or a rule), the six levels as toggles, a pattern box, field filters as chips, a time range. The pattern waits for a pause in typing and for a pattern the browser can read; Go-style `(?i)`, `(?s)` and `(?m)` flags at the start are turned into the browser's. Active filters (fields, one error group, an end time) show as chips that can be removed.
+  - **Stream:** a windowed list (fixed 22 px rows, no new dependency) that follows the newest line while live and the reader is at the end. Live lines are tested in the browser against the same filters, a skipped batch or a reconnecting socket asks the server for what was missed, Pause and Resume catch up, and older lines load on demand. Arrow, Page, Home and End keys move the selection, Escape lets go of it.
+  - **Level histogram** in plain SVG with a drag to narrow the view to a stretch (that sets `since` and `until`, stops following live, and offers "Back to live"). Each level has a shape and a word in the legend, and in the list; colour is never the only sign.
+  - **Errors panel:** the error groups, most recent first; one click shows only that group's lines, another lets go. A live line that carries a fingerprint refreshes the panel at once (at most once a second), with a poll every 5 s as the fallback. The histogram polls every 5 s while live.
+  - **Selected line:** full text, level, time, fields, "Open file:line in VS Code" (a `vscode://file/...` link, shown only when the server found the file), "Show every line like this", and a disabled "Ask Claude about this error" (tooltip: Phase 10).
+  - **Saved filters:** save the current filters under a name (a relative time range is kept; a dragged-out stretch is not), chips to apply one, a confirmation before deleting. Sample workspaces can't save or clear.
+  - **Clear…** asks "Delete the stored logs of <service> / every service of this stack?" and says it removes the files, not only the view.
+- **Stacks page:** each service row (not compose files) has a link to its logs.
+- The old per-stack panel on the Stacks page stays as it was, with its own capture controls ("What is stored").
+- **Test settings:** Testing Library's async wait is 5 s and Vitest's test timeout 15 s (`src/test/setup.ts`, `vite.config.ts`), because three of the older page tests failed now and then on a busy machine when the whole suite ran at once.
+
+## Tests
+
+- Go: clearing one service and all (files, memory, groups, rules kept, services never read in, unsafe names); the histogram (levels, a missing level as info, filters, the default range, bucket widths and the 400 limit, reading the files, refusals); caller resolution (relative, absolute, another machine's tail, outside the repo, bad lines) and the three routes.
+- Web: the page end to end against a mocked server and socket (stored lines with level words, histogram and errors; levels, pattern, field filters; live lines filtered; fingerprint refresh; pause and resume; the selected line, its link or its plain caller; arrow keys; error groups; the histogram drag and "Back to live"; saving, applying and deleting filters; clearing with its confirmation; samples; a refusal from the server), the live matcher against the server's rules, the address round trip, the service link on the Stacks page.
+
+## Verified live
+
+On a throwaway workspace (real binary, a second Vite server on another port, the page opened in the browser pane): the stored lines of the earlier runs with their levels and fields, the histogram with its legend, the error groups, the selected line with its fields, and "Show every line like this" narrowing the list and the histogram.
+
+## Known gaps
+
+See [`../13-logs.md`](../13-logs.md).
