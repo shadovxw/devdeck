@@ -25,6 +25,29 @@
 
 ## Known gaps (planned in later PRs)
 
-- Docker container logs (PR 2), parsers, levels and error groups (PR 3), filter queries and saved filters (PR 4), the Logs page with histogram, Errors panel and VS Code links (PR 5).
+- Parsers, levels and error groups (PR 3), filter queries and saved filters (PR 4), the Logs page with histogram, Errors panel and VS Code links (PR 5).
 - A failed write of a log file is not reported anywhere yet (the lines still reach memory and the live view).
 - `TestRestartPolicies` in the supervisor package fails when run alone on a cold machine (a fresh test program starts slower than its 10 ms exit); it passes in the full package run.
+
+# PR 2: Docker container logs
+
+A compose file's containers now have their output collected like a service's, under the id `<compose id>/<container>` (for example `vault/openbao`), with the same cleaning, masking, storage, retention and capture rules.
+
+- **How:** once a compose file is up, devdeck runs one `docker compose -f <file> logs --follow --no-color --no-log-prefix --timestamps --since <t> <service>` per container. One process per container (not one for the file) because without the prefix every line belongs to exactly one container, and each can then be started and stopped alone. `--since` starts at the moment the compose step began, so older history from earlier runs isn't pulled in. (`internal/supervisor/follow.go`)
+- **Capture rules decide whether to follow at all:** a container whose rule is `off` is not followed (no Docker process, nothing read). Rules are looked at once a second, so switching a container on or off, in the UI or the API, takes effect within about a second. While off, its `since` moves forward, so switching it on later starts from then: what it printed while paused is not stored (verified: ticks 25 to 39 skipped).
+- **Duplicates and restarts:** each container remembers the time of the last line taken and skips anything not newer. If Docker ends a follower (Docker restarted, container ended), it is started again from that time after 1, 2, 4 ... 30 s. The first failure of a streak writes one `[devdeck] couldn't follow this container's logs, trying again: ...` line to the container's logs; the retries are silent.
+- **Containers show up before they print:** the compose file's service names are announced to the log store (`LogSink.Announce`), so the capture list shows every container, with its rule, from the start. That is how a container set to `off` in the file can be switched on again.
+- **Stopping:** followers end with the compose step, on a stack stop and on a stop of just that compose file by hand; the compose goroutine waits for them, so no `docker logs` process outlives the step.
+- **Interfaces:** `LogSink` gains `Announce` and `Wanted`; `Options` gains `ComposeNames`, `ComposeFollow` and `FollowPoll` (defaults run Docker, and only when `Compose` is the real one, like `ComposePorts`). `logs.Store` gains `Announce` and `Wanted`.
+- **Tests:** followed and attributed to the container, an `off` container not followed and followed from now once switched on (and its follower ended when switched off again), restart from the last line without repeats and with one failure line, followers ended on stack stop and on stopping one compose file, the docker arguments and the timestamp parsing; store tests for `Announce` (unsafe names ignored) and `Wanted`; a sink pass-through test.
+
+## Verified live (real Docker, a throwaway workspace with two alpine containers)
+
+- Container lines arrived under `talk/chatty` with `token=` masked; the container set to `off` in the stack file (`talk/quiet`) was listed in the captures with rule `off` / source `file`, and nothing was stored for it.
+- `PUT .../capture?service=talk/quiet` with `all`: lines started within seconds. `off` on the chatty one: its stored count stopped growing, and only the other `docker compose logs` process was left running. `all` again: the lines resumed from the present, with the paused stretch missing.
+- `devdeck down`: no `docker compose logs` process remained.
+
+## Known gaps
+
+- A container that is already running before devdeck starts shows only what it prints from the moment the stack starts (older output isn't imported).
+- The compose row itself still carries the output of `up` and `stop`; the Stacks page's Logs button lists containers by their `<id>/<container>` name.

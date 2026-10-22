@@ -1,6 +1,6 @@
 # Phase 3: Logs, implementation plan
 
-> Status: **approved (2026-10-21); PR 1 built, see `changes.md`** · covers plan §8 items 3.1 to 3.4 plus per-service capture control (D16)
+> Status: **approved (2026-10-21); PR 1 and PR 2 built, see `changes.md`** · covers plan §8 items 3.1 to 3.4 plus per-service capture control (D16)
 > Reference UI: [`ui-mockup/logs.html`](../../ui-mockup/logs.html) · design tokens: [`02-frontend-design-system.md`](../02-frontend-design-system.md)
 
 ## 1. Goal and "done when"

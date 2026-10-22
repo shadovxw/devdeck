@@ -70,6 +70,10 @@ type svc struct {
 	exe        string // built Go program; only the service's own goroutine uses it
 	// startedOnce is true after the first start, so later starts count as restarts.
 	startedOnce bool
+	// followCancel and followWG belong to a compose file's goroutine: the followers
+	// of its containers' Docker logs.
+	followCancel context.CancelFunc
+	followWG     sync.WaitGroup
 }
 
 type run struct {
@@ -225,6 +229,7 @@ func (r *run) withLast(s *svc, msg string) string {
 
 func (r *run) runService(s *svc) {
 	defer close(s.done)
+	defer r.stopFollowing(s)
 	for {
 		var e end
 		if s.compose != nil {
@@ -253,6 +258,7 @@ func (r *run) lifecycleCompose(s *svc) end {
 	case endFailed:
 		return endFailed
 	}
+	r.stopFollowing(s) // a retry must not leave the earlier followers running
 	now := time.Now()
 	r.update(s, func(st *ServiceStatus) {
 		st.State, st.LastError, st.StartedAt, st.ReadyAt, st.ExitCode = StateStarting, "", &now, nil, nil
@@ -276,6 +282,8 @@ func (r *run) lifecycleCompose(s *svc) end {
 		}
 	}
 	r.markReady(s)
+	// The containers' own output, from when this start began.
+	r.startFollowing(s, now)
 	return endDone
 }
 

@@ -100,10 +100,12 @@ func (c *recorder) run(_ context.Context, _ ComposeSpec, action string, out func
 
 // testSink is a LogSink that remembers what it was given.
 type testSink struct {
-	mu       sync.Mutex
-	lines    map[string][]testLine
-	envs     map[string][]string
-	defaults map[string]logs.Rule
+	mu        sync.Mutex
+	lines     map[string][]testLine
+	envs      map[string][]string
+	defaults  map[string]logs.Rule
+	announced []string
+	off       map[string]bool
 }
 
 type testLine struct{ Service, Stream, Text string }
@@ -130,6 +132,28 @@ func (t *testSink) Defaults(_, _ string, rules map[string]logs.Rule) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.defaults = rules
+}
+
+func (t *testSink) Announce(_, _ string, services []string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.announced = append(t.announced, services...)
+}
+
+// Wanted is true unless the service was switched off with setOff.
+func (t *testSink) Wanted(_, _, service string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return !t.off[service]
+}
+
+func (t *testSink) setOff(service string, off bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.off == nil {
+		t.off = map[string]bool{}
+	}
+	t.off[service] = off
 }
 
 func (t *testSink) of(service string) []testLine {

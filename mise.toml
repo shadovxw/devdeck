@@ -5,6 +5,7 @@
 go = "1.26"
 node = "22"
 golangci-lint = "2.15.0"
+gitleaks = "8.28.0"
 "go:github.com/air-verse/air" = "1.67.4"
 
 [tasks."dev:api"]
@@ -56,3 +57,11 @@ run = ["npm run lint", "npm run typecheck"]
 [tasks.lint]
 description = "All linters"
 depends = ["lint:go", "lint:web"]
+
+[tasks.secrets]
+description = "gitleaks over the whole git history and the working tree, like the CI job (known fakes: .gitleaksignore)"
+run = "gitleaks detect --source . --redact --no-banner"
+
+[tasks.check]
+description = "Everything CI checks that can run here: linters, tests and the secret scan"
+depends = ["lint", "test", "secrets"]
