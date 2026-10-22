@@ -75,7 +75,7 @@ func ValidMatch(m string) bool {
 	}
 	parts := strings.Split(m, "/")
 	// "host/*" has two parts, "host/owner/*" and "host/owner/repo" three. An owner can't be "*" with a repo after it.
-	return len(parts) >= 2 && !(len(parts) == 3 && parts[1] == "*") && !strings.Contains(parts[0], "*")
+	return len(parts) >= 2 && (len(parts) != 3 || parts[1] != "*") && !strings.Contains(parts[0], "*")
 }
 
 // specificity is how closely a rule fits a remote: 3 for the repo itself, 2 for all of

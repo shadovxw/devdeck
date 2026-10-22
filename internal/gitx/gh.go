@@ -197,8 +197,6 @@ func (g *GH) Check(ctx context.Context, user string) (CheckResult, error) {
 		res.OrgsNote = "The organisations couldn't be listed: the token may lack the read:org scope."
 		return res, nil
 	}
-	for _, o := range strings.Fields(orgs) {
-		res.Orgs = append(res.Orgs, o)
-	}
+	res.Orgs = append(res.Orgs, strings.Fields(orgs)...)
 	return res, nil
 }
