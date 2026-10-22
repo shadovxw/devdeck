@@ -41,7 +41,7 @@ func normalizeMessage(s string) string {
 	s = hexRE.ReplaceAllString(s, "<hex>")
 	// a long run of hex digits is an id or a hash, unless it is only letters (a word)
 	s = hexLongRE.ReplaceAllStringFunc(s, func(w string) string {
-		if strings.IndexAny(w, "0123456789") < 0 {
+		if !strings.ContainsAny(w, "0123456789") {
 			return w
 		}
 		return "<hex>"
