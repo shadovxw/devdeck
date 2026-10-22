@@ -4,12 +4,12 @@ import type { LogLevel } from "../lib/types";
 // as the service states). Trace and debug are rings, info a dot, warn a triangle,
 // error a square, fatal a diamond.
 export const levelLook: Record<LogLevel, { word: string; label: string; shape: "ring" | "dot" | "triangle" | "square" | "diamond"; color: string }> = {
-  trace: { word: "TRC", label: "trace", shape: "ring", color: "var(--ink-3)" },
-  debug: { word: "DBG", label: "debug", shape: "ring", color: "var(--ink-2)" },
-  info: { word: "INF", label: "info", shape: "dot", color: "var(--accent)" },
-  warn: { word: "WRN", label: "warning", shape: "triangle", color: "var(--warning)" },
-  error: { word: "ERR", label: "error", shape: "square", color: "var(--critical)" },
-  fatal: { word: "FTL", label: "fatal", shape: "diamond", color: "var(--critical)" },
+  trace: { word: "TRACE", label: "trace", shape: "ring", color: "var(--ink-3)" },
+  debug: { word: "DEBUG", label: "debug", shape: "ring", color: "var(--ink-2)" },
+  info: { word: "INFO", label: "info", shape: "dot", color: "var(--accent)" },
+  warn: { word: "WARN", label: "warning", shape: "triangle", color: "var(--warning)" },
+  error: { word: "ERROR", label: "error", shape: "square", color: "var(--critical)" },
+  fatal: { word: "FATAL", label: "fatal", shape: "diamond", color: "var(--critical)" },
 };
 
 export const levelOrder: LogLevel[] = ["trace", "debug", "info", "warn", "error", "fatal"];
@@ -28,11 +28,11 @@ export function LevelShape({ level, size = 10 }: { level: LogLevel; size?: numbe
   );
 }
 
-/** A level as its shape and a three-letter word; screen readers get the whole word. */
+/** A level as its shape and its word; screen readers get the whole word. */
 export function LevelMark({ level = "info" }: { level?: LogLevel }) {
   const { word, label } = levelLook[level];
   return (
-    <span className="inline-flex w-12 shrink-0 items-center gap-1.5 text-ink-2" data-level={level}>
+    <span className="inline-flex w-[4.5rem] shrink-0 items-center gap-1.5 text-ink-2" data-level={level}>
       <LevelShape level={level} />
       <span aria-hidden>{word}</span>
       <span className="sr-only">{label}</span>

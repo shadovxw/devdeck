@@ -50,6 +50,51 @@ func bucketFor(span time.Duration) time.Duration {
 	return bucketWidths[len(bucketWidths)-1]
 }
 
+// defaultStart is where a histogram with no start begins: at the oldest line the chosen
+// services hold in memory, so "any time" shows what there is and not an empty last hour.
+// It is never more than a week back and never less than five minutes, and with nothing
+// stored it is the last hour.
+func (s *Store) defaultStart(workspace, stack string, services []string, to time.Time) time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st := s.stack(workspace, stack)
+	if len(services) > 0 {
+		for _, svc := range services {
+			s.service(svcKey{workspace, stack, svc})
+		}
+	} else if !st.discovered {
+		st.discovered = true
+		s.discover(workspace, stack)
+	}
+	var oldest time.Time
+	for k, sv := range s.svcs {
+		if k.workspace != workspace || k.stack != stack || (len(services) > 0 && !slices.Contains(services, k.service)) || sv.ring.len() == 0 {
+			continue
+		}
+		if t := sv.ring.at(0).Time; oldest.IsZero() || t.Before(oldest) {
+			oldest = t
+		}
+	}
+	if oldest.IsZero() || !oldest.Before(to) {
+		return to.Add(-time.Hour)
+	}
+	return minTime(maxTime(oldest, to.Add(-7*24*time.Hour)), to.Add(-5*time.Minute))
+}
+
+func minTime(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
+}
+
+func maxTime(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+	return b
+}
+
 // Histogram counts the entries of a stack that pass the query's filters (service,
 // level, pattern, fields, group) by level and time. The range is Since to Until,
 // which default to the last hour up to now; paging and limit do not apply. It
@@ -77,7 +122,7 @@ func (s *Store) Histogram(workspace, stack string, q Query, now time.Time) (Hist
 	}
 	from := q.Since
 	if from.IsZero() {
-		from = to.Add(-time.Hour)
+		from = s.defaultStart(workspace, stack, services, to)
 	}
 	if !to.After(from) {
 		return Histogram{}, badQuery("until must be after since")

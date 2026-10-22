@@ -10,10 +10,12 @@ type Props = {
   parent?: string;
   /** Buttons for the page, on the same line as the title, at the right. */
   actions?: ReactNode;
+  /** One line under the title saying what the page is for. */
+  description?: string;
 };
 
 /** Breadcrumb and the page title: all a page needs at the top. */
-export function PageHeader({ title, group, parent, actions }: Props) {
+export function PageHeader({ title, group, parent, actions, description }: Props) {
   return (
     <header className="enter" style={stagger(0)}>
       <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3">
@@ -31,6 +33,7 @@ export function PageHeader({ title, group, parent, actions }: Props) {
         <h1 className="m-0 text-[32px] font-bold leading-tight tracking-tight text-ink">{title}</h1>
         {actions}
       </div>
+      {description && <p className="m-0 mt-1 text-[14px] text-ink-3">{description}</p>}
     </header>
   );
 }

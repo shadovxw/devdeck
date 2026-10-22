@@ -1,12 +1,17 @@
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { LevelMark } from "../../design/LevelMark";
+import { Menu, type MenuItem } from "../../design/Menu";
 import { messageOf } from "../../lib/log-query";
 import type { LogEntry } from "../../lib/types";
 
-const rowHeight = 22;
+const rowHeight = 28;
 const overscan = 8;
 const defaultViewHeight = 420;
+
+/** The columns, shared by the header and every row so they line up: expand, time, service, level, message, actions. */
+const columns = "grid grid-cols-[1.75rem_6.75rem_9rem_5.5rem_minmax(0,1fr)_2rem] items-center gap-x-3";
 
 /** 14:03:22.481, in the viewer's own time zone. */
 export function clock(iso: string): string {
@@ -32,15 +37,18 @@ type Props = {
   hasOlder: boolean;
   onLoadOlder: () => void;
   empty: string;
+  /** What the "more" button of a row offers. */
+  rowActions: (e: LogEntry) => MenuItem[];
 };
 
 /**
- * The lines, drawn a window at a time (fixed row height), so thousands of rows cost
- * no more than the few on screen. With `follow` it stays at the newest line until the
- * reader scrolls up, and follows again when they scroll back to the end. Arrow keys
- * move the selection; the selected line is shown in full beside the list.
+ * The lines as a table, drawn a window at a time (fixed row height), so thousands of
+ * rows cost no more than the few on screen. With \`follow\` it stays at the newest line
+ * until the reader scrolls up, and follows again when they scroll back to the end. A
+ * row's arrow (or a click on the row) selects it and shows it in full below the list;
+ * arrow keys move the selection; the row's "more" button offers what to do with it.
  */
-export function LogList({ entries, label, selected, onSelect, follow, hasOlder, onLoadOlder, empty }: Props) {
+export function LogList({ entries, label, selected, onSelect, follow, hasOlder, onLoadOlder, empty, rowActions }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
   const [height, setHeight] = useState(defaultViewHeight);
@@ -93,49 +101,69 @@ export function LogList({ entries, label, selected, onSelect, follow, hasOlder, 
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-2">
       {hasOlder && (
-        <button type="button" onClick={onLoadOlder} className="self-start rounded-ctl px-2 py-1 text-[13px] text-accent hover:underline">
+        <button type="button" onClick={onLoadOlder} className="inline-flex items-center gap-2 self-start rounded-ctl px-1 py-1 text-[14px] text-accent hover:underline">
+          <ChevronDown size={16} aria-hidden />
           Load older lines
         </button>
       )}
-      <div
-        ref={box}
-        role="listbox"
-        aria-label={label}
-        aria-activedescendant={selected === undefined ? undefined : `log-row-${selected}`}
-        tabIndex={0}
-        onKeyDown={onKey}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          setTop(el.scrollTop);
-          setAtEnd(el.scrollHeight - el.scrollTop - el.clientHeight < rowHeight * 2);
-        }}
-        className="relative h-[min(60vh,32rem)] min-h-[16rem] overflow-auto rounded-ctl bg-inset font-mono text-[12px] leading-[22px] text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      >
-        {entries.length === 0 && <p className="m-0 p-3 text-ink-3">{empty}</p>}
-        <div style={{ height: entries.length * rowHeight, position: "relative" }}>
-          {entries.slice(first, last).map((e, i) => (
-            <div
-              key={e.seq}
-              id={`log-row-${e.seq}`}
-              role="option"
-              aria-selected={e.seq === selected}
-              onClick={() => onSelect(e.seq === selected ? undefined : e.seq)}
-              style={{ position: "absolute", top: (first + i) * rowHeight, height: rowHeight }}
-              className={`flex w-full cursor-pointer items-center gap-3 px-3 whitespace-pre ${e.seq === selected ? "bg-accent-soft text-ink" : "hover:bg-fill"}`}
-            >
-              <span className="shrink-0 tabular-nums text-ink-3">{clock(e.time)}</span>
-              <span className="w-32 shrink-0 truncate text-ink-3" title={e.service}>
-                {e.service}
-              </span>
-              <LevelMark level={e.level} />
-              <span className="min-w-0 flex-1 truncate">
-                {messageOf(e)}
-                {e.fields && <span className="ms-3 text-ink-3">{fieldHint(e)}</span>}
-              </span>
-            </div>
-          ))}
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-ctl bg-inset">
+        <div aria-hidden className={`${columns} h-9 bg-fill px-3 text-[13px] font-medium text-ink-2`}>
+          <span />
+          <span>Time</span>
+          <span>Service</span>
+          <span>Level</span>
+          <span>Message</span>
+          <span />
+        </div>
+        <div
+          ref={box}
+          role="listbox"
+          aria-label={label}
+          aria-activedescendant={selected === undefined ? undefined : `log-row-${selected}`}
+          tabIndex={0}
+          onKeyDown={onKey}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setTop(el.scrollTop);
+            setAtEnd(el.scrollHeight - el.scrollTop - el.clientHeight < rowHeight * 2);
+          }}
+          className="relative h-[min(60vh,34rem)] min-h-[16rem] overflow-auto font-mono text-[12.5px] text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+        >
+          {entries.length === 0 && <p className="m-0 p-3 text-ink-3">{empty}</p>}
+          <div style={{ height: entries.length * rowHeight, position: "relative" }}>
+            {entries.slice(first, last).map((e, i) => {
+              const open = e.seq === selected;
+              return (
+                <div
+                  key={e.seq}
+                  id={`log-row-${e.seq}`}
+                  role="option"
+                  aria-selected={open}
+                  onClick={() => onSelect(open ? undefined : e.seq)}
+                  style={{ position: "absolute", top: (first + i) * rowHeight, height: rowHeight }}
+                  className={`${columns} w-full cursor-pointer border-t border-line px-3 ${open ? "bg-accent-soft text-ink" : "hover:bg-fill"}`}
+                >
+                  <span aria-hidden className="text-ink-3">
+                    {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                  </span>
+                  <span className="tabular-nums text-ink-2">{clock(e.time)}</span>
+                  <span className="truncate text-ink" title={e.service}>
+                    {e.service}
+                  </span>
+                  <LevelMark level={e.level} />
+                  <span className="min-w-0 truncate whitespace-pre text-ink">
+                    {messageOf(e)}
+                    {e.fields && <span className="ms-3 text-ink-3">{fieldHint(e)}</span>}
+                  </span>
+                  <span onClick={(ev) => ev.stopPropagation()}>
+                    <Menu label={`More for the line at ${clock(e.time)}`} items={rowActions(e)} />
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

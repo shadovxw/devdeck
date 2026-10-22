@@ -196,6 +196,77 @@ describe("the Logs page", () => {
     expect(gets("/logs?")[0].url).toContain("limit=500");
   });
 
+  it("describes the page, counts every level in the legend and labels the time axis", async () => {
+    mockServer();
+    renderLogs();
+    await list();
+    expect(screen.getByText("View and filter logs from your local services in real time.")).toBeTruthy();
+    const legend = within(await screen.findByRole("list", { name: "Lines by level" }));
+    for (const [level, n] of [["trace", "0"], ["debug", "0"], ["info", "4"], ["warning", "1"], ["error", "2"], ["fatal", "0"]]) {
+      const row = legend.getByText(level).closest("li") as HTMLElement;
+      expect(within(row).getByText(n)).toBeTruthy();
+    }
+  });
+
+  it("has an All segment that is pressed while no level is picked, and clears the levels", async () => {
+    mockServer();
+    renderLogs("?level=error&level=fatal");
+    await waitFor(async () => expect(options(await list())).toHaveLength(1));
+    const levels = within(screen.getByRole("group", { name: "Levels" }));
+    const all = levels.getByRole("button", { name: "All" });
+    expect(all.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(all);
+    await waitFor(() => expect(lastGet("/logs?")).not.toContain("level="));
+    expect(levels.getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("offers what to do with a line in its own menu", async () => {
+    mockServer();
+    const { router } = renderLogs();
+    const box = await list();
+    await waitFor(() => expect(options(box)).toHaveLength(3));
+
+    fireEvent.click(within(options(box)[1]).getByRole("button", { name: /More for the line/ }));
+    expect(options(box)[1].getAttribute("aria-selected")).toBe("false"); // opening the menu is not selecting the row
+    fireEvent.click(screen.getByRole("menuitem", { name: "Show only this service" }));
+    await waitFor(() => expect(router.state.location.search).toContain("service=api"));
+
+    fireEvent.click(within((await list()).querySelectorAll<HTMLElement>("[role=option]")[1]).getByRole("button", { name: /More for the line/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Show every line like this" }));
+    await waitFor(() => expect(router.state.location.search).toContain("group="));
+  });
+
+  it("keeps the page actions in its own menu: hide the errors, copy a link", async () => {
+    mockServer();
+    const write = vi.fn(() => Promise.resolve());
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    renderLogs();
+    await waitFor(async () => expect(options(await list())).toHaveLength(3));
+    expect(await screen.findByRole("list", { name: "Errors" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Hide the errors" }));
+    expect(screen.queryByRole("list", { name: "Errors" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Errors (1)" }).getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy a link to this view" }));
+    expect(write).toHaveBeenCalledWith(window.location.href);
+
+    fireEvent.click(screen.getByRole("button", { name: "Errors (1)" })); // and back with the heading
+    expect(await screen.findByRole("list", { name: "Errors" })).toBeTruthy();
+  });
+
+  it("shows no Errors section while there are no errors", async () => {
+    mockServer({ groups: [] });
+    renderLogs();
+    await waitFor(async () => expect(options(await list())).toHaveLength(3));
+    await waitFor(() => expect(gets("/logs/groups")).toHaveLength(1));
+    expect(screen.queryByRole("region", { name: "Errors" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect((screen.getByRole("menuitem", { name: "Hide the errors" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("asks the server for the levels that are switched on", async () => {
     mockServer();
     renderLogs();
@@ -203,16 +274,16 @@ describe("the Logs page", () => {
     await waitFor(() => expect(options(box)).toHaveLength(3));
 
     const levels = within(screen.getByRole("group", { name: "Levels" }));
-    fireEvent.click(levels.getByRole("button", { name: /error/ }));
+    fireEvent.click(levels.getByRole("button", { name: /error/i }));
     await waitFor(() => expect(lastGet("/logs?")).toContain("level=error"));
     await waitFor(() => expect(options(box)).toHaveLength(1));
-    expect(levels.getByRole("button", { name: /error/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(levels.getByRole("button", { name: /error/i }).getAttribute("aria-pressed")).toBe("true");
     await waitFor(() => expect(lastGet("/histogram")).toContain("level=error"));
 
-    fireEvent.click(levels.getByRole("button", { name: /warning/ }));
+    fireEvent.click(levels.getByRole("button", { name: /warning/i }));
     await waitFor(() => expect(lastGet("/logs?")).toMatch(/level=error&level=warn/));
-    fireEvent.click(levels.getByRole("button", { name: /error/ }));
-    fireEvent.click(levels.getByRole("button", { name: /warning/ }));
+    fireEvent.click(levels.getByRole("button", { name: /error/i }));
+    fireEvent.click(levels.getByRole("button", { name: /warning/i }));
     await waitFor(() => expect(options(box)).toHaveLength(3));
   });
 
@@ -458,14 +529,14 @@ describe("the Logs page", () => {
     renderLogs("?service=api");
     await waitFor(async () => expect(options(await list())).toHaveLength(2));
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     const dialog = within(screen.getByRole("alertdialog"));
     expect(dialog.getByText("api")).toBeTruthy();
     fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(calls.some((c) => c.method === "DELETE")).toBe(false);
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/logs?service=api"))).toBe(true));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
@@ -475,7 +546,7 @@ describe("the Logs page", () => {
     mockServer();
     renderLogs();
     await waitFor(async () => expect(options(await list())).toHaveLength(3));
-    fireEvent.click(screen.getByRole("button", { name: "Clear…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(screen.getByRole("alertdialog").textContent).toContain("every service of this stack");
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/logs"))).toBe(true));
@@ -486,7 +557,7 @@ describe("the Logs page", () => {
     renderLogs();
     await waitFor(async () => expect(options(await list())).toHaveLength(3));
     expect((screen.getByRole("button", { name: "Save filter" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Clear…" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Clear" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("says what is wrong when the server refuses the filters", async () => {

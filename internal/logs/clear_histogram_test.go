@@ -116,10 +116,47 @@ func TestHistogramCountsByLevelAndTime(t *testing.T) {
 		t.Errorf("filtered = %d %+v", h.Total, h.Buckets[2])
 	}
 
-	// no range: the last hour up to now
+	// no range: from the oldest stored line (at least five minutes back) up to now
 	h, _ = s.Histogram("demo", "full", Query{}, now)
-	if h.Total != 7 || !h.To.Equal(now) || !h.From.Equal(now.Add(-time.Hour)) {
+	if h.Total != 7 || !h.To.Equal(now) || !h.From.Equal(day0) {
 		t.Errorf("default range: total %d from %v to %v", h.Total, h.From, h.To)
+	}
+}
+
+func TestHistogramDefaultRangeCoversWhatIsStored(t *testing.T) {
+	now := day0.Add(30 * 24 * time.Hour)
+	add := func(s *Store, at time.Time) {
+		if _, err := s.Append(Entry{Time: at, Workspace: "demo", Stack: "full", Service: "api", Text: "x", Level: LevelInfo}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// nothing stored: the last hour
+	empty, _ := openStore(t)
+	h, _ := empty.Histogram("demo", "full", Query{}, now)
+	if !h.From.Equal(now.Add(-time.Hour)) {
+		t.Errorf("empty store: from %v", h.From)
+	}
+	// lines from three days ago: the range reaches back to them
+	s, _ := openStore(t)
+	add(s, now.Add(-72*time.Hour))
+	add(s, now.Add(-time.Minute))
+	h, _ = s.Histogram("demo", "full", Query{}, now)
+	if !h.From.Equal(now.Add(-72*time.Hour)) || h.Total != 2 {
+		t.Errorf("three days: from %v total %d", h.From, h.Total)
+	}
+	// older than a week: no further back than a week
+	old, _ := openStore(t)
+	add(old, now.Add(-20*24*time.Hour))
+	h, _ = old.Histogram("demo", "full", Query{}, now)
+	if !h.From.Equal(now.Add(-7 * 24 * time.Hour)) {
+		t.Errorf("a month old: from %v", h.From)
+	}
+	// only a moment ago: at least five minutes
+	fresh, _ := openStore(t)
+	add(fresh, now.Add(-10*time.Second))
+	h, _ = fresh.Histogram("demo", "full", Query{}, now)
+	if !h.From.Equal(now.Add(-5*time.Minute)) || h.Total != 1 {
+		t.Errorf("just now: from %v total %d", h.From, h.Total)
 	}
 }
 

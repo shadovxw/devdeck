@@ -1,12 +1,13 @@
-import { Bookmark, Eraser, Pause, Play, ScrollText, Trash2, X, ZoomOut } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
+import { Bookmark, ChevronDown, ChevronRight, Eraser, List, Pause, Play, ScrollText, Trash2, X, ZoomOut } from "lucide-react";
+import { useCallback, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
 import { navByPath } from "../app/nav";
 import { quietButton } from "../design/buttons";
 import { EmptyState } from "../design/EmptyState";
 import { levelOrder } from "../design/LevelMark";
+import { Menu, type MenuItem } from "../design/Menu";
 import { PageHeader } from "../design/PageHeader";
 import { stagger } from "../lib/motion";
 import { useClearLogs, useDeleteFilter, useLogGroups, useLogHistogram, useSavedFilters, useSaveFilter } from "../lib/log-api";
@@ -15,17 +16,19 @@ import { useLogStream } from "../lib/log-stream";
 import { useCaptures } from "../lib/logs";
 import { useRuns, useWorkspace, useWorkspaces } from "../lib/queries";
 import { useTopicHandler } from "../lib/socket";
-import type { LogBatch, LogLevel } from "../lib/types";
+import type { LogBatch, LogEntry, LogLevel } from "../lib/types";
 import { useNow } from "../lib/use-now";
 import { ErrorGroups } from "./logs/ErrorGroups";
-import { FilterBar } from "./logs/FilterBar";
+import { ActiveFilters, FilterControls, ServicePicker } from "./logs/FilterBar";
 import { Histogram } from "./logs/Histogram";
 import { LogDetail } from "./logs/LogDetail";
 import { LogList } from "./logs/LogList";
 
 const select =
-  "h-9 max-w-[16rem] rounded-ctl bg-inset px-3 text-[14px] text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent";
-const small = `${quietButton} !h-9 !px-3 !text-[14px] disabled:cursor-not-allowed disabled:opacity-45`;
+  "h-10 max-w-[16rem] rounded-ctl bg-inset px-3 text-[14px] text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent";
+const small = `${quietButton} !h-10 !px-3 !text-[14px] disabled:cursor-not-allowed disabled:opacity-45`;
+const primary =
+  "inline-flex h-10 items-center gap-2 rounded-ctl bg-accent px-4 text-[14px] font-medium text-on-accent transition hover:brightness-110 active:scale-[.97]";
 
 /** The filters in the address, so a view can be bookmarked and shared. */
 export function queryOfParams(p: URLSearchParams): LogQuery {
@@ -80,10 +83,18 @@ export function zoomedOut(q: LogQuery, now = Date.now()): LogQuery {
   return { ...q, since: new Date(mid - half).toISOString(), until: mid + half >= now ? undefined : new Date(mid + half).toISOString() };
 }
 
-type ViewProps = { workspace: string; stack: string; sample: boolean; query: LogQuery; onQuery: (q: LogQuery) => void };
+type ViewProps = {
+  workspace: string;
+  stack: string;
+  sample: boolean;
+  query: LogQuery;
+  onQuery: (q: LogQuery) => void;
+  /** The workspace and stack pickers, which go on the first row with the filters. */
+  selectors: ReactNode;
+};
 
 /** The page for one stack: filters, the level histogram, the errors, the stream and the selected line. */
-function LogsView({ workspace, stack, sample, query, onQuery }: ViewProps) {
+function LogsView({ workspace, stack, sample, query, onQuery, selectors }: ViewProps) {
   const live = !query.until;
   const stream = useLogStream(workspace, stack, query, live);
   const following = live && !stream.paused;
@@ -112,6 +123,7 @@ function LogsView({ workspace, stack, sample, query, onQuery }: ViewProps) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [deleting, setDeleting] = useState<string | undefined>();
+  const [showErrors, setShowErrors] = useState(true);
 
   const names = useMemo(() => {
     const set = new Set<string>(captures.data?.map((c) => c.service) ?? []);
@@ -123,6 +135,7 @@ function LogsView({ workspace, stack, sample, query, onQuery }: ViewProps) {
   const entry = selected === undefined ? undefined : stream.entries.find((e) => e.seq === selected);
   const mine = (saved.data ?? []).filter((f) => !f.stack || f.stack === stack);
   const target = (query.services ?? []).length === 1 ? query.services?.[0] : undefined;
+  const errorGroups = groups.data ?? [];
 
   function submitSave(e: FormEvent) {
     e.preventDefault();
@@ -147,6 +160,18 @@ function LogsView({ workspace, stack, sample, query, onQuery }: ViewProps) {
 
   const choose = useCallback((fingerprint: string | undefined) => onQuery({ ...query, group: fingerprint }), [onQuery, query]);
 
+  const rowActions = (e: LogEntry): MenuItem[] => [
+    { label: "Show only this service", onSelect: () => onQuery({ ...query, services: [e.service] }) },
+    { label: "Show every line like this", onSelect: () => choose(e.fingerprint), disabled: !e.fingerprint },
+    { label: "Copy the line", onSelect: () => void navigator.clipboard?.writeText(e.text) },
+    { label: "Show it in full", onSelect: () => setSelected(e.seq) },
+  ];
+
+  const pageActions: MenuItem[] = [
+    { label: showErrors ? "Hide the errors" : "Show the errors", onSelect: () => setShowErrors((v) => !v), disabled: errorGroups.length === 0 },
+    { label: "Copy a link to this view", onSelect: () => void navigator.clipboard?.writeText(window.location.href) },
+  ];
+
   const status =
     stream.state === "loading"
       ? "Loading…"
@@ -156,37 +181,45 @@ function LogsView({ workspace, stack, sample, query, onQuery }: ViewProps) {
 
   return (
     <div className="mt-4 flex flex-col gap-4">
-      <FilterBar value={query} onChange={onQuery} serviceNames={names} />
+      <div className="flex flex-wrap items-center gap-3">
+        {selectors}
+        <FilterControls value={query} onChange={onQuery} />
+      </div>
+      <ActiveFilters value={query} onChange={onQuery} />
 
       <div className="flex flex-wrap items-center gap-2">
         {live ? (
-          <button type="button" onClick={() => stream.pause(!stream.paused)} aria-pressed={stream.paused} className={small}>
-            {stream.paused ? <Play size={14} aria-hidden /> : <Pause size={14} aria-hidden />}
+          <button type="button" onClick={() => stream.pause(!stream.paused)} aria-pressed={stream.paused} className={primary}>
+            {stream.paused ? <Play size={15} aria-hidden /> : <Pause size={15} aria-hidden />}
             {stream.paused ? "Resume" : "Pause"}
           </button>
         ) : (
           <>
-            <button type="button" onClick={() => onQuery(zoomedOut(query))} className={small}>
-              <ZoomOut size={14} aria-hidden />
-              Zoom out
-            </button>
-            <button type="button" onClick={() => onQuery({ ...query, until: undefined, since: undefined })} className={small}>
-              <Play size={14} aria-hidden />
+            <button type="button" onClick={() => onQuery({ ...query, until: undefined, since: undefined })} className={primary}>
+              <Play size={15} aria-hidden />
               Back to live
+            </button>
+            <button type="button" onClick={() => onQuery(zoomedOut(query))} className={small}>
+              <ZoomOut size={15} aria-hidden />
+              Zoom out
             </button>
           </>
         )}
         <button type="button" onClick={() => setSaving((v) => !v)} aria-expanded={saving} disabled={sample} title={sample ? "Sample workspaces can’t be changed" : "Keep these filters with the workspace"} className={small}>
-          <Bookmark size={14} aria-hidden />
+          <Bookmark size={15} aria-hidden />
           Save filter
         </button>
         <button type="button" onClick={() => setClearing(true)} disabled={sample} title={sample ? "Sample workspaces have no stored logs" : "Delete the stored lines"} className={small}>
-          <Eraser size={14} aria-hidden />
-          Clear…
+          <Eraser size={15} aria-hidden />
+          Clear
         </button>
-        <span role="status" className="ms-auto text-[13px] tabular-nums text-ink-3">
-          {status}
+        <ServicePicker value={query} onChange={onQuery} serviceNames={names} />
+        <span aria-hidden className="mx-1 h-6 w-px bg-line-strong" />
+        <span className="ms-auto inline-flex items-center gap-2 text-[14px] tabular-nums text-ink-2">
+          <List size={15} aria-hidden />
+          <span role="status">{status}</span>
         </span>
+        <Menu label="More actions" items={pageActions} />
       </div>
 
       {saving && (
@@ -201,7 +234,7 @@ function LogsView({ workspace, stack, sample, query, onQuery }: ViewProps) {
             placeholder="Name, e.g. API errors"
             maxLength={60}
             autoComplete="off"
-            className="h-9 w-64 max-w-full rounded-ctl bg-inset px-3 text-[14px] text-ink outline-none placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-accent"
+            className="h-10 w-64 max-w-full rounded-ctl bg-inset px-3 text-[14px] text-ink outline-none placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-accent"
           />
           <button type="submit" disabled={!name.trim() || save.isPending} className={small}>
             Save
@@ -287,16 +320,22 @@ function LogsView({ workspace, stack, sample, query, onQuery }: ViewProps) {
         </ul>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <Histogram
-          data={histogram.data}
-          onBrush={(from, to) => onQuery({ ...query, since: from, until: to })}
-        />
+      <Histogram data={histogram.data} onBrush={(from, to) => onQuery({ ...query, since: from, until: to })} />
+
+      {errorGroups.length > 0 && (
         <section aria-label="Errors" className="flex min-w-0 flex-col gap-2">
-          <h2 className="m-0 text-[14px] font-medium text-ink">Errors</h2>
-          <ErrorGroups groups={groups.data ?? []} selected={query.group} onSelect={choose} now={now} />
+          <button
+            type="button"
+            aria-expanded={showErrors}
+            onClick={() => setShowErrors((v) => !v)}
+            className="inline-flex items-center gap-2 self-start rounded-ctl px-1 text-[14px] font-medium text-ink"
+          >
+            {showErrors ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
+            Errors ({errorGroups.length})
+          </button>
+          {showErrors && <ErrorGroups groups={errorGroups} selected={query.group} onSelect={choose} now={now} />}
         </section>
-      </div>
+      )}
 
       <LogList
         entries={stream.entries}
@@ -307,6 +346,7 @@ function LogsView({ workspace, stack, sample, query, onQuery }: ViewProps) {
         hasOlder={stream.hasOlder}
         onLoadOlder={() => void stream.loadOlder()}
         empty={stream.state === "ready" ? "No stored lines match these filters." : "Loading…"}
+        rowActions={rowActions}
       />
 
       {entry && <LogDetail workspace={workspace} stack={stack} entry={entry} onClose={() => setSelected(undefined)} onGroup={choose} />}
@@ -335,10 +375,12 @@ export function LogsPage() {
     [setParams, id, stack],
   );
 
+  const header = <PageHeader title={item.label} group={item.group} description="View and filter logs from your local services in real time." />;
+
   if (workspaces.isSuccess && list.length === 0) {
     return (
       <>
-        <PageHeader title={item.label} group={item.group} />
+        {header}
         <EmptyState
           icon={ScrollText}
           empty={{ headline: "Add a workspace first", text: "Logs belong to a stack, and a stack to a workspace. Add one, start a stack, and its logs appear here.", cta: { label: "Add workspace", to: "/workspaces" } }}
@@ -347,45 +389,54 @@ export function LogsPage() {
     );
   }
 
+  const selectors = (
+    <>
+      <label className="sr-only" htmlFor="logs-workspace">
+        Workspace
+      </label>
+      <select
+        id="logs-workspace"
+        className={select}
+        value={id ?? ""}
+        onChange={(e) => setParams({ workspace: e.target.value }, { replace: true })}
+        disabled={list.length === 0}
+      >
+        {list.map((w) => (
+          <option key={w.id} value={w.id}>
+            {w.name}
+            {w.source === "example" ? " (sample)" : ""}
+          </option>
+        ))}
+      </select>
+      <label className="sr-only" htmlFor="logs-stack">
+        Stack
+      </label>
+      <select
+        id="logs-stack"
+        className={select}
+        value={stack ?? ""}
+        onChange={(e) => setParams(paramsOfQuery({ workspace: id, stack: e.target.value }, {}), { replace: true })}
+        disabled={stacks.length === 0}
+      >
+        {stacks.map((s) => (
+          <option key={s.name} value={s.name}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+    </>
+  );
+
+  const ready = id && stack && detail.data && stacks.some((s) => s.name === stack);
+
   return (
     <>
-      <PageHeader title={item.label} group={item.group} />
-      <div className="enter mt-4 flex flex-wrap items-center gap-3" style={stagger(1)}>
-        <label className="sr-only" htmlFor="logs-workspace">
-          Workspace
-        </label>
-        <select
-          id="logs-workspace"
-          className={select}
-          value={id ?? ""}
-          onChange={(e) => setParams({ workspace: e.target.value }, { replace: true })}
-          disabled={list.length === 0}
-        >
-          {list.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-              {w.source === "example" ? " (sample)" : ""}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="logs-stack">
-          Stack
-        </label>
-        <select
-          id="logs-stack"
-          className={select}
-          value={stack ?? ""}
-          onChange={(e) => setParams(paramsOfQuery({ workspace: id, stack: e.target.value }, {}), { replace: true })}
-          disabled={stacks.length === 0}
-        >
-          {stacks.map((s) => (
-            <option key={s.name} value={s.name}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
+      {header}
+      {!ready && (
+        <div className="enter mt-4 flex flex-wrap items-center gap-3" style={stagger(1)}>
+          {selectors}
+        </div>
+      )}
       {detail.isError && <p className="mt-4 text-ink-3">Could not load this workspace.</p>}
       {detail.data && stacks.length === 0 && (
         <EmptyState
@@ -393,9 +444,7 @@ export function LogsPage() {
           empty={{ headline: "No stack in this workspace", text: "Logs come from a stack’s services and containers. Add a stack, start it, and its logs appear here.", cta: { label: "Go to Stacks", to: `/stacks?workspace=${encodeURIComponent(id ?? "")}` } }}
         />
       )}
-      {id && stack && detail.data && stacks.some((s) => s.name === stack) && (
-        <LogsView key={`${id}/${stack}`} workspace={id} stack={stack} sample={detail.data.source === "example"} query={query} onQuery={setQuery} />
-      )}
+      {ready && <LogsView key={`${id}/${stack}`} workspace={id} stack={stack} sample={detail.data.source === "example"} query={query} onQuery={setQuery} selectors={selectors} />}
     </>
   );
 }

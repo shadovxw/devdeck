@@ -134,6 +134,16 @@ The last piece of Phase 3. The phase summary is in [`../13-logs.md`](../13-logs.
 - The bucket width now follows the range (the narrowest of 1 s, 5 s, 10 s, 15 s, 30 s, 1 min, 5 min, 15 min, 1 h, 6 h that keeps it to 90 bars or fewer; still at most 400 bars), so a stretch of a couple of minutes is drawn in bars of its own and not as one block.
 - A **Zoom out** button next to Back to live widens a stretch to three times as long around the same middle, and returns to live once that reaches the present.
 
+## Layout after review (the reference design)
+
+The page was reshaped to the design the owner supplied (flat: panels are `bg-inset`, not bordered cards, as the UI rules say):
+
+- A one-line description under the title; the workspace, stack and filter controls on **one row**: the levels as one segmented control ("All" is pressed while no level is picked, then Trace, Debug, Info, Warning, Error, Fatal, each with its shape), the pattern box with a search icon, the field filter, and the time range with a calendar icon.
+- The second row: **Pause** as the main button (Back to live, then Zoom out, when looking at a past stretch), Save filter, Clear, the services picker, and at the right the line count and a **more** menu (hide or show the errors, copy a link to this view). The menu is a small new component, `design/Menu.tsx` (opens beside its button, closes on Escape and on a click outside, arrow keys move).
+- The histogram is a panel: bars with a time axis under them, and at the right a legend that counts **every** level (zeros included). With no start chosen, the histogram now begins at the oldest stored line (at most a week back, at least five minutes) so "Any time" shows what there is, not an empty last hour.
+- The stream is a table with a header (Time, Service, Level, Message), an arrow at the start of each row to open it, the level spelled out (INFO, WARN, ERROR ...), and a **more** menu on every row (show only this service, show every line like this, copy the line, show it in full). "Load older lines" has its arrow above the table.
+- The errors are one-line rows (message, service and caller, last seen, count) in a short scrolling list under a collapsible "Errors (n)" heading, shown only when there are errors.
+
 ## Tests
 
 - Go: clearing one service and all (files, memory, groups, rules kept, services never read in, unsafe names); the histogram (levels, a missing level as info, filters, the default range, bucket widths and the 400 limit, reading the files, refusals); caller resolution (relative, absolute, another machine's tail, outside the repo, bad lines) and the three routes.
