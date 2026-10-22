@@ -42,9 +42,27 @@
       "additionalProperties": false,
       "required": ["repo", "file"],
       "properties": {
+        "id": { "$ref": "#/$defs/id", "description": "Name of this compose file in the start order. Give every compose file an id, or none." },
+        "after": { "type": "array", "uniqueItems": true, "items": { "type": "string" }, "description": "Ids of the services and compose files that must be done first. Needs an id." },
+        "optional": { "type": "boolean", "description": "If it fails, carry on without it instead of holding back what comes after. Needs an id." },
         "repo": { "type": "string", "description": "Id of the repo that holds the file." },
         "file": { "type": "string", "minLength": 1 },
-        "services": { "type": "array", "items": { "type": "string" }, "description": "Only start these compose services. Empty means all." }
+        "services": { "type": "array", "items": { "type": "string" }, "description": "Only start these compose services. Empty means all." },
+        "logs": {
+          "type": "object",
+          "description": "Which output lines of each container are stored, keyed by the compose service name. A container with no entry stores everything.",
+          "additionalProperties": { "$ref": "#/$defs/log_rule" }
+        }
+      }
+    },
+    "log_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["store"],
+      "description": "Which lines of a service's output are stored.",
+      "properties": {
+        "store": { "enum": ["all", "matching", "off"], "description": "all: every line. matching: only lines that match. off: none (the service still runs)." },
+        "match": { "type": "string", "maxLength": 500, "description": "A regular expression a line must match. Only with store: matching." }
       }
     },
     "id": {
@@ -83,6 +101,7 @@
           }
         },
         "log_parser": { "$ref": "#/$defs/id", "description": "Which log parser plugin reads this service's output." },
+        "logs": { "$ref": "#/$defs/log_rule" },
         "restart": { "enum": ["never", "on-failure", "always"] }
       }
     }

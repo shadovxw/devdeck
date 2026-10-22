@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -24,6 +25,12 @@ type Config struct {
 	// ScanRoots are the folders the workspace scanner may look inside. Empty means
 	// the user's home folder.
 	ScanRoots []string
+	// LogDir holds the service logs devdeck collects (one folder per workspace, stack and service).
+	LogDir string
+	// LogRetentionDays is how long those files are kept.
+	LogRetentionDays int
+	// LogMaxMB caps all of them together; the oldest go first.
+	LogMaxMB int
 	// LogLevel is the zerolog level for devdeck's own log.
 	LogLevel zerolog.Level
 	// ExtraOrigins are additional browser origins allowed to call the API,
@@ -34,7 +41,23 @@ type Config struct {
 const (
 	defaultAddr     = "127.0.0.1:7070"
 	defaultLogLevel = "info"
+
+	defaultRetentionDays = 7
+	defaultLogMaxMB      = 500
 )
+
+// positive reads a whole number above zero from the environment, or def when it is unset.
+func positive(getenv func(string) string, name string, def int) (int, error) {
+	v := strings.TrimSpace(getenv(name))
+	if v == "" {
+		return def, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("%s %q: must be a whole number of 1 or more", name, v)
+	}
+	return n, nil
+}
 
 // Load reads configuration from environment variables:
 //
@@ -44,6 +67,9 @@ const (
 //	DEVDECK_EXAMPLES_DIR   sample workspaces folder (default none)
 //	DEVDECK_SCAN_ROOTS     comma-separated folders the workspace scanner may look inside (default your home folder)
 //	DEVDECK_LOG_LEVEL      zerolog level (default info)
+//	DEVDECK_LOG_DIR        where service logs are kept (default <data dir>/logs)
+//	DEVDECK_LOG_RETENTION_DAYS  days of service logs to keep (default 7)
+//	DEVDECK_LOG_MAX_MB     most space service logs may use, in MB (default 500)
 //	DEVDECK_EXTRA_ORIGINS  comma-separated extra allowed origins
 func Load(getenv func(string) string) (Config, error) {
 	addr, err := ListenAddr(getenv)
@@ -65,14 +91,26 @@ func Load(getenv func(string) string) (Config, error) {
 		dataDir = filepath.Join(base, "devdeck")
 	}
 
+	retention, err := positive(getenv, "DEVDECK_LOG_RETENTION_DAYS", defaultRetentionDays)
+	if err != nil {
+		return Config{}, err
+	}
+	maxMB, err := positive(getenv, "DEVDECK_LOG_MAX_MB", defaultLogMaxMB)
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
-		Addr:          addr,
-		DataDir:       dataDir,
-		WorkspacesDir: orDefault(getenv("DEVDECK_WORKSPACES_DIR"), filepath.Join(dataDir, "workspaces")),
-		ExamplesDir:   getenv("DEVDECK_EXAMPLES_DIR"),
-		ScanRoots:     splitList(getenv("DEVDECK_SCAN_ROOTS")),
-		LogLevel:      level,
-		ExtraOrigins:  splitList(getenv("DEVDECK_EXTRA_ORIGINS")),
+		Addr:             addr,
+		LogDir:           orDefault(getenv("DEVDECK_LOG_DIR"), filepath.Join(dataDir, "logs")),
+		LogRetentionDays: retention,
+		LogMaxMB:         maxMB,
+		DataDir:          dataDir,
+		WorkspacesDir:    orDefault(getenv("DEVDECK_WORKSPACES_DIR"), filepath.Join(dataDir, "workspaces")),
+		ExamplesDir:      getenv("DEVDECK_EXAMPLES_DIR"),
+		ScanRoots:        splitList(getenv("DEVDECK_SCAN_ROOTS")),
+		LogLevel:         level,
+		ExtraOrigins:     splitList(getenv("DEVDECK_EXTRA_ORIGINS")),
 	}, nil
 }
 

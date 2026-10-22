@@ -21,6 +21,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/config"
 	"github.com/shadovxw/devdeck/internal/dialog"
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/store"
 	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
@@ -85,10 +86,22 @@ func run() error {
 		return err
 	}
 
+	logStore, err := logs.Open(logs.Options{
+		Dir:           cfg.LogDir,
+		RetentionDays: cfg.LogRetentionDays,
+		MaxBytes:      int64(cfg.LogMaxMB) << 20,
+		Settings:      logs.SQLSettings{DB: db.DB},
+	})
+	if err != nil {
+		return err
+	}
+	logSink := logs.NewSink(logStore, bus)
+
 	sup := supervisor.New(supervisor.Options{
 		Bus:     bus,
 		Plugins: registry,
 		BinDir:  filepath.Join(cfg.DataDir, "bin"),
+		Logs:    logSink,
 	})
 
 	e := echo.New()
@@ -101,6 +114,7 @@ func run() error {
 		Hub:          api.NewHub(bus, guard.OriginHosts(), log.Logger),
 		Plugins:      registry,
 		Supervisor:   sup,
+		Logs:         logStore,
 		FolderPicker: dialog.PickFolder,
 		Workspaces: &workspace.Manager{
 			Dir:         cfg.WorkspacesDir,
@@ -129,6 +143,11 @@ func run() error {
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer stopCancel()
 	sup.StopAll(stopCtx)
+	// Everything the services printed is stored and on disk before devdeck exits.
+	logSink.Close()
+	if err := logStore.Close(); err != nil {
+		log.Warn().Err(err).Msg("closing the service logs")
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

@@ -17,6 +17,7 @@ import (
 
 	"github.com/shadovxw/devdeck/internal/doctor"
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/logs"
 )
 
 // fakeExe is the stand-in service from testdata/fakesvc, built once for all tests.
@@ -35,6 +36,12 @@ func TestMain(m *testing.M) {
 	if out, err := exec.Command("go", "build", "-o", fakeExe, "./testdata/fakesvc").CombinedOutput(); err != nil { //nolint:gosec // fixed arguments
 		fmt.Fprintf(os.Stderr, "build fakesvc: %v\n%s", err, out)
 		os.Exit(1)
+	}
+	// The first run of a freshly built program can take far longer than later ones (the
+	// virus scanner on Windows looks at it). Tests that count milliseconds from the start
+	// of a program, such as one that exits after 10 ms, need that cost paid up front.
+	for range 2 {
+		_ = exec.Command(fakeExe, "-exit-after", "1ms").Run() //nolint:gosec // the program built above
 	}
 	code := m.Run()
 	_ = os.RemoveAll(dir)
@@ -91,11 +98,53 @@ func (c *recorder) run(_ context.Context, _ ComposeSpec, action string, out func
 	return nil
 }
 
+// testSink is a LogSink that remembers what it was given.
+type testSink struct {
+	mu       sync.Mutex
+	lines    map[string][]testLine
+	envs     map[string][]string
+	defaults map[string]logs.Rule
+}
+
+type testLine struct{ Service, Stream, Text string }
+
+func (t *testSink) Line(_, _, service, stream, text string, _ time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.lines == nil {
+		t.lines = map[string][]testLine{}
+	}
+	t.lines[service] = append(t.lines[service], testLine{service, stream, text})
+}
+
+func (t *testSink) Env(_, _, service string, env []string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.envs == nil {
+		t.envs = map[string][]string{}
+	}
+	t.envs[service] = env
+}
+
+func (t *testSink) Defaults(_, _ string, rules map[string]logs.Rule) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.defaults = rules
+}
+
+func (t *testSink) of(service string) []testLine {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return slices.Clone(t.lines[service])
+}
+
+func sinkOf(s *Supervisor) *testSink { return s.o.Logs.(*testSink) }
+
 func newSup(t *testing.T, mutate ...func(*Options)) (*Supervisor, *events.Bus) {
 	t.Helper()
 	bus := events.NewBus()
 	o := Options{
-		Bus: bus, BinDir: t.TempDir(), Preflight: passes,
+		Bus: bus, BinDir: t.TempDir(), Preflight: passes, Logs: &testSink{},
 		Backoff:   func(int) time.Duration { return 20 * time.Millisecond },
 		PollEvery: 20 * time.Millisecond, Settle: 100 * time.Millisecond, StopTimeout: 5 * time.Second,
 		MaxRestarts: 2, StableAfter: time.Hour,
@@ -188,9 +237,9 @@ func TestEveryKindOfReadinessCheck(t *testing.T) {
 	start(t, s, stackOf(tcp, httpSvc, logSvc, plain))
 	waitFor(t, s, "all ready", func(st RunStatus) bool { return st.State == RunRunning })
 
-	lines, ok := s.Lines("demo", "full", "log")
-	if !ok || len(lines) != 1 || lines[0].Text != "all set now" || lines[0].Stream != "stdout" {
-		t.Errorf("lines = %+v, %v", lines, ok)
+	lines := sinkOf(s).of("log")
+	if len(lines) != 1 || lines[0].Text != "all set now" || lines[0].Stream != "stdout" {
+		t.Errorf("lines = %+v", lines)
 	}
 }
 
@@ -383,7 +432,7 @@ func TestRestartOneService(t *testing.T) {
 	st := waitFor(t, s, "a restarted", func(st RunStatus) bool {
 		return service(st, "a").Restarts == 1 && service(st, "a").State == StateReady
 	})
-	if lines, _ := s.Lines("demo", "full", "a"); len(lines) != 2 {
+	if lines := sinkOf(s).of("a"); len(lines) != 2 {
 		t.Errorf("a should have said hello twice: %+v", lines)
 	}
 
@@ -423,7 +472,7 @@ func TestEnvFileAndEnvBlockReachTheProcess(t *testing.T) {
 	})
 
 	got := func(id string) string {
-		lines, _ := s.Lines("demo", "full", id)
+		lines := sinkOf(s).of(id)
 		if len(lines) == 0 {
 			return ""
 		}
@@ -608,5 +657,46 @@ func TestComposeOnlyStackRuns(t *testing.T) {
 	defer rec.mu.Unlock()
 	if !slices.Equal(rec.calls, []string{"up:x.yml", "stop:x.yml"}) {
 		t.Errorf("compose calls = %v", rec.calls)
+	}
+}
+
+func TestLogSinkGetsDefaultsEnvAndLines(t *testing.T) {
+	s, _ := newSup(t)
+	secret := strings.Repeat("pw12", 4)
+
+	loud := fakeService(t, "loud", "-say", "hello")
+	loud.Logs = logs.Rule{Store: logs.StoreMatching, Match: "ERROR"}
+	loud.Env = map[string]string{"DB_PASSWORD": secret, "PORT": "8080"}
+	quiet := fakeService(t, "quiet")
+	spec := stackOf(loud, quiet)
+	spec.Compose = []ComposeSpec{{ID: "compose-kc", Dir: t.TempDir(), File: "c.yml", Logs: map[string]logs.Rule{"keycloak": {Store: logs.StoreOff}}}}
+	s.o.Compose = (&recorder{}).run
+
+	start(t, s, spec)
+	waitFor(t, s, "ready", func(st RunStatus) bool { return st.State == RunRunning })
+
+	sink := sinkOf(s)
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	if got := sink.defaults; len(got) != 2 || got["loud"].Store != logs.StoreMatching || got["compose-kc/keycloak"].Store != logs.StoreOff {
+		t.Errorf("defaults = %+v: a rule is keyed by service id, or compose id / container", got)
+	}
+	if env := strings.Join(sink.envs["loud"], "|"); !strings.Contains(env, "DB_PASSWORD="+secret) {
+		t.Errorf("the sink should be told the service's env, got %q", env)
+	}
+}
+
+func TestLastErrorIsCleanAndMasked(t *testing.T) {
+	s, _ := newSup(t)
+	secret := strings.Repeat("pw12", 4)
+	bad := fakeService(t, "bad", "-say", "\x1b[31mlogin failed password="+secret+"\x1b[0m", "-exit-after", "150ms", "-exit-code", "1")
+	bad.Restart = "never"
+	bad.Env = map[string]string{"DB_PASSWORD": secret}
+
+	start(t, s, stackOf(bad))
+	st := waitFor(t, s, "failure", inState("bad", StateFailed))
+	e := service(st, "bad").LastError
+	if strings.Contains(e, "\x1b") || strings.Contains(e, secret) || !strings.Contains(e, "login failed") {
+		t.Errorf("error text = %q: no colour codes, no secret, but still the reason", e)
 	}
 }

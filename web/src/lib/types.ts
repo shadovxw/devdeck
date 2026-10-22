@@ -101,7 +101,7 @@ export type DoctorReport = {
 export type StackDef = {
   name: string;
   description?: string;
-  compose?: Array<{ repo: string; file: string; services?: string[] }>;
+  compose?: Array<{ id?: string; repo: string; file: string; services?: string[]; after?: string[]; optional?: boolean }>;
   services?: Array<{ id: string; kind: string; port?: number; after?: string[] }>;
 };
 
@@ -128,6 +128,10 @@ export type ServiceStatus = {
   ready_at?: string;
   last_error?: string;
   exit_code?: number;
+  /** A compose file whose failure holds nothing back. */
+  optional?: boolean;
+  /** The host ports a compose file's containers publish. */
+  ports?: number[];
 };
 
 export type RunStatus = {
@@ -140,3 +144,31 @@ export type RunStatus = {
 
 /** The body of a 422 from starting a stack when the machine isn't ready. */
 export type StartRefusal = { message: string; report?: DoctorReport };
+
+/** What the server answers when a stack file is saved: where it went, and warnings found in it. */
+export type StackSaved = { name: string; file: string; issues: Issue[] };
+
+// Service logs (internal/logs).
+
+/** One stored line of a service's output. */
+export type LogEntry = {
+  seq: number;
+  time: string;
+  workspace: string;
+  stack: string;
+  /** The service id, or "<compose file id>/<container service>". */
+  service: string;
+  stream: string;
+  text: string;
+  truncated?: number;
+};
+
+/** What the live topic "logs.<workspace>.<stack>" carries. */
+export type LogBatch = { workspace: string; stack: string; from_seq: number; to_seq: number; entries: LogEntry[] };
+
+export type LogsPage = { entries: LogEntry[]; next_before?: number };
+
+/** Which of a service's lines are stored: all, only those matching a pattern, or none. */
+export type CaptureRule = { store: "all" | "matching" | "off"; match?: string };
+
+export type CaptureInfo = CaptureRule & { service: string; source: "default" | "file" | "override" };

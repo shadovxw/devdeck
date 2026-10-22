@@ -113,3 +113,26 @@ describe("compose files of a stack", () => {
     expect(isComposeId("composer")).toBe(false);
   });
 });
+
+describe("startOrder with named compose files", () => {
+  const file = (id: string, extra: object = {}) => ({ id, repo: id, file: "c.yml", ...extra });
+
+  it("places compose files and services in one order by their after lists", () => {
+    const stack: StackDef = {
+      name: "full",
+      compose: [file("vault"), file("storage"), file("gateway", { after: ["nats"] }), file("keycloak", { after: ["catalog"] })],
+      services: [
+        { id: "nats", kind: "command", after: ["vault", "storage"] },
+        { id: "auth", kind: "go", after: ["gateway"] },
+        { id: "catalog", kind: "go", after: ["auth"] },
+        { id: "frontend", kind: "node", after: ["catalog"] },
+      ],
+    };
+    expect(startOrder(stack)).toEqual([["vault", "storage"], ["nats"], ["gateway"], ["auth"], ["catalog"], ["keycloak", "frontend"]]);
+  });
+
+  it("names a compose file by its id", () => {
+    expect(composeIds({ name: "s", compose: [{ id: "vault", repo: "v", file: "c.yml" }] })).toEqual(["vault"]);
+    expect(composeIds({ name: "s", compose: [{ id: "a", repo: "v", file: "c.yml" }, { id: "b", repo: "v", file: "c.yml" }] })).toEqual(["a", "b"]);
+  });
+});

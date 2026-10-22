@@ -382,11 +382,12 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 - **2.1 Doctor**
   - 2.1.1 Collect `needs` from all plugins used by the workspace; check binary + version
   - 2.1.2 Checks: Docker running, ports free, `.env` present per service, git identity (global identity present; per-repo identity matches the repo's account)
-  - 2.1.3 Install missing via winget/scoop/docker pull with streamed output
+  - 2.1.3 Install missing via winget/scoop/docker pull with streamed output. **TODO, after the other features are in:** an Install button on a failed tool or image check in Doctor. It shows the exact command and asks first (a write action), runs only commands devdeck already knows (the built-in list and plugin manifests, never text from a workspace file), streams the output live, then re-checks. Needs care for the Windows admin (UAC) prompt, winget's agreement prompts, and a new tool not being on the PATH until devdeck refreshes it or is restarted. Until then Doctor shows the command to copy.
   - 2.1.4 UI: "system scan" page, fix buttons
 - **2.2 Stack definitions**
   - 2.2.1 Stack YAML: compose files (one or several, a stack may be compose-only), `requires` (local things that must answer, checked by Doctor), services (repo, kind, cmd, port, readiness, after, env_file, log parser)
-  - 2.2.2 Generate default stacks for infrabot (full, backend-only, frontend-only, db-only)
+  - 2.2.2 Generate default stacks for infrabot (full, backend-only, frontend-only, db-only). Done by hand for now; the stack editor (Add, Edit, Delete in the UI) is built, see `2026-10-21-stack-editing/`.
+  - 2.2.3 **TODO, after the other features are in:** "Suggest from repos" in the Add stack drawer. Drafts stacks from what the repos contain (never saves by itself; the person reviews it in the editor): `kind` and `cmd` (go.mod plus `cmd/*/main.go`; `package.json` with a `dev` script), `port` (the port key in `.env` or a compose `ports:` entry), `ready.http` (a `/health` route found in the router code), `env_file`, `compose` files, and `requires` (localhost DB or NATS settings). Only port-like keys are read from `.env`, never secrets. Order between services and which stacks to make stay the person's choice. First Go and Node; then Python (`pyproject.toml`, `manage.py`, FastAPI/Flask hints, a `.venv` interpreter) and Java (`pom.xml`, `build.gradle`, `server.port`, Spring actuator). Java also needs a `java` kind so Doctor can check for a JDK and Maven or Gradle (today it runs as `kind: command`, and on Windows the `mvnw.cmd`/`gradlew.bat` wrappers are untested because commands run without a shell).
 - **2.3 Supervisor**
   - 2.3.1 Compose deps via `docker compose` CLI (up/down/ps) + Docker Engine API for status
   - 2.3.2 Go services: `go build -o bin/<svc>.exe` then run the exe (faster restarts, real PID, clean kill) instead of `go run`
@@ -423,6 +424,8 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
   - 3.4.2 Level histogram timeline (brush to filter), error sparks
   - 3.4.3 Errors panel; click `file:line` → VS Code (`vscode://file/...`)
   - 3.4.4 "Ask Claude about this error" (sends error + context to a Claude session, Phase 10 hook)
+  - 3.4.5 Per-service capture control: store all, only lines matching a regex, or off, set in the stack file and switchable at run time (see `2026-10-21-logs/plan.md` D16)
+  - 3.4.6 **TODO, with the Settings page:** make log retention (days and total size) editable there
 
 **Done when**: an error in any infrabot service appears in the Errors panel with a working VS Code link within 1 s; filtering 500k lines returns in under 1 s.
 

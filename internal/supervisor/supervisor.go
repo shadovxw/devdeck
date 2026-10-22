@@ -7,11 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/shadovxw/devdeck/internal/doctor"
 	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/sdk"
 	"github.com/shadovxw/devdeck/sdk/proc"
 )
@@ -22,6 +24,25 @@ var (
 	ErrNotRunning     = errors.New("that stack isn't running")
 	ErrNoSuchService  = errors.New("that service isn't in the stack")
 )
+
+// LogSink takes the output of the services a supervisor runs (internal/logs.Sink
+// is the real one). Line must not block: a service's pipe waits for it.
+type LogSink interface {
+	// Line is one raw output line. stream is stdout, stderr, build or compose.
+	Line(workspace, stack, service, stream, text string, at time.Time)
+	// Env is the extra environment a service was (re)started with, so values of its
+	// secret-named variables can be masked in its output.
+	Env(workspace, stack, service string, env []string)
+	// Defaults are the capture rules a stack's file gives its services.
+	Defaults(workspace, stack string, rules map[string]logs.Rule)
+}
+
+// noLogs is the sink used when none is given.
+type noLogs struct{}
+
+func (noLogs) Line(_, _, _, _, _ string, _ time.Time)       {}
+func (noLogs) Env(_, _, _ string, _ []string)               {}
+func (noLogs) Defaults(_, _ string, _ map[string]logs.Rule) {}
 
 // PreflightError means the pre-start check found problems, so nothing was started.
 type PreflightError struct{ Report doctor.Report }
@@ -56,8 +77,11 @@ type Options struct {
 	Preflight func(ctx context.Context, spec StackSpec) (doctor.Report, error)
 	// Compose replaces how Docker Compose is run.
 	Compose ComposeFunc
-	// OnLine receives every output line of every service.
-	OnLine func(LogLine)
+	// ComposePorts says which host ports a compose file's containers publish, once it
+	// is up. By default it asks Docker, but only when Compose is the real one.
+	ComposePorts func(ctx context.Context, c ComposeSpec) []int
+	// Logs receives every output line of every service. Nil discards them.
+	Logs LogSink
 
 	// Backoff is the wait before restart number n (1 for the first). Default 1s doubling up to 30s.
 	Backoff func(n int) time.Duration
@@ -120,11 +144,17 @@ type Supervisor struct {
 // New returns a Supervisor.
 func New(o Options) *Supervisor {
 	s := &Supervisor{o: o.withDefaults(), runs: map[string]*run{}}
+	if s.o.Logs == nil {
+		s.o.Logs = noLogs{}
+	}
 	if s.o.Preflight == nil {
 		s.o.Preflight = s.doctorPreflight
 	}
 	if s.o.Compose == nil {
 		s.o.Compose = s.dockerCompose
+		if s.o.ComposePorts == nil {
+			s.o.ComposePorts = s.dockerComposePorts
+		}
 	}
 	return s
 }
@@ -175,9 +205,41 @@ func (s *Supervisor) dockerCompose(ctx context.Context, c ComposeSpec, action st
 // composeSettled asks Compose what state the stack's containers are in, after an
 // `up --wait` that failed, and says whether they are all where they should be.
 func (s *Supervisor) composeSettled(ctx context.Context, c ComposeSpec) bool {
+	want := composeWanted(ctx, c)
+	out, ok := composePS(ctx, c)
+	return ok && composeSettled(out, want)
+}
+
+// dockerComposePorts asks Docker which host ports a compose file's containers publish.
+func (s *Supervisor) dockerComposePorts(ctx context.Context, c ComposeSpec) []int {
+	out, ok := composePS(ctx, c)
+	if !ok {
+		return nil
+	}
+	return composePorts(out, composeWanted(ctx, c))
+}
+
+// composeWanted lists the services a compose file is meant to bring up: the ones
+// asked for, or every one it defines. Nil when Docker can't say.
+func composeWanted(ctx context.Context, c ComposeSpec) []string {
+	if len(c.Services) > 0 {
+		return slices.Clone(c.Services)
+	}
+	res, err := proc.Run(ctx, proc.Cmd{Name: "docker", Args: []string{"compose", "-f", c.File, "config", "--services"}, Dir: c.Dir, Timeout: 30 * time.Second})
+	if err != nil || !res.OK() {
+		return nil
+	}
+	return strings.Fields(res.Stdout)
+}
+
+// composePS is the output of docker compose ps for a file's project, all containers.
+func composePS(ctx context.Context, c ComposeSpec) (string, bool) {
 	args := append([]string{"compose", "-f", c.File, "ps", "--all", "--format", "json"}, c.Services...)
 	res, err := proc.Run(ctx, proc.Cmd{Name: "docker", Args: args, Dir: c.Dir, Timeout: 30 * time.Second})
-	return err == nil && res.OK() && composeSettled(res.Stdout)
+	if err != nil || !res.OK() {
+		return "", false
+	}
+	return res.Stdout, true
 }
 
 // Start checks the machine, then starts the stack in the background and returns
@@ -208,6 +270,7 @@ func (s *Supervisor) Start(ctx context.Context, spec StackSpec) (RunStatus, erro
 	r := newRun(s, spec)
 	s.runs[k] = r
 	s.mu.Unlock()
+	s.o.Logs.Defaults(spec.Workspace, spec.Name, spec.LogRules())
 
 	r.begin()
 	return r.status(), nil
@@ -258,8 +321,8 @@ func (s *Supervisor) RestartService(workspace, stack, service string) error {
 	if !ok {
 		return ErrNotRunning
 	}
-	sv, ok := r.svcs[service]
-	if !ok || sv.compose != nil {
+	sv := r.svc(service)
+	if sv == nil || sv.compose != nil {
 		return ErrNoSuchService
 	}
 	select {
@@ -267,6 +330,27 @@ func (s *Supervisor) RestartService(workspace, stack, service string) error {
 	default: // one request is already waiting
 	}
 	return nil
+}
+
+// StopService stops one service of a running stack and leaves it stopped (it is not
+// restarted). A compose file's containers are stopped with docker compose stop. It
+// returns when the process is gone.
+func (s *Supervisor) StopService(ctx context.Context, workspace, stack, service string) error {
+	r, ok := s.get(workspace, stack)
+	if !ok {
+		return ErrNotRunning
+	}
+	return r.stopOne(ctx, service)
+}
+
+// StartService starts a service of a running stack that was stopped (by hand, by
+// finishing or by failing). A compose file is brought up again.
+func (s *Supervisor) StartService(workspace, stack, service string) error {
+	r, ok := s.get(workspace, stack)
+	if !ok {
+		return ErrNotRunning
+	}
+	return r.startOne(service)
 }
 
 // Status reports a stack, or false when it isn't running.
@@ -333,19 +417,6 @@ func (s *Supervisor) OwnPorts(workspace, stack string) map[int]bool {
 		}
 	}
 	return ports
-}
-
-// Lines returns the most recent output of one service, oldest first.
-func (s *Supervisor) Lines(workspace, stack, service string) ([]LogLine, bool) {
-	r, ok := s.get(workspace, stack)
-	if !ok {
-		return nil, false
-	}
-	sv, ok := r.svcs[service]
-	if !ok {
-		return nil, false
-	}
-	return r.lines(sv), true
 }
 
 func (s *Supervisor) get(workspace, stack string) (*run, bool) {

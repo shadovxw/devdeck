@@ -505,3 +505,29 @@ func TestOneLine(t *testing.T) {
 		t.Errorf("colour codes left in: %q", got)
 	}
 }
+
+func TestUpTreatsAnOptionalFailureAsNotFatal(t *testing.T) {
+	vault := svc("vault", supervisor.StateFailed)
+	vault.Optional = true
+	vault.LastError = "docker couldn't start it"
+	f := &fake{workspaces: oneWorkspace, runs: [][]supervisor.RunStatus{
+		stack(supervisor.RunRunning, vault, svc("api", supervisor.StateReady)),
+	}}
+	code, out, errOut := run(t, f, "up", "full")
+	if code != exitOK || !strings.Contains(out, "demo/full is running") {
+		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errOut)
+	}
+	if !strings.Contains(errOut, "optional and didn't start: vault") {
+		t.Errorf("an optional failure should still be mentioned: %q", errOut)
+	}
+	if !strings.Contains(out, "docker couldn't start it") {
+		t.Errorf("its reason is shown with its row: %q", out)
+	}
+
+	// a required one failing next to it still fails the command
+	api := svc("api", supervisor.StateFailed)
+	f = &fake{workspaces: oneWorkspace, runs: [][]supervisor.RunStatus{stack(supervisor.RunDegraded, vault, api)}}
+	if code, _, errOut := run(t, f, "up", "full"); code != exitFail || !strings.Contains(errOut, "didn't start: api") {
+		t.Errorf("exit %d, stderr %q", code, errOut)
+	}
+}

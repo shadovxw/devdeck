@@ -38,5 +38,5 @@ The Doctor page has a workspace picker, a stack picker ("Whole workspace" by def
 
 ## Not done yet (rest of Phase 2)
 
-- 2.1.3 Install missing tools from the UI (needs a confirm step and streamed output)
+- 2.1.3 Install missing tools from the UI (needs a confirm step and streamed output). Deferred until the other features are in; see the plan.
 - 2.5 `devdeck up / down / status`: done, see `2026-10-19-cli/`

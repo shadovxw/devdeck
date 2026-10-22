@@ -1,4 +1,5 @@
-import { Layers, Play, RotateCw, Square, Stethoscope } from "lucide-react";
+import { FileText, Layers, Pencil, Play, Plus, RotateCw, Square, Stethoscope, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { navByPath } from "../app/nav";
@@ -10,10 +11,12 @@ import { PageHeader } from "../design/PageHeader";
 import { ServiceStateMark } from "../design/ServiceStateMark";
 import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
-import { useRestartService, useRuns, useStartStack, useStopStack, useWorkspace, useWorkspaces } from "../lib/queries";
+import { useDeleteStack, useRestartService, useRuns, useStartService, useStartStack, useStopService, useStopStack, useWorkspace, useWorkspaces } from "../lib/queries";
 import { formatUptime, isComposeId, serviceLabel } from "../lib/runs";
 import type { DoctorReport, RunState, RunStatus, ServiceState, StackDef, WorkspaceDetail } from "../lib/types";
 import { useNow } from "../lib/use-now";
+import { StackEditor, stackTemplate } from "./StackEditor";
+import { StackLogs } from "./StackLogs";
 
 const select =
   "h-9 max-w-[16rem] rounded-ctl bg-inset px-3 text-[14px] text-ink outline-none " +
@@ -64,7 +67,15 @@ function StartProblem({ error, workspace, stack }: { error: Error; workspace: st
 
 const th = "px-4 py-2 text-start text-[13px] font-medium text-ink-3";
 
-function ServiceRows({ run, now, onRestart, restarting }: { run: RunStatus; now: number; onRestart: (service: string) => void; restarting: string | undefined }) {
+type Controls = {
+  onRestart: (service: string) => void;
+  onStart: (service: string) => void;
+  onStop: (service: string) => void;
+  /** The service an action is being sent for, if any. */
+  busy: string | undefined;
+};
+
+function ServiceRows({ run, now, controls }: { run: RunStatus; now: number; controls: Controls }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-[14px]">
@@ -82,7 +93,7 @@ function ServiceRows({ run, now, onRestart, restarting }: { run: RunStatus; now:
         </thead>
         <tbody>
           {run.services.map((s) => (
-            <ServiceRow key={s.id} service={s} now={now} onRestart={onRestart} busy={restarting === s.id} />
+            <ServiceRow key={s.id} service={s} now={now} controls={controls} />
           ))}
         </tbody>
       </table>
@@ -90,8 +101,16 @@ function ServiceRows({ run, now, onRestart, restarting }: { run: RunStatus; now:
   );
 }
 
-function ServiceRow({ service: s, now, onRestart, busy }: { service: RunStatus["services"][number]; now: number; onRestart: (id: string) => void; busy: boolean }) {
-  const isCompose = isComposeId(s.id);
+/** States in which there is something to stop (a process, a build, a wait), and in which there is something to start. */
+const stoppable: ServiceState[] = ["waiting", "building", "starting", "ready", "restarting"];
+const startable: ServiceState[] = ["stopped", "failed", "blocked"];
+
+const rowButton =
+  "grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-accent-soft hover:text-ink active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+
+function ServiceRow({ service: s, now, controls }: { service: RunStatus["services"][number]; now: number; controls: Controls }) {
+  const isCompose = s.kind === "compose" || isComposeId(s.id);
+  const busy = controls.busy === s.id;
   const name = serviceLabel(s.id);
   const upFor = s.state === "ready" && s.ready_at ? formatUptime(now - Date.parse(s.ready_at)) : "";
   return (
@@ -100,23 +119,48 @@ function ServiceRow({ service: s, now, onRestart, busy }: { service: RunStatus["
         <td className="whitespace-nowrap px-4 py-2.5">
           <ServiceStateMark state={s.state} />
         </td>
-        <td className="px-4 py-2.5 font-medium">{name}</td>
-        <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-ink-2">{s.port ?? ""}</td>
+        <td className="px-4 py-2.5 font-medium">
+          {name}
+          {s.optional && <span className="ms-2 text-[12px] font-normal text-ink-3">optional</span>}
+        </td>
+        <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-ink-2">{s.ports?.length ? s.ports.join(", ") : (s.port ?? "")}</td>
         <td className="px-4 py-2.5 tabular-nums text-ink-2">{upFor}</td>
         <td className="px-4 py-2.5 tabular-nums text-ink-2">{s.restarts > 0 ? s.restarts : ""}</td>
         <td className="px-3 py-1 text-end">
-          {!isCompose && (
+          <span className="inline-flex items-center gap-1">
             <button
               type="button"
-              onClick={() => onRestart(s.id)}
-              disabled={busy}
-              title={s.state === "failed" || s.state === "blocked" ? "Try again" : "Restart"}
-              aria-label={`Restart ${name}`}
-              className="grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-accent-soft hover:text-ink active:scale-90 disabled:opacity-50"
+              onClick={() => controls.onStop(s.id)}
+              disabled={busy || !stoppable.includes(s.state)}
+              title="Stop it and leave it stopped"
+              aria-label={`Stop ${name}`}
+              className={rowButton}
             >
-              <RotateCw size={15} className={busy ? "animate-spin" : undefined} aria-hidden />
+              <Square size={13} fill="currentColor" aria-hidden />
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => controls.onStart(s.id)}
+              disabled={busy || !startable.includes(s.state)}
+              title="Start it"
+              aria-label={`Start ${name}`}
+              className={rowButton}
+            >
+              <Play size={13} fill="currentColor" aria-hidden />
+            </button>
+            {!isCompose && (
+              <button
+                type="button"
+                onClick={() => controls.onRestart(s.id)}
+                disabled={busy}
+                title={s.state === "failed" || s.state === "blocked" ? "Try again" : "Restart"}
+                aria-label={`Restart ${name}`}
+                className={rowButton}
+              >
+                <RotateCw size={15} className={busy ? "animate-spin" : undefined} aria-hidden />
+              </button>
+            )}
+          </span>
         </td>
       </tr>
       {s.last_error && (
@@ -135,6 +179,12 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
   const start = useStartStack();
   const stop = useStopStack();
   const restart = useRestartService();
+  const startService = useStartService();
+  const stopService = useStopService();
+  const del = useDeleteStack(workspace.id);
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
 
   const sample = workspace.source === "example";
   const broken = workspace.errors > 0;
@@ -170,6 +220,40 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
         >
           <Stethoscope size={17} aria-hidden />
         </Link>
+        <button
+          type="button"
+          onClick={() => setShowLogs((v) => !v)}
+          aria-expanded={showLogs}
+          title={showLogs ? "Hide the logs" : "Show the logs"}
+          aria-label={`Logs of ${stack.name}`}
+          className={`${quietButton} !h-9 !px-2.5`}
+        >
+          <FileText size={16} aria-hidden />
+        </button>
+        {!sample && (
+          <>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              disabled={Boolean(run)}
+              title={run ? "Stop the stack before editing it" : "Edit this stack"}
+              aria-label={`Edit ${stack.name}`}
+              className={`${quietButton} !h-9 !px-2.5 disabled:cursor-not-allowed disabled:opacity-45`}
+            >
+              <Pencil size={16} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              disabled={Boolean(run)}
+              title={run ? "Stop the stack before deleting it" : "Delete this stack"}
+              aria-label={`Delete ${stack.name}`}
+              className={`${quietButton} !h-9 !px-2.5 disabled:cursor-not-allowed disabled:opacity-45`}
+            >
+              <Trash2 size={16} aria-hidden />
+            </button>
+          </>
+        )}
         {run ? (
           <button type="button" onClick={() => stop.mutate(ref)} disabled={stopping} className={stopButton}>
             <Square size={14} fill="currentColor" aria-hidden />
@@ -183,15 +267,50 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
         )}
       </div>
 
+      {confirming && (
+        <div role="group" aria-label={`Confirm deleting ${stack.name}`} className="mx-4 mb-3 flex flex-col gap-2.5 rounded-ctl bg-inset p-3">
+          <p className="m-0 text-[13px] leading-5 text-ink-2">
+            Delete “{stack.name}”? Its file moves to a trash folder inside the workspace. Your repositories aren’t touched.
+          </p>
+          {del.error && (
+            <p role="alert" className="m-0 text-[13px] text-critical">
+              {del.error.message}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => del.mutate(stack.name, { onSuccess: () => setConfirming(false) })}
+              disabled={del.isPending}
+              className="inline-flex h-8 items-center rounded-ctl bg-critical px-3 text-[13px] font-medium text-white transition hover:brightness-110 active:scale-[.97] disabled:opacity-50"
+            >
+              {del.isPending ? "Deleting…" : "Delete"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirming(false);
+                del.reset();
+              }}
+              disabled={del.isPending}
+              className={`${quietButton} !h-8 !px-3 !text-[13px]`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {editing && <StackEditor workspace={workspace.id} stack={stack.name} template="" onClose={() => setEditing(false)} />}
+
       {start.error && !run && <StartProblem error={start.error} workspace={workspace.id} stack={stack.name} />}
       {stop.error && (
         <p role="alert" className="m-0 px-4 pb-3 text-[14px] text-critical">
           {stop.error.message}
         </p>
       )}
-      {restart.error && (
+      {(restart.error ?? startService.error ?? stopService.error) && (
         <p role="alert" className="m-0 px-4 pb-3 text-[14px] text-critical">
-          {restart.error.message}
+          {(restart.error ?? startService.error ?? stopService.error)?.message}
         </p>
       )}
 
@@ -199,12 +318,18 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
         <BootSequence stack={stack} services={byId} />
       </div>
 
+      {showLogs && <StackLogs workspace={workspace.id} stack={stack.name} canControl={!sample} />}
+
       {run && (
         <ServiceRows
           run={run}
           now={now}
-          onRestart={(service) => restart.mutate({ ...ref, service })}
-          restarting={restart.isPending ? restart.variables?.service : undefined}
+          controls={{
+            onRestart: (service) => restart.mutate({ ...ref, service }),
+            onStart: (service) => startService.mutate({ ...ref, service }),
+            onStop: (service) => stopService.mutate({ ...ref, service }),
+            busy: [restart, startService, stopService].find((m) => m.isPending)?.variables?.service,
+          }}
         />
       )}
     </section>
@@ -215,6 +340,7 @@ export function StacksPage() {
   const item = navByPath("/stacks");
   const [params, setParams] = useSearchParams();
   const workspaces = useWorkspaces();
+  const [adding, setAdding] = useState(false);
 
   // Default to the first workspace that has no errors and can run: the user's own ones first.
   const list = workspaces.data ?? [];
@@ -267,6 +393,18 @@ export function StacksPage() {
           ))}
         </select>
         <span className="text-[13px] text-ink-3">{detail.data ? `${stacks.length} stack${stacks.length === 1 ? "" : "s"}` : ""}</span>
+        {detail.data && (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            disabled={detail.data.source === "example"}
+            title={detail.data.source === "example" ? "Sample workspaces can’t be changed. Add your own workspace to add stacks." : "Add a stack to this workspace"}
+            className={`${startButton} ms-auto`}
+          >
+            <Plus size={16} aria-hidden />
+            Add stack
+          </button>
+        )}
       </div>
 
       {detail.isPending && id && (
@@ -283,8 +421,10 @@ export function StacksPage() {
           icon={Layers}
           empty={{
             headline: "This workspace has no stacks",
-            text: "A stack is a file in the workspace’s stacks folder. Add one and it will show up here.",
+            text: "A stack is a group of services and containers that start together, written as a file in the workspace’s stacks folder. Add one and it will show up here.",
+            cta: detail.data.source === "example" ? undefined : { label: "Add stack" },
           }}
+          onCta={() => setAdding(true)}
         />
       )}
 
@@ -294,6 +434,10 @@ export function StacksPage() {
             <StackCard key={s.name} workspace={detail.data} stack={s} run={mine.find((r) => r.stack === s.name)} now={now} index={i} />
           ))}
         </div>
+      )}
+
+      {adding && detail.data && (
+        <StackEditor workspace={detail.data.id} template={stackTemplate(detail.data.workspace?.repos?.[0]?.id)} onClose={() => setAdding(false)} />
       )}
     </>
   );

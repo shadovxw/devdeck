@@ -6,10 +6,12 @@ package supervisor
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
 
+	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/workspace"
 )
 
@@ -24,6 +26,32 @@ type ComposeSpec struct {
 	Dir      string // the repo folder
 	File     string // absolute path of the compose file
 	Services []string
+	// Logs holds the capture rule of each container, keyed by compose service name.
+	Logs map[string]logs.Rule
+	// Named is true when the file has an id of its own in the start order. Then it
+	// starts after the steps in After, and a service waits for it only if it lists
+	// it. Without an id every service waits for it.
+	Named bool
+	After []string
+	// Optional means a failure of this file doesn't hold back what comes after it.
+	Optional bool
+}
+
+// LogRules lists the capture rules the stack's file sets, keyed by the id the
+// log store knows each service by: the service id, or "<compose id>/<container>".
+func (sp StackSpec) LogRules() map[string]logs.Rule {
+	rules := map[string]logs.Rule{}
+	for _, s := range sp.Services {
+		if s.Logs.Store != "" {
+			rules[s.ID] = s.Logs
+		}
+	}
+	for _, c := range sp.Compose {
+		for name, r := range c.Logs {
+			rules[c.ID+"/"+name] = r
+		}
+	}
+	return rules
 }
 
 // ReadySpec says how to tell a service is ready. All empty means: as soon as it
@@ -51,6 +79,8 @@ type ServiceSpec struct {
 	// ReadyTimeout is how long to wait for ready before giving up.
 	ReadyTimeout time.Duration
 	Restart      string // never, on-failure or always
+	// Logs says which of its output lines are stored (the zero value: all).
+	Logs logs.Rule
 }
 
 // StackSpec is a stack ready to run.
@@ -109,17 +139,28 @@ func Plan(workspaceID, root string, w *workspace.WorkspaceFile, stacks []workspa
 			return StackSpec{}, bad("the compose file path leaves its repo")
 		}
 		id := composeID
-		if len(st.Compose) > 1 {
+		switch {
+		case c.ID != "":
+			id = c.ID
+		case len(st.Compose) > 1:
 			id = composeID + "-" + c.Repo
 			if usedIDs[id] {
 				id += "-" + strconv.Itoa(i+1)
 			}
 		}
 		usedIDs[id] = true
-		spec.Compose = append(spec.Compose, ComposeSpec{ID: id, Dir: dir, File: file, Services: slices.Clone(c.Services)})
+		spec.Compose = append(spec.Compose, ComposeSpec{
+			ID: id, Dir: dir, File: file, Services: slices.Clone(c.Services), Logs: maps.Clone(c.Logs),
+			Named: c.ID != "", After: slices.Clone(c.After), Optional: c.Optional,
+		})
 	}
 
 	ids := map[string]bool{}
+	for _, c := range spec.Compose {
+		if c.Named {
+			ids[c.ID] = true // a service may wait for a named compose file
+		}
+	}
 	for _, sv := range st.Services {
 		ids[sv.ID] = true
 	}
@@ -131,7 +172,7 @@ func Plan(workspaceID, root string, w *workspace.WorkspaceFile, stacks []workspa
 		spec.Services = append(spec.Services, svc)
 	}
 
-	if _, err := Levels(spec.Services); err != nil {
+	if _, err := spec.Levels(); err != nil {
 		return StackSpec{}, bad("%v", err)
 	}
 	return spec, nil
@@ -157,6 +198,9 @@ func planService(sv workspace.Service, repoDir map[string]string, ids map[string
 	svc := ServiceSpec{
 		ID: sv.ID, Kind: sv.Kind, Dir: dir, Port: sv.Port, After: slices.Clone(sv.After),
 		Env: sv.Env, Restart: sv.Restart, ReadyTimeout: defaultReadyTimeout,
+	}
+	if sv.Logs != nil {
+		svc.Logs = *sv.Logs
 	}
 	if svc.Restart == "" {
 		svc.Restart = "on-failure"
@@ -219,36 +263,81 @@ func planReady(svc *ServiceSpec, sv workspace.Service) error {
 	return nil
 }
 
+// Ordered is true when the stack's compose files have ids: they are steps in the
+// start order next to the services. Otherwise every service waits for all of them.
+func (sp StackSpec) Ordered() bool {
+	for _, c := range sp.Compose {
+		if c.Named {
+			return true
+		}
+	}
+	return false
+}
+
+// step is one thing in the start order: a service, or a named compose file.
+type step struct {
+	id    string
+	after []string
+}
+
+// steps lists what the start order is made of. Compose files without an id are
+// not in it: they simply come first.
+func (sp StackSpec) steps() []step {
+	var out []step
+	if sp.Ordered() {
+		for _, c := range sp.Compose {
+			out = append(out, step{c.ID, c.After})
+		}
+	}
+	for _, s := range sp.Services {
+		out = append(out, step{s.ID, s.After})
+	}
+	return out
+}
+
+// Levels orders the stack's steps so that each comes after the ones it waits for:
+// every inner slice can start together (and, read backwards, stop together). A
+// missing dependency or a loop is an error.
+func (sp StackSpec) Levels() ([][]string, error) { return levelsOf(sp.steps()) }
+
 // Levels orders services so that each comes after the ones it waits for: every
 // inner slice can start together. A missing dependency or a loop is an error.
 func Levels(services []ServiceSpec) ([][]string, error) {
+	steps := make([]step, len(services))
+	for i, s := range services {
+		steps[i] = step{s.ID, s.After}
+	}
+	return levelsOf(steps)
+}
+
+func levelsOf(steps []step) ([][]string, error) {
 	deps := map[string][]string{}
-	for _, s := range services {
-		deps[s.ID] = s.After
+	for _, s := range steps {
+		deps[s.id] = s.after
 	}
 	placed := map[string]bool{}
 	var levels [][]string
-	for len(placed) < len(services) {
+	for len(placed) < len(steps) {
 		var level []string
-		for _, s := range services {
-			if placed[s.ID] {
+		for _, s := range steps {
+			if placed[s.id] {
 				continue
 			}
 			ok := true
-			for _, d := range deps[s.ID] {
+			for _, d := range deps[s.id] {
 				if _, known := deps[d]; !known {
-					return nil, fmt.Errorf("service %q waits for %q, which isn't in the stack", s.ID, d)
+					return nil, fmt.Errorf("%q waits for %q, which isn't in the stack", s.id, d)
 				}
 				if !placed[d] {
 					ok = false
 				}
 			}
 			if ok {
-				level = append(level, s.ID)
+				level = append(level, s.id)
 			}
 		}
 		if len(level) == 0 {
-			return nil, errors.New("some services wait for each other in a loop")
+			return nil, errors.New("some steps wait for each other in a loop")
 		}
 		for _, id := range level {
 			placed[id] = true

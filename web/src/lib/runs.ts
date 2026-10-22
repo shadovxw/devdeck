@@ -23,16 +23,25 @@ export function mergeRun(list: RunStatus[] | undefined, update: RunStatus): RunS
  */
 export function startOrder(stack: StackDef): string[][] {
   const services = stack.services ?? [];
-  const known = new Set(services.map((s) => s.id));
   const columns: string[][] = [];
-  const compose = composeIds(stack);
-  if (compose.length > 0) columns.push(compose);
 
+  // Compose files with an id are steps in the order, next to the services. Without
+  // ids they are simply the first column: every service waits for them.
+  const named = (stack.compose ?? []).some((c) => c.id);
+  const ids = composeIds(stack);
+  const steps: Array<{ id: string; after?: string[] }> = services.map((s) => ({ id: s.id, after: s.after }));
+  if (named) {
+    steps.unshift(...(stack.compose ?? []).map((c, i) => ({ id: ids[i], after: c.after })));
+  } else if (ids.length > 0) {
+    columns.push(ids);
+  }
+
+  const known = new Set(steps.map((s) => s.id));
   const placed = new Set<string>();
-  while (placed.size < services.length) {
-    const column = services.filter((s) => !placed.has(s.id) && (s.after ?? []).every((a) => placed.has(a) || !known.has(a)));
+  while (placed.size < steps.length) {
+    const column = steps.filter((s) => !placed.has(s.id) && (s.after ?? []).every((a) => placed.has(a) || !known.has(a)));
     // A loop can't be started; the server refuses it, but still show what is left.
-    const next = column.length > 0 ? column : services.filter((s) => !placed.has(s.id));
+    const next = column.length > 0 ? column : steps.filter((s) => !placed.has(s.id));
     for (const s of next) placed.add(s.id);
     columns.push(next.map((s) => s.id));
   }
@@ -75,9 +84,13 @@ export function formatUptime(ms: number): string {
 export function composeIds(stack: StackDef): string[] {
   const files = stack.compose ?? [];
   if (files.length === 0) return [];
-  if (files.length === 1) return ["compose"];
+  if (files.length === 1 && !files[0].id) return ["compose"];
   const used = new Set<string>();
   return files.map((c, i) => {
+    if (c.id) {
+      used.add(c.id);
+      return c.id;
+    }
     let id = `compose-${c.repo}`;
     if (used.has(id)) id += `-${i + 1}`;
     used.add(id);

@@ -189,7 +189,7 @@ describe("stacks page", () => {
     expect(table.getByText("Dependencies")).toBeTruthy();
     expect(table.getAllByText("Starting").length).toBeGreaterThan(0);
     expect(table.getAllByText("Waiting")).toHaveLength(2);
-    expect(card.getByRole("button", { name: /Stop/ })).toBeTruthy();
+    expect(card.getByRole("button", { name: "Stop" })).toBeTruthy();
     expect(posted("/workspaces/demo/stacks/full/start")).toBe(true);
   });
 
@@ -254,7 +254,7 @@ describe("stacks page", () => {
     expect(await screen.findByText(/^Up 2m/)).toBeTruthy();
     const table = within(await screen.findByRole("table"));
     expect(table.getAllByText(/^1m \d+s$/).length).toBeGreaterThan(0); // up for, from ready_at
-    fireEvent.click(screen.getByRole("button", { name: /Stop/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
     await waitFor(() => expect(posted("/workspaces/demo/stacks/full/stop")).toBe(true));
     expect(await screen.findByRole("button", { name: /Start/ })).toBeTruthy();
@@ -272,7 +272,7 @@ describe("stacks page", () => {
     act(() => fake.push("stacks.demo.full", run("starting", [svc("compose", "ready", { ready_at: readyAt }), svc("api", "starting", { port: 8080 }), svc("web", "waiting", { port: 5173 })])));
     const table = within(await screen.findByRole("table"));
     expect(table.getByText("Starting")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Stop/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
 
     act(() => fake.push("stacks.demo.full", runningRun()));
     await waitFor(() => expect(within(screen.getByRole("table")).queryByText("Starting")).toBeNull());
