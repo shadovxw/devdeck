@@ -2,9 +2,9 @@ import { FolderGit2 } from "lucide-react";
 import { Link } from "react-router";
 
 import { navByPath } from "../app/nav";
-import { quietButton } from "../design/buttons";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
+import { pill } from "../design/pills";
 import { stagger } from "../lib/motion";
 import { useFixIdentity, useGitRepos, type GitRepo, type RepoState } from "../lib/git";
 
@@ -70,13 +70,13 @@ function Row({ r }: { r: GitRepo }) {
             onClick={() => fix.mutate({ workspace: r.workspace, repo: r.repo })}
             title="Write this account’s name and email into this repository’s own git config"
             aria-label={`Set the identity of ${r.repo}`}
-            className={`${quietButton} !h-9 !px-3 !text-[13px]`}
+            className={pill}
           >
             Set identity
           </button>
         )}
         {r.state === "no-rule" && (
-          <Link to="/connections/github" className="text-[13px] text-accent hover:underline">
+          <Link to="/connections/github" className={pill}>
             Add a rule
           </Link>
         )}

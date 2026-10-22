@@ -2,9 +2,9 @@ import { KeyRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { navByPath } from "../app/nav";
-import { quietButton } from "../design/buttons";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
+import { pill, pillDanger, pillPrimary, pillSelect } from "../design/pills";
 import { stagger } from "../lib/motion";
 import {
   useChangeSetup,
@@ -25,9 +25,9 @@ const field =
 // Inside a table the fields look like text until pointed at.
 const cell =
   "h-9 w-full min-w-0 rounded-ctl bg-transparent px-2 text-[14px] text-ink outline-none placeholder:text-ink-3 hover:bg-fill focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-accent";
-const button = `${quietButton} !h-9 !px-3 !text-[14px] disabled:cursor-not-allowed disabled:opacity-45`;
-const primary =
-  "inline-flex h-9 items-center gap-2 rounded-ctl bg-accent px-4 text-[14px] font-medium text-on-accent transition hover:brightness-110 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-45";
+// Every action is a pill (a shadcn badge) on the sidebar's background; see design/pills.ts.
+const button = pill;
+const primary = pillPrimary;
 const th = "px-3 py-2 text-start text-[13px] font-medium text-ink-3";
 
 /** A block of the page: a title with a status or action beside it, a line of help, then its content. */
@@ -309,7 +309,7 @@ function Editor({ overview }: { overview: GitOverview }) {
                         <input aria-label={`Id of connection ${i + 1}`} value={c.id} onChange={(e) => setConn(i, { id: e.target.value })} placeholder="e.g. office" className={`${cell} w-32 font-mono text-[13px]`} />
                       </td>
                       <td className="px-1 py-1.5">
-                        <select aria-label={`GitHub account of ${name}`} value={c.gh_user} onChange={(e) => setConn(i, { gh_user: e.target.value })} className={`${cell} w-44`}>
+                        <select aria-label={`GitHub account of ${name}`} value={c.gh_user} onChange={(e) => setConn(i, { gh_user: e.target.value })} className={`${pillSelect} w-44`}>
                           {c.gh_user === "" && <option value="">Pick an account…</option>}
                           {overview.accounts.map((a) => (
                             <option key={a.login} value={a.login}>
@@ -320,7 +320,7 @@ function Editor({ overview }: { overview: GitOverview }) {
                         </select>
                       </td>
                       <td className="px-1 py-1.5">
-                        <input aria-label={`Commit name of ${name}`} value={c.name ?? ""} onChange={(e) => setConn(i, { name: e.target.value })} placeholder="Commit name" className={`${cell} w-44`} />
+                        <input aria-label={`Commit name of ${name}`} value={c.name ?? ""} onChange={(e) => setConn(i, { name: e.target.value })} placeholder="Commit name" className={`${pillSelect} w-44`} />
                       </td>
                       <td className="px-1 py-1.5">
                         <input aria-label={`Commit email of ${name}`} value={c.email ?? ""} onChange={(e) => setConn(i, { email: e.target.value })} placeholder="Commit email" className={`${cell} w-60`} />
@@ -343,7 +343,7 @@ function Editor({ overview }: { overview: GitOverview }) {
                           type="button"
                           aria-label={`Remove connection ${c.id || i + 1}`}
                           onClick={() => setDraft((d) => ({ ...d, connections: d.connections.filter((_, j) => j !== i) }))}
-                          className={button}
+                          className={`${pillDanger} ms-2`}
                         >
                           Remove
                         </button>
@@ -399,7 +399,7 @@ function Editor({ overview }: { overview: GitOverview }) {
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-[13px] text-ink-3">{reach(r.match)}</td>
                     <td className="px-1 py-1.5">
-                      <select aria-label={`Connection of rule ${i + 1}`} value={r.connection} onChange={(e) => setRule(i, { connection: e.target.value })} className={`${cell} w-44`}>
+                      <select aria-label={`Connection of rule ${i + 1}`} value={r.connection} onChange={(e) => setRule(i, { connection: e.target.value })} className={`${pillSelect} w-44`}>
                         {r.connection === "" && <option value="">Pick a profile…</option>}
                         {draft.connections.map((c) => (
                           <option key={c.id} value={c.id}>
@@ -410,7 +410,7 @@ function Editor({ overview }: { overview: GitOverview }) {
                       </select>
                     </td>
                     <td className="px-1 py-1.5 text-end">
-                      <button type="button" aria-label={`Remove rule ${i + 1}`} onClick={() => setDraft((d) => ({ ...d, rules: d.rules.filter((_, j) => j !== i) }))} className={button}>
+                      <button type="button" aria-label={`Remove rule ${i + 1}`} onClick={() => setDraft((d) => ({ ...d, rules: d.rules.filter((_, j) => j !== i) }))} className={pillDanger}>
                         Remove
                       </button>
                     </td>
