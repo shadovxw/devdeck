@@ -26,3 +26,6 @@ export const squareAdd = cn(pillPrimary, "rounded-none");
 /** A text field in a table or beside an action: the same background and outline as the dropdowns. */
 export const pillInput =
   "h-8 min-w-0 rounded-ctl border border-line bg-sidebar px-3 text-[13px] text-ink outline-none placeholder:text-ink-3 hover:bg-fill focus-visible:ring-2 focus-visible:ring-accent";
+
+/** A smaller pill for the buttons inside a table row. */
+export const pillSmall = cn(pill, "h-7 px-3 text-[12px]");

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"os/exec"
@@ -77,7 +78,7 @@ func gitServer(t *testing.T, gh *gitx.GH) gitFixture {
 	dir := filepath.Join(t.TempDir(), "workspaces")
 	must(t, os.MkdirAll(filepath.Join(dir, "demo", "stacks"), 0o755))
 	must(t, os.WriteFile(filepath.Join(dir, "demo", "workspace.yaml"),
-		[]byte(fmt.Sprintf("version: 1\nname: demo\nroot: '%s'\nrepos:\n  - id: api\n    path: api\n  - id: other\n    path: other\n  - id: gone\n    path: gone\n", filepath.ToSlash(root))), 0o600))
+		[]byte(fmt.Sprintf("version: 1\nname: demo\nroot: '%s'\nrepos:\n  - id: api\n    path: api\n  - id: other\n    path: other\n  - id: gone\n    path: gone\n    remote: https://github.com/acme/gone.git\n  - id: norem\n    path: norem\n", filepath.ToSlash(root))), 0o600))
 
 	data := t.TempDir()
 	svc := &gitx.Service{
@@ -263,7 +264,7 @@ func TestReposShowTheirAccountAndIdentity(t *testing.T) {
 	for _, r := range rows {
 		by[r["repo"].(string)] = r
 	}
-	if len(rows) != 3 {
+	if len(rows) != 4 {
 		t.Fatalf("rows = %v (the sample workspace has no real folders and is left out)", rows)
 	}
 	if r := by["api"]; r["state"] != "wrong-identity" || r["connection"] != "office" || r["workspace"] != "demo" || r["remote"] != "https://github.com/acme/api.git" {
@@ -272,8 +273,25 @@ func TestReposShowTheirAccountAndIdentity(t *testing.T) {
 	if r := by["other"]; r["state"] != "no-rule" {
 		t.Errorf("other = %v (flagged: no rule matches it)", r)
 	}
-	if r := by["gone"]; r["state"] != "missing" {
+	if r := by["gone"]; r["state"] != "missing" || r["work"] != nil {
 		t.Errorf("gone = %v", r)
+	}
+	// a missing folder whose workspace names a remote can be cloned; one without can't
+	clone, _ := by["gone"]["clone"].(map[string]any)
+	if clone == nil || clone["remote"] != "https://github.com/acme/gone.git" || !strings.HasPrefix(clone["command"].(string), "git clone -- ") {
+		t.Errorf("gone clone = %v", by["gone"]["clone"])
+	}
+	if by["norem"]["clone"] != nil {
+		t.Errorf("norem has no remote to clone: %v", by["norem"])
+	}
+	// a repository that exists says where it stands and which commands it offers
+	work, _ := by["api"]["work"].(map[string]any)
+	if work == nil || work["upstream"] != "" {
+		t.Errorf("api work = %v", by["api"]["work"])
+	}
+	cmds, _ := by["api"]["commands"].(map[string]any)
+	if cmds["fetch"] == nil || cmds["pull"] != nil || cmds["push"] == nil {
+		t.Errorf("api commands = %v (a new branch can be pushed, not pulled)", cmds)
 	}
 
 	// write the identity
@@ -297,5 +315,79 @@ func TestReposShowTheirAccountAndIdentity(t *testing.T) {
 	}
 	if rec := postJSON(f.h, http.MethodPost, "/api/v1/git/repos/identity", map[string]string{"workspace": "acme-shop", "repo": "api"}); rec.Code != http.StatusNotFound {
 		t.Errorf("a repo of a sample workspace = %d", rec.Code)
+	}
+}
+
+func gitIn(t *testing.T, f gitFixture, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd.Env = append(os.Environ(), append(f.env, "GIT_AUTHOR_NAME=T", "GIT_AUTHOR_EMAIL=t@example.com", "GIT_COMMITTER_NAME=T", "GIT_COMMITTER_EMAIL=t@example.com")...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v %s", args, err, out)
+	}
+}
+
+func TestRepoOperations(t *testing.T) {
+	f := gitServer(t, fakeGH(nil))
+	op := func(repo, name string, confirm bool) *httptest.ResponseRecorder {
+		return postJSON(f.h, http.MethodPost, "/api/v1/git/repos/op", map[string]any{"workspace": "demo", "repo": repo, "op": name, "confirm": confirm})
+	}
+
+	// the "other" repository gets a real remote: a bare repository on disk
+	bare := filepath.Join(t.TempDir(), "remote.git")
+	gitIn(t, f, t.TempDir(), "init", "-q", "--bare", "-b", "main", bare)
+	dir := filepath.Join(f.root, "other")
+	gitIn(t, f, dir, "checkout", "-q", "-b", "main")
+	must(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("one"), 0o600))
+	gitIn(t, f, dir, "add", "a.txt")
+	gitIn(t, f, dir, "commit", "-q", "-m", "first")
+	gitIn(t, f, dir, "remote", "set-url", "origin", bare)
+
+	// fetch needs no confirmation
+	if rec := op("other", "fetch", false); rec.Code != http.StatusOK {
+		t.Fatalf("fetch = %d %s", rec.Code, rec.Body)
+	}
+	// push, pull and clone do
+	for _, name := range []string{"pull", "push", "clone"} {
+		if rec := op("other", name, false); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "confirm") {
+			t.Errorf("%s without confirmation = %d %s", name, rec.Code, rec.Body)
+		}
+	}
+	// a branch with no upstream can be pushed (with -u), not pulled
+	if rec := op("other", "pull", true); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "upstream") {
+		t.Errorf("pull with no upstream = %d %s", rec.Code, rec.Body)
+	}
+	rec := op("other", "push", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("push = %d %s", rec.Code, rec.Body)
+	}
+	row := decode[struct {
+		Repo struct {
+			Work struct{ Upstream string } `json:"work"`
+		} `json:"repo"`
+	}](t, rec.Body.Bytes())
+	if row.Repo.Work.Upstream != "origin/main" {
+		t.Errorf("after the push: %+v", row)
+	}
+	// with nothing left to push, say so
+	if rec := op("other", "push", true); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "no commits") {
+		t.Errorf("push with nothing = %d %s", rec.Code, rec.Body)
+	}
+	if rec := op("other", "pull", true); rec.Code != http.StatusOK {
+		t.Errorf("pull = %d %s", rec.Code, rec.Body)
+	}
+
+	// refusals
+	if rec := op("other", "rebase", true); rec.Code != http.StatusBadRequest {
+		t.Errorf("an unknown operation = %d", rec.Code)
+	}
+	if rec := op("nope", "fetch", false); rec.Code != http.StatusNotFound {
+		t.Errorf("an unknown repository = %d", rec.Code)
+	}
+	if rec := op("gone", "fetch", false); rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("fetching a folder that isn't there = %d %s", rec.Code, rec.Body)
+	}
+	if rec := op("norem", "clone", true); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "https github.com") {
+		t.Errorf("cloning with no address = %d %s", rec.Code, rec.Body)
 	}
 }
