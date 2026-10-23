@@ -69,7 +69,7 @@ func CheckNeeds(ctx context.Context, needs []Need) ToolStatus {
 		if len(args) == 0 {
 			args = []string{"--version"}
 		}
-		res, err := proc.Run(ctx, proc.Cmd{Name: n.Binary, Args: args, Timeout: checkTimeout})
+		res, err := proc.Run(ctx, proc.Cmd{Name: ToolPath(n.Binary), Args: args, Timeout: checkTimeout})
 		switch {
 		case errors.Is(err, exec.ErrNotFound):
 			return ToolStatus{State: StateMissing, Detail: n.Binary + " not found on PATH", CheckedAt: time.Now()}

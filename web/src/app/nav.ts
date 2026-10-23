@@ -19,6 +19,7 @@ import {
   Puzzle,
   Route,
   ScrollText,
+  Server,
   Settings,
   ShieldAlert,
   Stethoscope,
@@ -151,6 +152,20 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "Nothing running yet",
           text: "CPU, memory and disk per service show up once a stack is running.",
+        },
+      },
+    ],
+  },
+  {
+    name: "Run remotely",
+    items: [
+      {
+        path: "/hosts",
+        label: "Remote hosts",
+        icon: Server,
+        empty: {
+          headline: "No remote host yet",
+          text: "Add a host to your workspace to see its compose stacks, services and live logs through an SSM tunnel.",
         },
       },
     ],

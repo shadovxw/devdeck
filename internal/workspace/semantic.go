@@ -89,6 +89,18 @@ func checkWorkspace(p *parsed, w *WorkspaceFile) []Issue {
 		}
 	}
 
+	hostIDs := map[string]bool{}
+	for i, h := range w.Hosts {
+		path := fmt.Sprintf("/hosts/%d", i)
+		if hostIDs[h.ID] {
+			out = append(out, p.issue(path+"/id", fmt.Sprintf("Host id %q is used more than once.", h.ID)))
+		}
+		hostIDs[h.ID] = true
+		if h.Type == "aws-ssm" && h.AWS == nil {
+			out = append(out, p.issue(path, "An aws-ssm host needs aws: instance and region."))
+		}
+	}
+
 	repoIDs := map[string]bool{}
 	for i, r := range w.Repos {
 		path := fmt.Sprintf("/repos/%d", i)

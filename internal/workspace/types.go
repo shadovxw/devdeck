@@ -30,6 +30,27 @@ type WorkspaceFile struct {
 	Repos             []Repo        `yaml:"repos,omitempty" json:"repos,omitempty"`
 	Connections       []Connection  `yaml:"connections,omitempty" json:"connections,omitempty"`
 	AccountRules      []AccountRule `yaml:"account_rules,omitempty" json:"account_rules,omitempty"`
+	Hosts             []Host        `yaml:"hosts,omitempty" json:"hosts,omitempty"`
+}
+
+// Host is a remote machine that runs `devdeck agent`, reached through a tunnel.
+// Its token lives in the OS keychain, never here.
+type Host struct {
+	ID   string `yaml:"id" json:"id"`
+	Name string `yaml:"name,omitempty" json:"name,omitempty"`
+	// Type is how the tunnel is opened. Only "aws-ssm" (an SSM port-forwarding session) for now.
+	Type string   `yaml:"type" json:"type"`
+	AWS  *HostAWS `yaml:"aws,omitempty" json:"aws,omitempty"`
+	// AgentPort is the port the agent listens on, on the host's loopback (7071 when zero).
+	AgentPort int `yaml:"agent_port,omitempty" json:"agent_port,omitempty"`
+}
+
+// HostAWS says which instance an SSM session goes to, and as whom.
+type HostAWS struct {
+	Instance string `yaml:"instance" json:"instance"`
+	Region   string `yaml:"region" json:"region"`
+	// Profile is the AWS CLI profile to use ("" means the default one).
+	Profile string `yaml:"profile,omitempty" json:"profile,omitempty"`
 }
 
 // Repo is one repository in the workspace.

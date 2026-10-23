@@ -11,6 +11,7 @@ import { HomePage } from "../pages/HomePage";
 import { LogsPage } from "../pages/LogsPage";
 import { Placeholder } from "../pages/Placeholder";
 import { PluginsPage } from "../pages/PluginsPage";
+import { HostsPage } from "../pages/HostsPage";
 import { ReposPage } from "../pages/ReposPage";
 import { StacksPage } from "../pages/StacksPage";
 import { WorkspacesPage } from "../pages/WorkspacesPage";
@@ -29,6 +30,7 @@ const built: Record<string, ReactElement> = {
   "/connections": <ConnectionsPage />,
   "/connections/github": <GitHubConnectionPage />,
   "/repos": <ReposPage />,
+  "/hosts": <HostsPage />,
 };
 
 function NotFound() {

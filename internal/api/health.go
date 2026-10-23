@@ -9,6 +9,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/events"
 	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/logs"
+	"github.com/shadovxw/devdeck/internal/remote"
 	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/sdk"
@@ -40,6 +41,9 @@ type Deps struct {
 	GitX *gitx.Service
 	// FolderPicker is optional: it adds the route that opens the system's folder dialog.
 	FolderPicker FolderPicker
+	// Hosts is optional: it adds the routes for remote hosts (machines that run devdeck's
+	// agent, reached through a tunnel). It needs Workspaces.
+	Hosts *remote.Hosts
 }
 
 // Register mounts the API and WebSocket routes on e. Every route sits behind
@@ -65,6 +69,9 @@ func Register(e *echo.Echo, d Deps) {
 			registerGit(v1, d.GitX, d.Workspaces)
 		}
 		registerLogFilters(v1, d.Workspaces)
+		if d.Hosts != nil {
+			registerHosts(v1, d.Hosts)
+		}
 		if d.Logs != nil {
 			registerLogs(v1, d.Logs, d.Workspaces)
 			registerLogWhere(v1, d.Workspaces)

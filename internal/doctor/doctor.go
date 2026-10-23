@@ -41,6 +41,7 @@ const (
 	GroupRepos  = "repos"
 	GroupStacks = "stacks"
 	GroupGit    = "git"
+	GroupHosts  = "hosts"
 )
 
 // Check is one thing that was looked at.
@@ -82,6 +83,9 @@ type Probes struct {
 	Dial func(ctx context.Context, addr string) bool
 	// GitConfig returns a git setting, "" when it is not set. dir "" means the global config.
 	GitConfig func(ctx context.Context, dir, key string) string
+	// AWSIdentity returns nil when the AWS CLI is signed in with the profile ("" is the
+	// default one), and otherwise what the CLI said.
+	AWSIdentity func(ctx context.Context, profile, region string) error
 }
 
 // DefaultProbes asks the real machine.
@@ -112,7 +116,8 @@ func DefaultProbes() Probes {
 			}
 			return strings.TrimSpace(res.Stdout)
 		},
-		Dial: dial,
+		Dial:        dial,
+		AWSIdentity: awsIdentity,
 	}
 }
 
@@ -204,6 +209,9 @@ func withDefaults(p Probes) Probes {
 	if p.GitConfig == nil {
 		p.GitConfig = d.GitConfig
 	}
+	if p.AWSIdentity == nil {
+		p.AWSIdentity = d.AWSIdentity
+	}
 	return p
 }
 
@@ -222,6 +230,7 @@ func (b *builder) jobs() []job {
 	jobs = append(jobs, b.repoJobs()...)
 	jobs = append(jobs, b.stackJobs()...)
 	jobs = append(jobs, b.gitJobs()...)
+	jobs = append(jobs, b.hostJobs()...)
 	return jobs
 }
 
