@@ -403,3 +403,11 @@ func TestRemoteHosts(t *testing.T) {
 		}
 	}
 }
+
+func TestAWSIdentityFailsWithoutASignIn(t *testing.T) {
+	// a profile that exists nowhere: the AWS CLI refuses it, or isn't there at all
+	err := awsIdentity(t.Context(), "devdeck-test-no-such-profile", "ap-south-1")
+	if err == nil {
+		t.Fatal("a profile that doesn't exist can't be signed in")
+	}
+}

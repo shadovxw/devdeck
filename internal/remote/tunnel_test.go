@@ -225,3 +225,19 @@ func TestOpeningWaitsForTheCaller(t *testing.T) {
 	}()
 	wg.Wait()
 }
+
+func TestTheRealStarterSaysWhenTheAWSCLIIsMissing(t *testing.T) {
+	m := &Tunnels{AWS: "devdeck-no-such-aws-cli", OpenWithin: 2 * time.Second}
+	defer m.Close()
+	_, err := m.Dial(context.Background(), target)
+	if err == nil || !strings.Contains(err.Error(), "AWS CLI isn't installed") {
+		t.Errorf("no AWS CLI: %v", err)
+	}
+	var te *TunnelError
+	if !errors.As(err, &te) || errors.Unwrap(te) == nil {
+		t.Errorf("a tunnel failure is a TunnelError: %T", err)
+	}
+	if got := explain(target, []string{"   "}, errors.New("exit status 1")); got == nil || !strings.Contains(got.Error(), "exit status 1") {
+		t.Errorf("no output but an error: %v", got)
+	}
+}

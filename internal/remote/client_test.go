@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -13,6 +15,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/shadovxw/devdeck/internal/agent"
+	"github.com/shadovxw/devdeck/internal/secrets"
+	"github.com/shadovxw/devdeck/internal/workspace"
 )
 
 // token is long enough, and plainly not a real one.
@@ -158,3 +162,50 @@ func TestOldest(t *testing.T) {
 		t.Errorf("nothing taken and no start: %v", got)
 	}
 }
+
+func TestHostsThatCantBeReached(t *testing.T) {
+	dir := t.TempDir()
+	ws := filepath.Join(dir, "demo")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ws, "workspace.yaml"), []byte("version: 1\nname: demo\nroot: .\nhosts:\n  - id: box\n    type: aws-ssm\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := &Hosts{Workspaces: &workspace.Manager{Dir: dir}, Secrets: memStore{}, Tunnels: &Tunnels{}}
+	defer h.Tunnels.Close()
+	// a host with no aws settings is listed, but can't be reached
+	if list := h.List(); len(list) != 1 || list[0].Instance != "" || list[0].TokenSet {
+		t.Errorf("hosts = %+v", list)
+	}
+	if _, err := h.Client("demo", "box"); err == nil || !strings.Contains(err.Error(), "can't reach") {
+		t.Errorf("client of a host without aws settings: %v", err)
+	}
+	// an unknown host is refused everywhere
+	for name, err := range map[string]error{
+		"get":        func() error { _, e := h.Get("demo", "nope"); return e }(),
+		"client":     func() error { _, e := h.Client("demo", "nope"); return e }(),
+		"token":      h.SetToken("demo", "nope", token),
+		"forget":     h.DeleteToken("demo", "nope"),
+		"disconnect": h.Disconnect("demo", "nope"),
+	} {
+		if !errors.Is(err, ErrNoHost) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if err := h.SetToken("demo", "box", "bad token"); err == nil {
+		t.Error("a token with a space in it")
+	}
+}
+
+type memStore map[string]string
+
+func (m memStore) Get(n string) (secrets.Value, error) {
+	v, ok := m[n]
+	if !ok {
+		return secrets.Value{}, secrets.ErrNotFound
+	}
+	return secrets.NewValue(v), nil
+}
+func (m memStore) Set(n string, v secrets.Value) error { m[n] = v.Reveal(); return nil }
+func (m memStore) Delete(n string) error               { delete(m, n); return nil }

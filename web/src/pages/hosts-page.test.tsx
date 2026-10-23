@@ -81,10 +81,13 @@ function mockServer(opts: Server = {}) {
           name: "acme",
           services: [
             { name: "api", image: "${API_IMAGE}", build: false, ports: ["8081:8081"], depends_on: [{ service: "postgres", condition: "service_healthy" }], healthcheck: { test: "wget -qO- http://localhost:8081/health" }, volumes: [], env: ["DB_PASSWORD", "LOG_LEVEL"] },
+            { name: "migrate", image: "acme/postgres:dev", build: true, ports: [], depends_on: [{ service: "postgres", condition: "service_completed_successfully" }, { service: "nats", condition: "service_started" }], healthcheck: { test: "", disabled: true }, volumes: [], env: [] },
+            { name: "nats", build: false, ports: [], depends_on: [], volumes: [], env: [] },
           ],
         });
       if (path === `${b}/stacks/infrabot/logs`) {
         const service = new URL(url, "http://x").searchParams.get("service");
+        if (service === "gateway") return json({ message: "the agent refused the saved token: save the token again" }, 502);
         if (service === "worker") return ndjson([{ service: "worker", error: "docker compose logs ended with code 1: no container" }]);
         return ndjson([
           { service: "api", ts: "2026-10-22T03:30:00Z", line: "api started" },
@@ -215,5 +218,46 @@ describe("the Remote hosts page", () => {
     const card = within(await screen.findByRole("region", { name: "Dev box" }));
     fireEvent.click(await card.findByRole("button", { name: "Disconnect" }));
     await waitFor(() => expect(sent("POST", "/disconnect")).toHaveLength(1));
+  });
+});
+
+describe("the Remote hosts page, the less common paths", () => {
+  it("shows the compose details of every kind of service", async () => {
+    mockServer({ hosts: [host({ tunnel: { open: true, users: 0 } })] });
+    renderHosts();
+    const stack = within(await screen.findByRole("region", { name: "Stack InfraBOT dev" }));
+    fireEvent.click(stack.getByRole("tab", { name: "Compose" }));
+    expect(await stack.findByText("postgres (done), nats")).toBeTruthy();
+    expect(stack.getByText("(built)")).toBeTruthy();
+    expect(stack.getByText("off")).toBeTruthy();
+  });
+
+  it("says why the logs of a service were refused", async () => {
+    mockServer({ hosts: [host({ tunnel: { open: true, users: 0 } })] });
+    renderHosts();
+    const stack = within(await screen.findByRole("region", { name: "Stack InfraBOT dev" }));
+    fireEvent.click(await stack.findByRole("button", { name: "Logs of gateway" }));
+    expect((await stack.findByRole("alert")).textContent).toContain("save the token again");
+  });
+
+  it("replaces a saved token, or keeps it on Cancel", async () => {
+    mockServer();
+    renderHosts();
+    const card = within(await screen.findByRole("region", { name: "Dev box" }));
+    fireEvent.click(card.getByRole("button", { name: "Replace token" }));
+    expect(card.getByLabelText("Agent token")).toBeTruthy();
+    fireEvent.click(card.getByRole("button", { name: "Cancel" }));
+    expect(card.getByText("Agent token saved in your OS keychain.")).toBeTruthy();
+  });
+
+  it("says when the hosts can't be read", async () => {
+    vi.stubGlobal("fetch", vi.fn((url: string) => {
+      const json = (v: unknown, status = 200) => Promise.resolve(Response.json(v, { status }));
+      if (url.endsWith("/health")) return json({ status: "ok", version: "test" });
+      if (url.endsWith("/hosts")) return json({ message: "boom" }, 500);
+      return json([]);
+    }));
+    renderHosts();
+    expect((await screen.findByRole("alert")).textContent).toContain("boom");
   });
 });

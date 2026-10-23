@@ -248,3 +248,30 @@ func TestHostErrorsSayWhatToDo(t *testing.T) {
 		t.Errorf("an unknown host = %d", rec.Code)
 	}
 }
+
+func TestHostRefusals(t *testing.T) {
+	e, _ := hostServer(t, "")
+	for _, tc := range []struct {
+		method, path string
+		want         int
+	}{
+		{http.MethodGet, "/api/v1/hosts/demo/nope", http.StatusNotFound},
+		{http.MethodDelete, "/api/v1/hosts/demo/nope/token", http.StatusNotFound},
+		{http.MethodPost, "/api/v1/hosts/demo/nope/disconnect", http.StatusNotFound},
+		{http.MethodGet, "/api/v1/hosts/demo/dev-box/stacks/apps/services", http.StatusConflict},
+		{http.MethodGet, "/api/v1/hosts/demo/dev-box/stacks/apps/compose", http.StatusConflict},
+		{http.MethodGet, "/api/v1/hosts/demo/dev-box/stacks/apps/logs", http.StatusConflict},
+	} {
+		if rec := postJSON(e, tc.method, tc.path, nil); rec.Code != tc.want {
+			t.Errorf("%s %s = %d, want %d (%s)", tc.method, tc.path, rec.Code, tc.want, rec.Body)
+		}
+	}
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/hosts/demo/dev-box/token", strings.NewReader("{not json"))
+	req.Host = "127.0.0.1:7070"
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("a body that isn't JSON = %d", rec.Code)
+	}
+}

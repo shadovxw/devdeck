@@ -144,64 +144,88 @@ export const maxHostLogLines = 2000;
  * maxHostLogLines lines.
  */
 export function useHostLogs(ws: string, host: string, stack: string, service: string, enabled: boolean) {
-  const url = `/api/v1${base(ws, host)}/stacks/${encodeURIComponent(stack)}/logs?tail=200${service ? `&service=${encodeURIComponent(service)}` : ""}`;
+  const url = logsURL(ws, host, stack, service);
   // The state belongs to one address: when the address changes, the old lines no longer count.
-  const [state, setState] = useState<{ url: string; lines: HostLogLine[]; error: string | null; live: boolean }>({ url: "", lines: [], error: null, live: false });
+  const [state, setState] = useState<LogState & { url: string }>({ url: "", lines: [], error: null, live: false });
 
   useEffect(() => {
     if (!enabled) return;
     const ctrl = new AbortController();
-    const update = (f: (s: { lines: HostLogLine[]; error: string | null; live: boolean }) => Partial<{ lines: HostLogLine[]; error: string | null; live: boolean }>) =>
+    const update = (f: (s: LogState) => Partial<LogState>) =>
       setState((prev) => {
         const cur = prev.url === url ? prev : { url, lines: [], error: null, live: false };
         return { ...cur, ...f(cur) };
       });
-    void (async () => {
-      try {
-        const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: "application/x-ndjson" } });
-        if (!res.ok || !res.body) {
-          let message = res.statusText || `HTTP ${res.status}`;
-          try {
-            const body = (await res.json()) as { message?: string };
-            if (body.message) message = body.message;
-          } catch {
-            // not JSON
-          }
-          update(() => ({ error: message }));
-          return;
-        }
-        update(() => ({ live: true }));
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = "";
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const batch: HostLogLine[] = [];
-          let i = buf.indexOf("\n");
-          while (i >= 0) {
-            const text = buf.slice(0, i).trim();
-            buf = buf.slice(i + 1);
-            if (text) {
-              try {
-                batch.push(JSON.parse(text) as HostLogLine);
-              } catch {
-                // a line that isn't JSON is skipped
-              }
-            }
-            i = buf.indexOf("\n");
-          }
-          if (batch.length > 0) update((cur) => ({ lines: [...cur.lines, ...batch].slice(-maxHostLogLines) }));
-        }
-        update(() => ({ live: false }));
-      } catch (e) {
-        if (!ctrl.signal.aborted) update(() => ({ error: e instanceof Error ? e.message : "the logs stopped", live: false }));
-      }
-    })();
+    void follow(url, ctrl.signal, update);
     return () => ctrl.abort();
   }, [url, enabled]);
 
   const mine = state.url === url;
   return { lines: mine ? state.lines : [], error: mine ? state.error : null, live: mine && state.live };
+}
+
+/** A line of the logs panel, with an id that stays the same while the list moves. */
+export type ShownLogLine = HostLogLine & { id: number };
+type LogState = { lines: ShownLogLine[]; error: string | null; live: boolean };
+
+function logsURL(ws: string, host: string, stack: string, service: string): string {
+  const q = new URLSearchParams({ tail: "200" });
+  if (service) q.set("service", service);
+  return `/api/v1${base(ws, host)}/stacks/${encodeURIComponent(stack)}/logs?${q.toString()}`;
+}
+
+/** The server's reason for a refused request, or its status. */
+async function refusal(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { message?: string };
+    if (body.message) return body.message;
+  } catch {
+    // not JSON
+  }
+  return res.statusText || `HTTP ${res.status}`;
+}
+
+let nextLineID = 1;
+
+/** Splits newline-delimited JSON into lines, keeping an unfinished last line for later. */
+export function splitLines(buf: string): { lines: ShownLogLine[]; rest: string } {
+  const parts = buf.split("\n");
+  const rest = parts.pop() ?? "";
+  const lines: ShownLogLine[] = [];
+  for (const part of parts) {
+    const text = part.trim();
+    if (!text) continue;
+    try {
+      lines.push({ ...(JSON.parse(text) as HostLogLine), id: nextLineID++ });
+    } catch {
+      // a line that isn't JSON is skipped
+    }
+  }
+  return { lines, rest };
+}
+
+/** Reads the stream into the state until it ends or the signal stops it. */
+async function follow(url: string, signal: AbortSignal, update: (f: (s: LogState) => Partial<LogState>) => void) {
+  try {
+    const res = await fetch(url, { signal, headers: { Accept: "application/x-ndjson" } });
+    if (!res.ok || !res.body) {
+      const message = await refusal(res);
+      update(() => ({ error: message }));
+      return;
+    }
+    update(() => ({ live: true }));
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const { lines, rest } = splitLines(buf + decoder.decode(value, { stream: true }));
+      buf = rest;
+      if (lines.length > 0) update((cur) => ({ lines: [...cur.lines, ...lines].slice(-maxHostLogLines) }));
+    }
+    update(() => ({ live: false }));
+  } catch (e) {
+    if (!signal.aborted) update(() => ({ error: e instanceof Error ? e.message : "the logs stopped", live: false }));
+  }
 }

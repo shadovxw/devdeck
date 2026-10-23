@@ -16,7 +16,7 @@ import (
 // toolNames are the names people use for the binaries.
 var toolNames = map[string]string{
 	"git": "Git", "docker": "Docker", "go": "Go", "node": "Node.js", "npm": "npm", "python": "Python",
-	"aws": "AWS CLI", "session-manager-plugin": "AWS Session Manager plugin",
+	toolAWS: "AWS CLI", toolSSMPlugin: "AWS Session Manager plugin",
 }
 
 // builtinNeeds covers toolchains that have no plugin yet. Phase 7's plugin
@@ -46,11 +46,11 @@ var builtinNeeds = map[string]sdk.Need{
 		{Method: "manual", Command: "https://docs.docker.com/get-docker/"},
 	}},
 	// Remote hosts are reached through an SSM session, which needs both.
-	"aws": {Binary: "aws", MinVersion: "2.0", Install: []sdk.InstallMethod{
+	toolAWS: {Binary: toolAWS, MinVersion: "2.0", Install: []sdk.InstallMethod{
 		{Method: "winget", Command: "winget install --id Amazon.AWSCLI -e"},
 		{Method: "manual", Command: "https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"},
 	}},
-	"session-manager-plugin": {Binary: "session-manager-plugin", VersionArgs: []string{"--version"}, Install: []sdk.InstallMethod{
+	toolSSMPlugin: {Binary: toolSSMPlugin, VersionArgs: []string{"--version"}, Install: []sdk.InstallMethod{
 		{Method: "winget", Command: "winget install --id Amazon.SessionManagerPlugin -e"},
 		{Method: "manual", Command: "https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html"},
 	}},
@@ -80,7 +80,7 @@ func (b *builder) needs() []sdk.Need {
 		want = append(want, "docker")
 	}
 	if b.checksHosts() {
-		want = append(want, "aws", "session-manager-plugin")
+		want = append(want, toolAWS, toolSSMPlugin)
 	}
 
 	var out []sdk.Need

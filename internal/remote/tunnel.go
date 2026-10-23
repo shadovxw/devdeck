@@ -319,43 +319,61 @@ func agentAnswers(port int) bool {
 // explain turns what the AWS CLI printed into a reason a person can act on. Nil when
 // nothing went wrong that it can tell.
 func explain(t Target, output []string, err error) error {
-	all := strings.ToLower(strings.Join(output, "\n"))
-	login := "aws sso login"
-	if t.Profile != "" {
-		login += " --profile " + t.Profile
-	}
-	switch {
-	case errors.Is(err, exec.ErrNotFound):
+	if errors.Is(err, exec.ErrNotFound) {
 		return errors.New("the AWS CLI isn't installed: install it, then sign in")
-	case strings.Contains(all, "sessionmanagerplugin is not found"):
-		return errors.New("the AWS Session Manager plugin isn't installed: winget install --id Amazon.SessionManagerPlugin -e")
-	case strings.Contains(all, "token has expired") || strings.Contains(all, "sso session") || strings.Contains(all, "error loading sso token") || strings.Contains(all, "unauthorizedssotokenerror") || strings.Contains(all, "token for") && strings.Contains(all, "does not exist"):
-		return fmt.Errorf("your AWS sign-in has expired: run `%s`", login)
-	case strings.Contains(all, "could not be found") && strings.Contains(all, "profile"):
-		return fmt.Errorf("the AWS profile %q isn't set up on this computer: run `aws configure sso`", t.Profile)
-	case strings.Contains(all, "accessdenied") || strings.Contains(all, "not authorized to perform"):
-		return errors.New("your AWS role may not start an SSM session on this instance (ssm:StartSession with AWS-StartPortForwardingSession)")
-	case strings.Contains(all, "targetnotconnected"):
-		return errors.New("the instance isn't connected to SSM: it is stopped, or its SSM agent isn't running")
-	case strings.Contains(all, "connection to destination port failed"):
-		return fmt.Errorf("the tunnel opened, but nothing answers on port %d on the host: is `devdeck agent` running there?", t.agentPort())
 	}
-	if err != nil || len(output) > 0 {
-		last := ""
-		for i := len(output) - 1; i >= 0; i-- {
-			if s := strings.TrimSpace(output[i]); s != "" {
-				last = s
-				break
+	if why := knownReason(t, strings.ToLower(strings.Join(output, "\n"))); why != nil {
+		return why
+	}
+	if err == nil {
+		return nil
+	}
+	if last := lastLine(output); last != "" {
+		return fmt.Errorf("the tunnel ended: %s", last)
+	}
+	return fmt.Errorf("the tunnel ended: %w", err)
+}
+
+// knownReason recognises what the AWS CLI and the plugin print when something is
+// missing or refused. Nil when it is none of those.
+func knownReason(t Target, all string) error {
+	has := func(words ...string) bool {
+		for _, w := range words {
+			if strings.Contains(all, w) {
+				return true
 			}
 		}
-		switch {
-		case err != nil && last != "":
-			return fmt.Errorf("the tunnel ended: %s", last)
-		case err != nil:
-			return fmt.Errorf("the tunnel ended: %w", err)
+		return false
+	}
+	switch {
+	case has("sessionmanagerplugin is not found"):
+		return errors.New("the AWS Session Manager plugin isn't installed: winget install --id Amazon.SessionManagerPlugin -e")
+	case has("token has expired", "sso session", "error loading sso token", "unauthorizedssotokenerror") || (has("token for") && has("does not exist")):
+		login := "aws sso login"
+		if t.Profile != "" {
+			login += " --profile " + t.Profile
 		}
+		return fmt.Errorf("your AWS sign-in has expired: run `%s`", login)
+	case has("could not be found") && has("profile"):
+		return fmt.Errorf("the AWS profile %q isn't set up on this computer: run `aws configure sso`", t.Profile)
+	case has("accessdenied", "not authorized to perform"):
+		return errors.New("your AWS role may not start an SSM session on this instance (ssm:StartSession with AWS-StartPortForwardingSession)")
+	case has("targetnotconnected"):
+		return errors.New("the instance isn't connected to SSM: it is stopped, or its SSM agent isn't running")
+	case has("connection to destination port failed"):
+		return fmt.Errorf("the tunnel opened, but nothing answers on port %d on the host: is `devdeck agent` running there?", t.agentPort())
 	}
 	return nil
+}
+
+// lastLine is the last line that isn't blank.
+func lastLine(output []string) string {
+	for i := len(output) - 1; i >= 0; i-- {
+		if s := strings.TrimSpace(output[i]); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 // State is the tunnel of a key, for the page.

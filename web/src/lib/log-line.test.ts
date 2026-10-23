@@ -36,3 +36,14 @@ describe("readLine", () => {
     expect(readLine("{not json}").message).toBe("{not json}");
   });
 });
+
+describe("splitLines", () => {
+  it("splits newline-delimited JSON, keeps an unfinished line, skips what isn't JSON, and numbers the lines", async () => {
+    const { splitLines } = await import("./hosts");
+    const a = splitLines('{"line":"one"}\nnot json\n\n{"line":"two"}\n{"line":"thr');
+    expect(a.lines.map((l) => l.line)).toEqual(["one", "two"]);
+    expect(a.rest).toBe('{"line":"thr');
+    expect(a.lines[1].id).toBeGreaterThan(a.lines[0].id);
+    expect(splitLines(a.rest + 'ee"}\n').lines.map((l) => l.line)).toEqual(["three"]);
+  });
+});

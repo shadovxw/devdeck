@@ -17,6 +17,7 @@ import {
   useHostServices,
   useSaveHostToken,
   type AgentStack,
+  type ComposeService,
   type HostView,
   type RemoteContainer,
 } from "../lib/hosts";
@@ -26,7 +27,7 @@ import { stagger } from "../lib/motion";
 // A state is never colour alone: each has its own shape and a word.
 type Shape = "dot" | "ring" | "triangle" | "square";
 
-function Mark({ shape, color, label, hint }: { shape: Shape; color: string; label: string; hint?: string }) {
+function Mark({ shape, color, label, hint }: Readonly<{ shape: Shape; color: string; label: string; hint?: string }>) {
   return (
     <span className="inline-flex items-center gap-2 text-ink-2" title={hint}>
       <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="shrink-0">
@@ -58,9 +59,9 @@ function ports(c: RemoteContainer): string {
 const th = "px-4 py-2 text-start text-[13px] font-medium text-ink-3";
 const td = "px-4 py-2 align-top";
 
-function Services({ host, stack, onLogs }: { host: HostView; stack: string; onLogs: (service: string) => void }) {
+function Services({ host, stack, onLogs }: Readonly<{ host: HostView; stack: string; onLogs: (service: string) => void }>) {
   const q = useHostServices(host.workspace, host.id, stack, true);
-  if (q.isPending) return <div role="status" aria-label="Loading services" className="skeleton h-24 w-full" />;
+  if (q.isPending) return <output aria-label="Loading services" className="skeleton block h-24 w-full" />;
   if (q.isError) return <p role="alert" className="m-0 text-[13px] text-critical">{q.error.message}</p>;
   if (q.data.length === 0) return <p className="m-0 text-[13px] text-ink-3">No container of this stack exists on the host. It hasn’t been brought up.</p>;
   return (
@@ -102,9 +103,9 @@ function Services({ host, stack, onLogs }: { host: HostView; stack: string; onLo
   );
 }
 
-function Compose({ host, stack }: { host: HostView; stack: string }) {
+function Compose({ host, stack }: Readonly<{ host: HostView; stack: string }>) {
   const q = useHostCompose(host.workspace, host.id, stack, true);
-  if (q.isPending) return <div role="status" aria-label="Loading the compose file" className="skeleton h-24 w-full" />;
+  if (q.isPending) return <output aria-label="Loading the compose file" className="skeleton block h-24 w-full" />;
   if (q.isError) return <p role="alert" className="m-0 text-[13px] text-critical">{q.error.message}</p>;
   return (
     <div className="overflow-x-auto">
@@ -129,10 +130,10 @@ function Compose({ host, stack }: { host: HostView; stack: string }) {
                 {s.build && <span className="ms-2 text-ink-3">(built)</span>}
               </td>
               <td className={`${td} text-[13px] text-ink-2`}>
-                {s.depends_on.length === 0 ? "—" : s.depends_on.map((d) => `${d.service}${d.condition === "service_healthy" ? " (healthy)" : d.condition === "service_completed_successfully" ? " (done)" : ""}`).join(", ")}
+                {waitsFor(s)}
               </td>
               <td className={`${td} max-w-[16rem] truncate font-mono text-[12px] text-ink-3`} title={s.healthcheck?.test}>
-                {s.healthcheck ? (s.healthcheck.disabled ? "off" : s.healthcheck.test) : "—"}
+                {healthText(s)}
               </td>
               <td className={`${td} font-mono text-[12px] text-ink-2`}>{s.ports.join(", ") || "—"}</td>
               <td className={`${td} text-[13px] text-ink-2`} title={s.env.join("\n")}>
@@ -146,13 +147,29 @@ function Compose({ host, stack }: { host: HostView; stack: string }) {
   );
 }
 
+function waitsFor(s: ComposeService): string {
+  if (s.depends_on.length === 0) return "—";
+  const why: Record<string, string> = { service_healthy: " (healthy)", service_completed_successfully: " (done)" };
+  return s.depends_on.map((d) => d.service + (why[d.condition] ?? "")).join(", ");
+}
+
+function healthText(s: ComposeService): string {
+  if (!s.healthcheck) return "—";
+  return s.healthcheck.disabled ? "off" : s.healthcheck.test;
+}
+
+function logStatus(error: string | null, live: boolean, count: number): string {
+  if (error) return "";
+  return live ? `Live · ${count} lines` : "Connecting…";
+}
+
 function clock(ts?: string): string {
   if (!ts) return "";
   const d = new Date(ts);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour12: false });
 }
 
-function Logs({ host, stack, services, service, setService }: { host: HostView; stack: string; services: string[]; service: string; setService: (s: string) => void }) {
+function Logs({ host, stack, services, service, setService }: Readonly<{ host: HostView; stack: string; services: string[]; service: string; setService: (s: string) => void }>) {
   const { lines, error, live } = useHostLogs(host.workspace, host.id, stack, service, true);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -173,9 +190,7 @@ function Logs({ host, stack, services, service, setService }: { host: HostView; 
             </option>
           ))}
         </select>
-        <span role="status" className="text-[12px] text-ink-3">
-          {error ? "" : live ? `Live · ${lines.length} lines` : "Connecting…"}
-        </span>
+        <output className="text-[12px] text-ink-3">{logStatus(error, live, lines.length)}</output>
       </div>
       {error && (
         <p role="alert" className="m-0 text-[13px] text-critical">
@@ -184,10 +199,10 @@ function Logs({ host, stack, services, service, setService }: { host: HostView; 
       )}
       <div ref={box} aria-label="Log lines" className="max-h-[28rem] min-h-[8rem] overflow-auto rounded-ctl bg-inset p-3 font-mono text-[12px] leading-5">
         {lines.length === 0 && !error && <span className="text-ink-3">Waiting for lines…</span>}
-        {lines.map((l, i) => {
+        {lines.map((l) => {
           if (l.error) {
             return (
-              <div key={i} className="py-0.5 text-critical">
+              <div key={l.id} className="py-0.5 text-critical">
                 {l.service ? `${l.service}: ` : ""}
                 {l.error}
               </div>
@@ -195,7 +210,7 @@ function Logs({ host, stack, services, service, setService }: { host: HostView; 
           }
           const r = readLine(l.line ?? "");
           return (
-            <div key={i} className="flex items-baseline gap-3 border-b border-line/40 py-1 last:border-0">
+            <div key={l.id} className="flex items-baseline gap-3 border-b border-line/40 py-1 last:border-0">
               <span className="w-[4.5rem] shrink-0 text-ink-3 tabular-nums">{clock(l.ts)}</span>
               {!service && (
                 <span className="w-[11rem] shrink-0 truncate text-accent" title={l.service}>
@@ -226,11 +241,11 @@ function Logs({ host, stack, services, service, setService }: { host: HostView; 
 
 type View = "services" | "compose" | "logs";
 
-function StackPanel({ host, stack }: { host: HostView; stack: AgentStack }) {
+function StackPanel({ host, stack }: Readonly<{ host: HostView; stack: AgentStack }>) {
   const [view, setView] = useState<View>("services");
   const [service, setService] = useState("");
   const services = useHostServices(host.workspace, host.id, stack.id, true);
-  const names = [...new Set((services.data ?? []).map((c) => c.Service))].sort();
+  const names = [...new Set((services.data ?? []).map((c) => c.Service))].sort((a, b) => a.localeCompare(b));
   const tab = (v: View, label: string) => (
     <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={view === v ? pillPrimary : pill}>
       {label}
@@ -267,7 +282,7 @@ function StackPanel({ host, stack }: { host: HostView; stack: AgentStack }) {
   );
 }
 
-function TokenForm({ host }: { host: HostView }) {
+function TokenForm({ host }: Readonly<{ host: HostView }>) {
   const save = useSaveHostToken(host.workspace, host.id);
   const forget = useForgetHostToken(host.workspace, host.id);
   const [editing, setEditing] = useState(false);
@@ -326,7 +341,7 @@ function TokenForm({ host }: { host: HostView }) {
   );
 }
 
-function HostCard({ host }: { host: HostView }) {
+function HostCard({ host }: Readonly<{ host: HostView }>) {
   const [connect, setConnect] = useState(host.tunnel.open);
   const enabled = host.token_set && (connect || host.tunnel.open);
   const info = useHostInfo(host.workspace, host.id, enabled);
@@ -418,7 +433,7 @@ export function HostsPage() {
     return (
       <>
         {header}
-        <div role="status" aria-label="Loading…" className="skeleton mt-4 h-40 w-full" />
+        <output aria-label="Loading…" className="skeleton mt-4 block h-40 w-full" />
       </>
     );
   }

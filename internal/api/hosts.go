@@ -131,12 +131,17 @@ func registerHosts(g *echo.Group, h *remote.Hosts) {
 		return c.JSON(http.StatusOK, v)
 	})
 
-	// GET .../stacks/:stack/logs?service=&tail= follows the logs as newline-delimited JSON
-	// until the page goes away, reconnecting (and reopening the tunnel) when it drops.
-	one.GET("/stacks/:stack/logs", func(c echo.Context) error {
-		cl, err := client(c)
+	one.GET("/stacks/:stack/logs", hostLogs(h))
+}
+
+// hostLogs is GET .../stacks/:stack/logs?service=&tail=: it follows the logs as
+// newline-delimited JSON until the page goes away, reconnecting (and reopening the
+// tunnel) when it drops.
+func hostLogs(h *remote.Hosts) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		cl, err := h.Client(c.Param("ws"), c.Param("host"))
 		if err != nil {
-			return err
+			return hostError(err)
 		}
 		tail := 200
 		if v := c.QueryParam("tail"); v != "" {
@@ -149,24 +154,16 @@ func registerHosts(g *echo.Group, h *remote.Hosts) {
 		q := remote.LogQuery{Stack: c.Param("stack"), Service: c.QueryParam("service"), Tail: tail}
 		ctx := c.Request().Context()
 
-		// The first connection decides the answer: a refusal is an error status, not a stream.
-		w := c.Response()
-		started := false
-		begin := func() {
-			if started {
-				return
-			}
-			started = true
-			w.Header().Set(echo.HeaderContentType, "application/x-ndjson")
-			w.Header().Set("Cache-Control", "no-store")
-			w.WriteHeader(http.StatusOK)
-			w.Flush()
-		}
-		enc := json.NewEncoder(w)
+		// Reaching the agent first decides the answer: a refusal is an error status, not a stream.
 		if _, err := cl.Info(ctx); err != nil {
 			return hostError(err)
 		}
-		begin()
+		w := c.Response()
+		w.Header().Set(echo.HeaderContentType, "application/x-ndjson")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		w.Flush()
+		enc := json.NewEncoder(w)
 		err = cl.Follow(ctx, q, func(l agent.LogLine) {
 			_ = enc.Encode(l)
 			w.Flush()
@@ -176,5 +173,5 @@ func registerHosts(g *echo.Group, h *remote.Hosts) {
 			w.Flush()
 		}
 		return nil
-	})
+	}
 }
