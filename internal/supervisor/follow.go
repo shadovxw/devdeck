@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shadovxw/devdeck/internal/compose"
 	"github.com/shadovxw/devdeck/sdk/proc"
 )
 
@@ -166,18 +167,6 @@ func followArgs(c ComposeSpec, service string, since time.Time) []string {
 	}
 }
 
-// parseLogLine splits "<RFC 3339 time> <text>", the shape of `docker compose logs
-// --timestamps` without a prefix. A line that doesn't start with a time is kept
-// whole and stamped with the present.
-func parseLogLine(line string) (time.Time, string) {
-	if i := strings.IndexByte(line, ' '); i > 0 {
-		if at, err := time.Parse(time.RFC3339Nano, line[:i]); err == nil {
-			return at, line[i+1:]
-		}
-	}
-	return time.Now(), line
-}
-
 // dockerComposeFollow runs `docker compose logs -f` for one service until ctx ends
 // or Docker stops it.
 func (s *Supervisor) dockerComposeFollow(ctx context.Context, c ComposeSpec, service string, since time.Time, line func(time.Time, string)) error {
@@ -185,7 +174,7 @@ func (s *Supervisor) dockerComposeFollow(ctx context.Context, c ComposeSpec, ser
 		Name: "docker", Args: followArgs(c, service, since), Dir: c.Dir,
 		OnLine: func(st proc.Stream, text string) {
 			if st == proc.Stdout {
-				line(parseLogLine(text))
+				line(compose.ParseLogLine(text))
 			}
 		},
 	})

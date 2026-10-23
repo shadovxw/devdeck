@@ -10,12 +10,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/shadovxw/devdeck/internal/agent"
 	"github.com/shadovxw/devdeck/internal/api"
 	"github.com/shadovxw/devdeck/internal/cli"
 	"github.com/shadovxw/devdeck/internal/config"
@@ -23,6 +25,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/events"
 	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/logs"
+	"github.com/shadovxw/devdeck/internal/remote"
 	"github.com/shadovxw/devdeck/internal/store"
 	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
@@ -44,6 +47,20 @@ func main() {
 	// it exits at once. It never starts the server and never fails git.
 	if len(os.Args) > 1 && os.Args[1] == "git-credential" {
 		os.Exit(gitx.Command(os.Args[2:], os.Stdin, os.Stdout, os.Stderr, os.Getenv))
+	}
+
+	// devdeck agent runs on a remote host, next to its compose stacks; devdeck remote
+	// talks to one through an open tunnel, for checking it by hand.
+	if len(os.Args) > 1 && (os.Args[1] == "agent" || os.Args[1] == "remote") {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		var code int
+		if os.Args[1] == "agent" {
+			code = agent.Command(ctx, os.Args[2:], os.Stdout, os.Stderr, version)
+		} else {
+			code = remote.Command(ctx, os.Args[2:], os.Stdout, os.Stderr, os.Getenv)
+		}
+		stop()
+		os.Exit(code)
 	}
 
 	// devdeck up | down | status talk to the running server and exit.

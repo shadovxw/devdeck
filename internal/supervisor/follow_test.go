@@ -215,18 +215,3 @@ func TestFollowArgs(t *testing.T) {
 		t.Errorf("args = %v", got)
 	}
 }
-
-func TestParseLogLine(t *testing.T) {
-	at, text := parseLogLine("2026-10-22T03:30:00.5Z started  in 3s")
-	if !at.Equal(time.Date(2026, 10, 22, 3, 30, 0, 500_000_000, time.UTC)) || text != "started  in 3s" {
-		t.Errorf("got %v %q", at, text)
-	}
-	if _, text := parseLogLine("2026-10-22T03:30:00Z"); text != "2026-10-22T03:30:00Z" {
-		t.Errorf("a line that is only a time has no text to split off, got %q", text)
-	}
-	before := time.Now()
-	at, text = parseLogLine("no timestamp here")
-	if text != "no timestamp here" || at.Before(before) {
-		t.Errorf("a line with no time is kept whole and stamped now, got %v %q", at, text)
-	}
-}
