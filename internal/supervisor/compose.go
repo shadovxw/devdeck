@@ -1,30 +1,17 @@
 package supervisor
 
 import (
-	"bytes"
-	"encoding/json"
 	"slices"
-)
 
-// composeContainer is the part of one line of `docker compose ps --format json`
-// that decides whether a container is where `up --wait` should leave it.
-type composeContainer struct {
-	Service  string `json:"Service"`
-	State    string `json:"State"`
-	Health   string `json:"Health"`
-	ExitCode int    `json:"ExitCode"`
-	// Publishers are the ports the container publishes on the host.
-	Publishers []struct {
-		PublishedPort int `json:"PublishedPort"`
-	} `json:"Publishers"`
-}
+	"github.com/shadovxw/devdeck/internal/compose"
+)
 
 // composePorts lists, sorted and without repeats, the host ports published by the
 // containers of the wanted services in the output of `docker compose ps --format json`.
 func composePorts(out string, want []string) []int {
 	seen := map[int]bool{}
 	var ports []int
-	for _, c := range parseComposePS(out) {
+	for _, c := range compose.ParsePS(out) {
 		if !slices.Contains(want, c.Service) {
 			continue
 		}
@@ -55,7 +42,7 @@ func composeSettled(out string, want []string) bool {
 		return false
 	}
 	seen := map[string]bool{}
-	for _, c := range parseComposePS(out) {
+	for _, c := range compose.ParsePS(out) {
 		if !slices.Contains(want, c.Service) {
 			continue
 		}
@@ -73,33 +60,4 @@ func composeSettled(out string, want []string) bool {
 		}
 	}
 	return true
-}
-
-// parseComposePS accepts both shapes Compose has printed: one JSON array, or one
-// JSON object per line.
-func parseComposePS(out string) []composeContainer {
-	data := bytes.TrimSpace([]byte(out))
-	if len(data) == 0 {
-		return nil
-	}
-	if data[0] == '[' {
-		var list []composeContainer
-		if json.Unmarshal(data, &list) != nil {
-			return nil
-		}
-		return list
-	}
-	var list []composeContainer
-	for _, line := range bytes.Split(data, []byte("\n")) {
-		line = bytes.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-		var c composeContainer
-		if json.Unmarshal(line, &c) != nil {
-			return nil
-		}
-		list = append(list, c)
-	}
-	return list
 }
