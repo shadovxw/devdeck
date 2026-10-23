@@ -50,6 +50,16 @@ func TestLoaderSendsTheWindowToTheServer(t *testing.T) {
 	}
 }
 
+func TestInstanceKeyIsPerAddress(t *testing.T) {
+	a, b := instanceKey("127.0.0.1:7070"), instanceKey("127.0.0.1:7099")
+	if a == b || a != "com.shadovxw.devdeck.127.0.0.1-7070" {
+		t.Errorf("keys %q %q", a, b)
+	}
+	if strings.ContainsAny(instanceKey("[::1]:7070"), ":[]/\\") {
+		t.Errorf("a lock name has no separators: %q", instanceKey("[::1]:7070"))
+	}
+}
+
 func TestIsDevdeck(t *testing.T) {
 	devdeck := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/health" {

@@ -27,6 +27,11 @@ import (
 var version = "dev"
 
 func main() {
+	// The desktop build opens its window when it is started with no command, as a
+	// double click does. devdeck serve is still the headless server.
+	if len(os.Args) == 1 && desktop.DefaultToWindow {
+		os.Args = append(os.Args, "app")
+	}
 	// devdeck --pick-folder shows one folder dialog and exits. The server starts
 	// itself this way, so the dialog can always be closed by ending the process.
 	if len(os.Args) > 1 && os.Args[1] == dialog.ChildArg {
