@@ -18,6 +18,21 @@ type repoRow struct {
 	WorkspaceName string `json:"workspace_name"`
 	Repo          string `json:"repo"`
 	gitx.RepoStatus
+	// Work is where the repository stands; it is left out when the folder isn't a repository.
+	Work *gitx.Work `json:"work,omitempty"`
+	// Commands are the git commands the page offers (fetch, pull, push), as you would type them.
+	Commands map[string]string `json:"commands,omitempty"`
+	// Clone is set for a repository whose folder is missing and whose workspace names a remote that can be cloned.
+	Clone *cloneInfo `json:"clone,omitempty"`
+
+	// remote is the address the workspace gives, kept out of the JSON.
+	remote string
+}
+
+// cloneInfo is what the page needs to offer cloning a missing repository.
+type cloneInfo struct {
+	Remote  string `json:"remote"`
+	Command string `json:"command"`
 }
 
 type confirmBody struct {
@@ -42,7 +57,7 @@ func localRepos(m *workspace.Manager) []repoRow {
 			if !ok {
 				continue
 			}
-			rows = append(rows, repoRow{Workspace: sum.ID, WorkspaceName: d.Workspace.Name, Repo: r.ID, RepoStatus: gitx.RepoStatus{Path: dir}})
+			rows = append(rows, repoRow{Workspace: sum.ID, WorkspaceName: d.Workspace.Name, Repo: r.ID, RepoStatus: gitx.RepoStatus{Path: dir}, remote: r.Remote})
 		}
 	}
 	return rows
@@ -59,9 +74,37 @@ func inspectAll(ctx context.Context, svc *gitx.Service, rows []repoRow, cfg gitx
 			defer wg.Done()
 			defer func() { <-slots }()
 			rows[i].RepoStatus = svc.Git.Inspect(ctx, rows[i].Path, cfg)
+			fillWork(ctx, svc, &rows[i])
 		}()
 	}
 	wg.Wait()
+}
+
+// fillWork adds where a repository stands and the commands for it, or, for a folder that
+// isn't there, how it would be cloned.
+func fillWork(ctx context.Context, svc *gitx.Service, row *repoRow) {
+	if row.State == gitx.StateMissing {
+		if remote, ok := gitx.CloneAddress(row.remote); ok {
+			row.Clone = &cloneInfo{Remote: remote, Command: gitx.CloneCommand(remote, row.Path)}
+		}
+		return
+	}
+	w, err := svc.Git.Work(ctx, row.Path)
+	if err != nil {
+		return
+	}
+	row.Work = &w
+	row.Commands = gitx.Commands(row.Path, w)
+}
+
+// repoLocks keeps two operations from running in one repository at the same time.
+var repoLocks sync.Map
+
+func lockRepo(path string) func() {
+	l, _ := repoLocks.LoadOrStore(path, &sync.Mutex{})
+	mu := l.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
 }
 
 // registerGit adds the routes for git accounts: who gh is signed in as, the connections
@@ -224,4 +267,84 @@ func registerGit(g *echo.Group, svc *gitx.Service, m *workspace.Manager) {
 		}
 		return echo.NewHTTPError(http.StatusNotFound, "no such repository")
 	})
+
+	// POST /git/repos/op runs fetch, pull, push or clone in one repository. Everything but fetch
+	// changes files or the remote, so it needs {"confirm": true}. It never forces a push.
+	gg.POST("/repos/op", func(c echo.Context) error {
+		var body struct {
+			Workspace string `json:"workspace"`
+			Repo      string `json:"repo"`
+			Op        string `json:"op"`
+			Confirm   bool   `json:"confirm"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return bindError(err)
+		}
+		if body.Op != gitx.OpFetch && body.Op != gitx.OpPull && body.Op != gitx.OpPush && body.Op != opClone {
+			return echo.NewHTTPError(http.StatusBadRequest, "the operation must be fetch, pull, push or clone")
+		}
+		if body.Op != gitx.OpFetch && !body.Confirm {
+			return echo.NewHTTPError(http.StatusBadRequest, "this changes your files or the remote: send {\"confirm\": true} to go ahead")
+		}
+		cfg, err := svc.Store.Load()
+		if err != nil {
+			return fail(c, err, "the git accounts couldn't be read")
+		}
+		var row *repoRow
+		rows := localRepos(m)
+		for i := range rows {
+			if rows[i].Workspace == body.Workspace && rows[i].Repo == body.Repo {
+				row = &rows[i]
+			}
+		}
+		if row == nil {
+			return echo.NewHTTPError(http.StatusNotFound, "no such repository")
+		}
+		ctx := c.Request().Context()
+		defer lockRepo(row.Path)()
+
+		output, err := runRepoOp(ctx, svc, cfg, row, body.Op)
+		if err != nil {
+			return err
+		}
+		row.RepoStatus = svc.Git.Inspect(ctx, row.Path, cfg)
+		fillWork(ctx, svc, row)
+		return c.JSON(http.StatusOK, map[string]any{"output": output, "repo": row})
+	})
+}
+
+const opClone = "clone"
+
+// runRepoOp runs one operation and turns a refusal or a git failure into an HTTP error.
+func runRepoOp(ctx context.Context, svc *gitx.Service, cfg gitx.Config, row *repoRow, name string) (string, error) {
+	if name == opClone {
+		remote, ok := gitx.CloneAddress(row.remote)
+		if !ok {
+			return "", echo.NewHTTPError(http.StatusUnprocessableEntity, "the workspace gives no https github.com address for this repository")
+		}
+		var cn *gitx.Connection
+		if rm, ok := gitx.ParseRemote(remote); ok {
+			if found, ok := cfg.ConnectionFor(rm); ok {
+				cn = &found
+			}
+		}
+		out, err := svc.Git.Clone(ctx, remote, row.Path, cn)
+		if err != nil {
+			return "", echo.NewHTTPError(http.StatusBadGateway, err.Error())
+		}
+		return out, nil
+	}
+	w, err := svc.Git.Work(ctx, row.Path)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error())
+	}
+	op, err := gitx.Plan(name, row.Path, w)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error())
+	}
+	out, err := svc.Git.Run(ctx, row.Path, op)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusBadGateway, err.Error())
+	}
+	return out, nil
 }

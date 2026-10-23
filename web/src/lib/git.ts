@@ -41,6 +41,19 @@ export type GitSetup = {
 
 export type RepoState = "ok" | "wrong-identity" | "no-rule" | "no-remote" | "missing" | "other-host";
 
+/** Where a repository stands: its branch, how it compares with its upstream and how many files have changes. */
+export type RepoWork = {
+  branch: string;
+  detached: boolean;
+  upstream: string;
+  ahead: number;
+  behind: number;
+  changed: number;
+};
+
+/** The git operations the Repositories page runs. Clone is for a repository whose folder is missing. */
+export type RepoOpName = "fetch" | "pull" | "push" | "clone";
+
 export type GitRepo = {
   workspace: string;
   workspace_name: string;
@@ -51,6 +64,12 @@ export type GitRepo = {
   expected: { name: string; email: string };
   actual: { name: string; email: string };
   state: RepoState;
+  /** Absent when the folder isn't a git repository. */
+  work?: RepoWork;
+  /** The exact commands fetch, pull and push would run, for the ones that can run now. */
+  commands?: Partial<Record<"fetch" | "pull" | "push", string>>;
+  /** Set when the folder is missing and the workspace names an address that can be cloned. */
+  clone?: { remote: string; command: string };
 };
 
 const keys = { git: ["git"] as const, setup: ["git", "setup"] as const, repos: ["git", "repos"] as const };
@@ -101,6 +120,18 @@ export function useChangeSetup(action: "apply" | "undo") {
 
 export function useGitRepos() {
   return useQuery({ queryKey: keys.repos, queryFn: ({ signal }) => api.get<GitRepo[]>("/git/repos", signal) });
+}
+
+/** Runs fetch, pull, push or clone in one repository. The server wants the confirmation for everything but fetch, so it is sent with them. */
+export function useRepoOp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (r: { workspace: string; repo: string; op: RepoOpName }) =>
+      api.post<{ output: string; repo: GitRepo }>("/git/repos/op", { ...r, confirm: r.op !== "fetch" }),
+    onSuccess: ({ repo }) => {
+      qc.setQueryData<GitRepo[]>(keys.repos, (rows) => rows?.map((x) => (x.workspace === repo.workspace && x.repo === repo.repo ? repo : x)));
+    },
+  });
 }
 
 /** Writes the connection's name and email into one repository's own git config. */
