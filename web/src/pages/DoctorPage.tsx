@@ -16,6 +16,7 @@ const GROUPS: Array<{ id: DoctorCheck["group"]; label: string }> = [
   { id: "repos", label: "Repos" },
   { id: "stacks", label: "Stacks" },
   { id: "git", label: "Git" },
+  { id: "hosts", label: "Remote hosts" },
 ];
 
 const select =

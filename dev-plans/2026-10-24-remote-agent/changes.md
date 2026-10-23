@@ -31,3 +31,26 @@ On Windows with Docker Desktop (there is no Docker inside WSL here), with a thro
 ### Not in this PR
 
 Hosts in the workspace, the SSM tunnel, the web pages (PR 2); start, stop and the other writes (PR 3); versions (PR 4); the bootstrap script and release builds (PR 5).
+
+## PR 2: hosts, the SSM tunnel and the Remote hosts page (in progress)
+
+### Built so far (not committed)
+
+- **Hosts in `workspace.yaml`**: `hosts: [{id, name, type: aws-ssm, aws: {instance, region, profile}, agent_port}]`, in the types, the JSON schema (instance, region and profile patterns) and the checks (an id used twice; an aws-ssm host without `aws`).
+- **`remote.Tunnels`**: every connection to an agent goes through a dialer that opens `aws ssm start-session --document-name AWS-StartPortForwardingSession` on demand, waits until the agent answers, keeps the same local port across restarts, restarts a tunnel that died, and closes one that nobody used for 5 minutes. What the AWS CLI prints is turned into what to do: sign in again (`aws sso login --profile ...`), install the plugin, a profile that isn't set up, a role that may not start a session, an instance not connected to SSM, nothing listening on the agent's port.
+- **`remote.Hosts`**: lists the hosts of local workspaces, keeps each token in the OS keychain (`host/<workspace>/<host>`), never returns it, and makes clients through the tunnel.
+- **API** `/api/v1/hosts`: list; `GET /:ws/:host`; `PUT|DELETE /:ws/:host/token` (write-only); `POST .../disconnect`; `GET .../info`; `GET .../stacks/:stack/services|compose`; `GET .../stacks/:stack/logs` (newline-delimited JSON, kept going across tunnel drops).
+- **Doctor**: the AWS CLI and the Session Manager plugin as tools when the workspace has hosts (whole-workspace runs only, never a stack's preflight), and a "Signed in to AWS as profile ..." check per profile (`aws sts get-caller-identity`), in a new "Remote hosts" group.
+- **Web**: a **Remote hosts** page (`/hosts`, its own "Run remotely" group): each host with its instance, region and profile, connection state (shape and word), the token form (password field, saved to the keychain, Replace and Forget), Connect / Try again / Disconnect, the reason when it can't connect, and per stack: Services (state, health, image, ports, a Logs button per row), Compose (variable names only) and live Logs (all services or one).
+- Tests: workspace hosts, tunnel (fake AWS CLI serving a real agent: shared tunnel, idle close and reopen on the same port, a connection in use keeps it open, a dead tunnel restarts, every failure explained), the hosts API end to end, Doctor, and the page (8 tests). Go and web suites pass (one supervisor test, untouched here, flaked once under load and passes alone).
+
+### Found by trying it
+
+- **The plugin installed after devdeck started wasn't found.** The AWS CLI runs `session-manager-plugin` from the PATH, and the PATH devdeck has is the one of the terminal that started it. `sdk.ToolPath` now also looks where the installers put the AWS CLI and the plugin (`%ProgramFiles%\Amazon\...` on Windows, `/usr/local/...` elsewhere); the tunnel adds the plugin's folder to the PATH it gives the AWS CLI, and Doctor's tool checks and the sign-in check use the same lookup, so they don't call an installed tool missing.
+- **The reason a tunnel failed came wrapped in HTTP wording** ("the agent couldn't be reached (is the tunnel open?): Get "http://127.0.0.1/v1/info": ..."). Tunnel failures are now a `TunnelError` that the client passes on as it is.
+- Checked for real: an SSM port forward to the instance opens with the `devdeck` SSO profile; with no agent there yet, the plugin reports "Connection to destination port failed", which devdeck turns into "is `devdeck agent` running there?".
+
+### Still to do
+
+- A real check against the instance: in this shell, `aws ssm start-session` said the Session Manager plugin isn't found (installed after this shell started, or not yet installed). Then put the agent on the instance (read-only) and connect from the page.
+- The install steps for the agent on the instance (binary from a pre-release, `agent.yaml`, token, run it).

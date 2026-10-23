@@ -65,7 +65,11 @@ func (c *Client) do(ctx context.Context, path string, q url.Values) (*http.Respo
 	}
 	req.Header.Set("Authorization", "Bearer "+c.Token)
 	res, err := c.http().Do(req)
-	if err != nil {
+	var tunnel *TunnelError
+	switch {
+	case errors.As(err, &tunnel):
+		return nil, tunnel
+	case err != nil:
 		return nil, fmt.Errorf("the agent couldn't be reached (is the tunnel open?): %w", err)
 	}
 	if res.StatusCode != http.StatusOK {

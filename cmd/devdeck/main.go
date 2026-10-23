@@ -26,6 +26,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/remote"
+	"github.com/shadovxw/devdeck/internal/secrets"
 	"github.com/shadovxw/devdeck/internal/store"
 	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
@@ -128,6 +129,16 @@ func run() error {
 		Logs:    logSink,
 	})
 
+	workspaces := &workspace.Manager{
+		Dir:         cfg.WorkspacesDir,
+		ExamplesDir: cfg.ExamplesDir,
+		ScanRoots:   cfg.ScanRoots,
+		Plugins:     func() []string { return pluginIDs(registry) },
+	}
+	// Remote hosts: their tokens in the OS keychain, their SSM tunnels opened when needed.
+	tunnels := &remote.Tunnels{}
+	defer tunnels.Close()
+
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -141,12 +152,8 @@ func run() error {
 		Logs:         logStore,
 		GitX:         gitx.NewService(cfg.DataDir, exePath()),
 		FolderPicker: dialog.PickFolder,
-		Workspaces: &workspace.Manager{
-			Dir:         cfg.WorkspacesDir,
-			ExamplesDir: cfg.ExamplesDir,
-			ScanRoots:   cfg.ScanRoots,
-			Plugins:     func() []string { return pluginIDs(registry) },
-		},
+		Workspaces:   workspaces,
+		Hosts:        &remote.Hosts{Workspaces: workspaces, Secrets: secrets.NewKeyring(), Tunnels: tunnels},
 	})
 
 	serverErr := make(chan error, 1)

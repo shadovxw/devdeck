@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/shadovxw/devdeck/internal/workspace"
@@ -20,6 +21,9 @@ type fake struct {
 	busy     map[int]bool
 	down     map[string]bool   // host:port that does not answer
 	git      map[string]string // "dir|key" -> value; dir "" is the global config
+	aws      map[string]error  // profile -> what get-caller-identity says (nil: signed in)
+	awsAsked []string
+	mu       sync.Mutex
 }
 
 func newFake() *fake {
@@ -50,6 +54,12 @@ func (f *fake) probes() Probes {
 		PortFree:  func(port int) bool { return !f.busy[port] },
 		Dial:      func(_ context.Context, addr string) bool { return !f.down[addr] },
 		GitConfig: func(_ context.Context, dir, key string) string { return f.git[dir+"|"+key] },
+		AWSIdentity: func(_ context.Context, profile, _ string) error {
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			f.awsAsked = append(f.awsAsked, profile)
+			return f.aws[profile]
+		},
 	}
 }
 
@@ -344,5 +354,60 @@ func TestRequiresAndSeveralComposeFiles(t *testing.T) {
 	}
 	if rep.Ready() {
 		t.Error("a requirement that doesn't answer should stop the stack")
+	}
+}
+
+func TestRemoteHosts(t *testing.T) {
+	root, w, stacks := project(t)
+	w.Hosts = []workspace.Host{
+		{ID: "dev-box", Type: "aws-ssm", AWS: &workspace.HostAWS{Instance: "i-0123456789abcdef0", Region: "ap-south-1", Profile: "dev"}},
+		{ID: "qa-box", Type: "aws-ssm", AWS: &workspace.HostAWS{Instance: "i-0123456789abcdef1", Region: "ap-south-1", Profile: "dev"}},
+		{ID: "other", Type: "aws-ssm", AWS: &workspace.HostAWS{Instance: "i-0123456789abcdef2", Region: "ap-south-1"}},
+	}
+	f := newFake()
+	f.missing = map[string]bool{"session-manager-plugin": true}
+	f.aws = map[string]error{"": errors.New("Error when retrieving token from sso: Token has expired and refresh failed")}
+
+	rep := run(t, Input{Workspace: w, Stacks: stacks, Root: root}, f)
+	find(t, rep, "tool:aws")
+	plugin := find(t, rep, "tool:session-manager-plugin")
+	if plugin.Status != Fail || !slices.Contains(plugin.Fix, "winget install --id Amazon.SessionManagerPlugin -e") {
+		t.Errorf("plugin = %+v", plugin)
+	}
+	dev := find(t, rep, "aws:signin:dev")
+	if dev.Status != OK || dev.Group != GroupHosts || dev.Detail != "for dev-box, qa-box" {
+		t.Errorf("dev = %+v", dev)
+	}
+	def := find(t, rep, "aws:signin:default")
+	if def.Status != Fail || !slices.Equal(def.Fix, []string{"aws sso login"}) {
+		t.Errorf("default = %+v", def)
+	}
+	if len(f.awsAsked) != 2 {
+		t.Errorf("asked %v: once per profile", f.awsAsked)
+	}
+
+	// a profile that isn't set up
+	f = newFake()
+	f.aws = map[string]error{"dev": errors.New("The config profile (dev) could not be found")}
+	w.Hosts = w.Hosts[:1]
+	if c := find(t, run(t, Input{Workspace: w, Stacks: stacks, Root: root}, f), "aws:signin:dev"); c.Status != Fail || !slices.Equal(c.Fix, []string{"aws configure sso"}) {
+		t.Errorf("no profile = %+v", c)
+	}
+
+	// starting one local stack never asks about AWS
+	f = newFake()
+	rep = run(t, Input{Workspace: w, Stacks: stacks, Root: root, Stack: "api-only"}, f)
+	for _, c := range rep.Checks {
+		if c.Group == GroupHosts || strings.Contains(c.ID, "aws") || strings.Contains(c.ID, "session-manager") {
+			t.Errorf("a stack's preflight looked at %s", c.ID)
+		}
+	}
+}
+
+func TestAWSIdentityFailsWithoutASignIn(t *testing.T) {
+	// a profile that exists nowhere: the AWS CLI refuses it, or isn't there at all
+	err := awsIdentity(t.Context(), "devdeck-test-no-such-profile", "ap-south-1")
+	if err == nil {
+		t.Fatal("a profile that doesn't exist can't be signed in")
 	}
 }

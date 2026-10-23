@@ -108,6 +108,55 @@ account_rules:
 	has(t, issues, 17, SeverityError, `no connection with id "nope"`)
 }
 
+func TestHosts(t *testing.T) {
+	good := `version: 1
+name: demo
+root: ~/code
+hosts:
+  - id: dev-box
+    name: Dev box
+    type: aws-ssm
+    aws:
+      instance: i-0123456789abcdef0
+      region: ap-south-1
+      profile: dev
+    agent_port: 7071
+`
+	if issues := Check(KindWorkspace, "workspace.yaml", []byte(good), nil, Options{}); len(issues) != 0 {
+		t.Fatalf("a good host:\n%s", dump(issues))
+	}
+	shape := `version: 1
+name: demo
+root: ~/code
+hosts:
+  - id: box
+    type: aws-ssm
+    aws:
+      instance: not-an-instance
+      region: Mumbai
+  - id: other
+    type: ssh
+`
+	issues := Check(KindWorkspace, "workspace.yaml", []byte(shape), nil, Options{})
+	has(t, issues, 8, SeverityError, "expected format")
+	has(t, issues, 9, SeverityError, "expected format")
+	has(t, issues, 11, SeverityError, "aws-ssm")
+
+	rules := `version: 1
+name: demo
+root: ~/code
+hosts:
+  - id: box
+    type: aws-ssm
+  - id: box
+    type: aws-ssm
+    aws: {instance: i-0123456789abcdef0, region: ap-south-1}
+`
+	issues = Check(KindWorkspace, "workspace.yaml", []byte(rules), nil, Options{})
+	has(t, issues, 5, SeverityError, "needs aws: instance and region")
+	has(t, issues, 7, SeverityError, `Host id "box" is used more than once`)
+}
+
 func TestSecretsNeverInYAML(t *testing.T) {
 	bad := "version: 1\nname: demo\nroot: x\nconnections:\n  - id: gh\n    type: github\n    settings:\n      token: abc123\n"
 	has(t, Check(KindWorkspace, "workspace.yaml", []byte(bad), nil, Options{}), 8, SeverityError, "Secrets never go in YAML")

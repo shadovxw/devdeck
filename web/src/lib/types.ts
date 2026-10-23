@@ -76,7 +76,7 @@ export type CheckStatus = "ok" | "warn" | "fail";
 
 export type DoctorCheck = {
   id: string;
-  group: "tools" | "repos" | "stacks" | "git";
+  group: "tools" | "repos" | "stacks" | "git" | "hosts";
   title: string;
   status: CheckStatus;
   detail?: string;

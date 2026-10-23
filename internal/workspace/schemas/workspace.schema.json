@@ -18,7 +18,8 @@
     "default_connection": { "type": "string", "description": "Id of the connection used by repos that have no rule or override." },
     "repos": { "type": "array", "items": { "$ref": "#/$defs/repo" } },
     "connections": { "type": "array", "items": { "$ref": "#/$defs/connection" } },
-    "account_rules": { "type": "array", "items": { "$ref": "#/$defs/accountRule" } }
+    "account_rules": { "type": "array", "items": { "$ref": "#/$defs/accountRule" } },
+    "hosts": { "type": "array", "items": { "$ref": "#/$defs/host" }, "description": "Remote machines that run devdeck's agent." }
   },
   "$defs": {
     "id": {
@@ -60,6 +61,27 @@
           "additionalProperties": { "type": "string" },
           "description": "Non-secret settings such as a host name. Secrets never go in YAML; they live in the OS keychain."
         }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "maxLength": 80 },
+        "type": { "enum": ["aws-ssm"], "description": "How devdeck reaches it: aws-ssm opens an SSM port-forwarding session with the AWS CLI." },
+        "aws": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["instance", "region"],
+          "properties": {
+            "instance": { "type": "string", "pattern": "^(i|mi)-[0-9a-f]{8,17}$", "description": "The instance id, such as i-0123456789abcdef0." },
+            "region": { "type": "string", "pattern": "^[a-z]{2}(-[a-z]+)+-[0-9]$", "description": "Such as ap-south-1." },
+            "profile": { "type": "string", "pattern": "^[A-Za-z0-9_.@+=-]{1,64}$", "description": "The AWS CLI profile. Leave out for the default one." }
+          }
+        },
+        "agent_port": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "The agent's port on the host (7071 if left out)." }
       }
     },
     "accountRule": {
