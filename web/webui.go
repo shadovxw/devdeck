@@ -5,10 +5,12 @@
 package webui
 
 import (
+	"bytes"
 	"io/fs"
 	"net/http"
 	"path"
 	"strings"
+	"time"
 )
 
 // handler serves the files in dist: a file that exists as it is, anything else as
@@ -36,8 +38,8 @@ func handler(dist fs.FS) http.Handler {
 			http.Error(w, "the web app isn't in this build", http.StatusNotFound)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache")
-		_, _ = w.Write(index)
+		// ServeContent sets the type from the name and answers HEAD and conditional requests.
+		http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(index))
 	})
 }
