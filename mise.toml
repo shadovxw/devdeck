@@ -28,9 +28,9 @@ dir = "web"
 run = "npm run build"
 
 [tasks.build]
-description = "Build the web app and bin/devdeck.exe"
+description = "Build the web app and bin/devdeck.exe, with the web app inside it (one file runs everything)"
 depends = ["build:web"]
-run = "go build -o bin/devdeck.exe ./cmd/devdeck"
+run = "go build -tags embedui -o bin/devdeck.exe ./cmd/devdeck"
 
 [tasks."test:go"]
 description = "Go tests (CI adds -race on Linux; it needs a C compiler, which Windows lacks)"

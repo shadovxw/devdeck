@@ -44,6 +44,9 @@ type Deps struct {
 	// Hosts is optional: it adds the routes for remote hosts (machines that run devdeck's
 	// agent, reached through a tunnel). It needs Workspaces.
 	Hosts *remote.Hosts
+	// UI is optional: the built web app, served for every path the API doesn't use. A
+	// build without it (tests, the remote agent) answers 404 there, as before.
+	UI http.Handler
 }
 
 // Register mounts the API and WebSocket routes on e. Every route sits behind
@@ -79,5 +82,9 @@ func Register(e *echo.Echo, d Deps) {
 		if d.Supervisor != nil {
 			registerStacks(v1, d.Workspaces, d.Supervisor)
 		}
+	}
+	if d.UI != nil {
+		// GET and HEAD only: the app is read, never posted to.
+		e.GET("/*", echo.WrapHandler(d.UI))
 	}
 }
