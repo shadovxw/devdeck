@@ -275,3 +275,34 @@ func TestHostRefusals(t *testing.T) {
 		t.Errorf("a body that isn't JSON = %d", rec.Code)
 	}
 }
+
+func TestTheWebAppIsServedBesideTheAPI(t *testing.T) {
+	guard, err := NewGuard("127.0.0.1:7070", nil)
+	must(t, err)
+	bus := events.NewBus()
+	e := echo.New()
+	Register(e, Deps{
+		Version: "test", Bus: bus, Guard: guard, Hub: NewHub(bus, guard.OriginHosts(), zerolog.Nop()), Plugins: sdk.NewRegistry(),
+		UI: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("the app at " + r.URL.Path)) }),
+	})
+	if rec := do(e, http.MethodGet, "/stacks"); rec.Code != http.StatusOK || rec.Body.String() != "the app at /stacks" {
+		t.Errorf("an app page = %d %q", rec.Code, rec.Body)
+	}
+	if rec := do(e, http.MethodGet, "/api/v1/health"); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"ok"`) {
+		t.Errorf("the API still answers = %d %q", rec.Code, rec.Body)
+	}
+	// the Host check covers the app too
+	req := httptest.NewRequest(http.MethodGet, "http://evil.example/", nil)
+	req.Host = "evil.example"
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code == http.StatusOK {
+		t.Errorf("the app answered a foreign Host: %d", rec.Code)
+	}
+	// without a UI, the paths the API doesn't use stay 404
+	e2 := echo.New()
+	Register(e2, Deps{Version: "test", Bus: bus, Guard: guard, Hub: NewHub(bus, guard.OriginHosts(), zerolog.Nop()), Plugins: sdk.NewRegistry()})
+	if rec := do(e2, http.MethodGet, "/stacks"); rec.Code != http.StatusNotFound {
+		t.Errorf("no UI = %d", rec.Code)
+	}
+}
