@@ -13,7 +13,7 @@ func TestHandler(t *testing.T) {
 		"favicon.svg":     {Data: []byte("<svg/>")},
 		"assets/app-1.js": {Data: []byte("console.log(1)")},
 	}
-	h := handler(dist)
+	h := handler(dist, "")
 	get := func(p string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
@@ -40,12 +40,24 @@ func TestHandler(t *testing.T) {
 		t.Errorf("a path out of dist = %d %q", rec.Code, rec.Body)
 	}
 	if rec := httptest.NewRecorder(); true {
-		handler(fstest.MapFS{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+		handler(fstest.MapFS{}, "").ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 		if rec.Code != 404 {
 			t.Errorf("no index.html = %d", rec.Code)
 		}
 	}
-	if Handler() != nil {
+	// a head is added at the end of index.html's <head>, and nowhere else
+	withHead := handler(fstest.MapFS{"index.html": {Data: []byte("<html><head><title>x</title></head><body>b</body></html>")}, "a.js": {Data: []byte("js")}}, "<script src=r.js></script>")
+	rec := httptest.NewRecorder()
+	withHead.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/hosts", nil))
+	if rec.Body.String() != "<html><head><title>x</title><script src=r.js></script></head><body>b</body></html>" {
+		t.Errorf("with a head: %q", rec.Body)
+	}
+	rec = httptest.NewRecorder()
+	withHead.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/a.js", nil))
+	if rec.Body.String() != "js" {
+		t.Errorf("a file is served as it is: %q", rec.Body)
+	}
+	if Handler() != nil || HandlerWithHead("x") != nil {
 		t.Error("a build without the embedui tag has no UI")
 	}
 }

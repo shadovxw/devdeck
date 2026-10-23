@@ -16,6 +16,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/agent"
 	"github.com/shadovxw/devdeck/internal/cli"
 	"github.com/shadovxw/devdeck/internal/config"
+	"github.com/shadovxw/devdeck/internal/desktop"
 	"github.com/shadovxw/devdeck/internal/dialog"
 	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/remote"
@@ -26,6 +27,11 @@ import (
 var version = "dev"
 
 func main() {
+	// The desktop build opens its window when it is started with no command, as a
+	// double click does. devdeck serve is still the headless server.
+	if len(os.Args) == 1 && desktop.DefaultToWindow {
+		os.Args = append(os.Args, "app")
+	}
 	// devdeck --pick-folder shows one folder dialog and exits. The server starts
 	// itself this way, so the dialog can always be closed by ending the process.
 	if len(os.Args) > 1 && os.Args[1] == dialog.ChildArg {
@@ -50,6 +56,23 @@ func main() {
 		}
 		stop()
 		os.Exit(code)
+	}
+
+	// devdeck app shows devdeck in a window of its own (a build made with -tags desktop).
+	if len(os.Args) > 1 && os.Args[1] == "app" {
+		cfg, err := config.Load(os.Getenv)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "devdeck:", err)
+			os.Exit(1)
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		err = desktop.Run(ctx, cfg, version)
+		stop()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "devdeck:", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	// devdeck up | down | status talk to the running server and exit.

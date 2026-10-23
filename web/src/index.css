@@ -92,3 +92,13 @@
     min-width: 44px;
   }
 }
+
+/* In devdeck's own window (no system title bar) the top bar is what you drag. Wails reads
+   this property from the element under the pointer, and it inherits, so everything you
+   can click inside the bar is marked as not draggable. */
+.drag-region {
+  --wails-draggable: drag;
+}
+.drag-region :is(button, a, input, select, textarea, [role="button"], [role="menuitem"]) {
+  --wails-draggable: no-drag;
+}

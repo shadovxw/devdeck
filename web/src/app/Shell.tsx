@@ -2,11 +2,14 @@ import { ChevronDown, Layers, Monitor, Moon, SunMoon, Sun } from "lucide-react";
 import { useLayoutEffect } from "react";
 import { Link, Outlet } from "react-router";
 
+import { cn } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { useDesktopWindow } from "../lib/desktop";
 import { useHealth } from "../lib/queries";
 import { useSocketStatus } from "../lib/socket";
 import { useUi, type Theme } from "../store/ui";
 import { AppSidebar } from "./AppSidebar";
+import { WindowControls } from "./WindowControls";
 
 const themeNext: Record<Theme, Theme> = { system: "dark", dark: "light", light: "system" };
 const themeIcon = { system: SunMoon, dark: Moon, light: Sun } as const;
@@ -30,8 +33,15 @@ function Connection() {
 function TopBar() {
   const { theme, setTheme } = useUi();
   const ThemeIcon = themeIcon[theme];
+  const win = useDesktopWindow();
+  const desktop = win !== null;
+  const toggleMaximise = () => win?.toggleMaximise();
   return (
-    <header className="sticky top-0 z-10 flex h-14 items-center gap-3 bg-surface-1 px-3 md:px-5">
+    <header
+      className={cn("sticky top-0 z-10 flex h-14 items-center gap-3 bg-surface-1 px-3 md:px-5", desktop && "drag-region")}
+      // In devdeck's own window a double click on the bar maximises it, as on any title bar.
+      onDoubleClick={desktop ? (e) => e.target === e.currentTarget && toggleMaximise() : undefined}
+    >
       <SidebarTrigger className="size-9 text-ink-2" title="Expand or collapse the sidebar (Ctrl+B)" />
       <Link
         to="/workspaces"
@@ -54,6 +64,7 @@ function TopBar() {
       >
         <ThemeIcon size={19} strokeWidth={1.7} />
       </button>
+      <WindowControls />
     </header>
   );
 }

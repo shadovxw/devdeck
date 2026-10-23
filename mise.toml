@@ -65,3 +65,13 @@ run = "gitleaks detect --source . --redact --no-banner"
 [tasks.check]
 description = "Everything CI checks that can run here: linters, tests and the secret scan"
 depends = ["lint", "test", "secrets"]
+
+[tasks.app]
+description = "Build bin/devdeck-app.exe: devdeck in a window of its own, with the web app inside"
+depends = ["build:web"]
+run = "go build -tags desktop,production,embedui -ldflags \"-H windowsgui\" -o bin/devdeck-app.exe ./cmd/devdeck"
+
+[tasks.package]
+description = "Build dist/devdeck-setup-<version>.exe: the installer (needs Inno Setup: winget install --id JRSoftware.InnoSetup -e)"
+depends = ["build:web"]
+run = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1"
