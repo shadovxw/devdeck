@@ -69,7 +69,7 @@ func (c *Client) do(ctx context.Context, path string, q url.Values) (*http.Respo
 		return nil, fmt.Errorf("the agent couldn't be reached (is the tunnel open?): %w", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		defer res.Body.Close()
+		defer func() { _ = res.Body.Close() }()
 		var body struct {
 			Message string `json:"message"`
 		}
@@ -90,7 +90,7 @@ func getJSON[T any](ctx context.Context, c *Client, path string) (T, error) {
 	if err != nil {
 		return out, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if err := json.NewDecoder(io.LimitReader(res.Body, 16<<20)).Decode(&out); err != nil {
 		return out, fmt.Errorf("the agent's answer couldn't be read: %w", err)
 	}
@@ -144,7 +144,7 @@ func (c *Client) Stream(ctx context.Context, q LogQuery, fn func(agent.LogLine))
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	sc := bufio.NewScanner(res.Body)
 	sc.Buffer(make([]byte, 64<<10), 1<<20)
 	for sc.Scan() {

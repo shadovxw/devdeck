@@ -322,7 +322,7 @@ func TestLogsOfOneServiceStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "application/x-ndjson" {
 		t.Fatalf("status %d, type %s", res.StatusCode, res.Header.Get("Content-Type"))
 	}
