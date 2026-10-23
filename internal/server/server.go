@@ -6,9 +6,12 @@ package server
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -42,6 +45,7 @@ type Server struct {
 	logSink  *logs.Sink
 	sup      *supervisor.Supervisor
 	tunnels  *remote.Tunnels
+	done     chan error
 }
 
 // New opens everything and builds the HTTP handler. Nothing listens until Start.
@@ -117,18 +121,43 @@ func (s *Server) build(version string) error {
 // Handler is the whole HTTP surface, for a caller that serves it itself.
 func (s *Server) Handler() http.Handler { return s.echo }
 
-// Run listens on the configured address until ctx ends or listening fails, then shuts down.
-func (s *Server) Run(ctx context.Context, version string) error {
-	serverErr := make(chan error, 1)
+// ErrAddrInUse means something already listens on the configured address.
+var ErrAddrInUse = errors.New("the address is already in use")
+
+// Start listens on the configured address and serves in the background. When it
+// returns without an error the server is accepting connections. A serving error later
+// arrives on Done.
+func (s *Server) Start(version string) error {
+	ln, err := net.Listen("tcp", s.Config.Addr)
+	if err != nil {
+		if errors.Is(err, syscall.EADDRINUSE) || strings.Contains(strings.ToLower(err.Error()), "only one usage") {
+			return ErrAddrInUse
+		}
+		return err
+	}
+	s.echo.Listener = ln
+	s.done = make(chan error, 1)
+	log.Info().Str("addr", ln.Addr().String()).Str("data", s.Config.DataDir).Str("version", version).Msg("devdeck listening")
 	go func() {
-		log.Info().Str("addr", s.Config.Addr).Str("data", s.Config.DataDir).Str("version", version).Msg("devdeck listening")
-		if err := s.echo.Start(s.Config.Addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serverErr <- err
+		if err := s.echo.Start(""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			s.done <- err
 		}
 	}()
+	return nil
+}
+
+// Done receives an error if serving stops on its own. It is nil before Start.
+func (s *Server) Done() <-chan error { return s.done }
+
+// Run listens until ctx ends or serving fails, then shuts down.
+func (s *Server) Run(ctx context.Context, version string) error {
+	if err := s.Start(version); err != nil {
+		_ = s.Close()
+		return err
+	}
 	var err error
 	select {
-	case err = <-serverErr:
+	case err = <-s.done:
 	case <-ctx.Done():
 	}
 	log.Info().Msg("shutting down")
