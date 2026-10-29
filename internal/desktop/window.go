@@ -23,6 +23,11 @@ import (
 // DefaultToWindow: the desktop build opens its window when started with no command.
 const DefaultToWindow = true
 
+// runtimeHead loads the window's runtime (move, minimise, maximise, close) into the page.
+// The window itself serves these two files at wails.localhost, whatever page it shows.
+// It lives here, with its only user, so a build without -tags desktop (lint) doesn't see it unused.
+const runtimeHead = `<script src="http://wails.localhost/wails/ipc.js"></script><script src="http://wails.localhost/wails/runtime.js"></script>`
+
 // Run starts devdeck and shows it in its own window, until the window is closed. When a
 // devdeck server already answers on the address (devdeck serve is running), the window
 // shows that one and leaves it running when it closes.

@@ -10,10 +10,6 @@ import (
 	"time"
 )
 
-// runtimeHead loads the window's runtime (move, minimise, maximise, close) into the page.
-// The window itself serves these two files at wails.localhost, whatever page it shows.
-const runtimeHead = `<script src="http://wails.localhost/wails/ipc.js"></script><script src="http://wails.localhost/wails/runtime.js"></script>`
-
 // loaderHandler answers the window's first request with a page that moves to the
 // devdeck server. The window then shows the app from http://127.0.0.1:<port>, the
 // same address a browser uses, so the API, the WebSocket and the Host/Origin check

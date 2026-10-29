@@ -52,3 +52,8 @@ Not yet: the tray and the close choice (PR 3); the icon and installer (PR 4). Un
 - **Bug:** the desktop exe is a GUI-subsystem program with no console, so every `git`, `gh`, `docker` or `aws` that devdeck ran for a page got a new console window of its own, which flashed on screen. The Repositories page runs about 8 git commands per repository, so it showed dozens.
 - **Fix:** `sdk/proc` (the one place programs are started) now starts every command with `CREATE_NO_WINDOW` on Windows. Output still comes through the pipes. `HideWindow` is not used, because it would also hide a command's own windows (the folder picker's dialog).
 - Measured with the real exe on the Repositories call (20 repositories): 18 visible console windows before, 0 after.
+
+## CI fixes on the installer PR
+
+- **Lint (`unused`):** `runtimeHead` sat in `loader.go` but only the desktop build (`window.go`) uses it, so a build without `-tags desktop` saw it unused. It moved into `window.go`.
+- **Sonar coverage gate (67.6% on new code against 80%):** the largest gaps were the Wails window (excluded in PR 27) and `sdk/proc/group_windows.go`, whose tests run on Windows while the coverage run is on Linux; it is now in `sonar.coverage.exclusions` too. The server gaps were closed by the tests in PR 27.
