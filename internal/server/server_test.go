@@ -91,7 +91,7 @@ func TestStartReportsWhyItCannotListen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer taken.Close()
+	t.Cleanup(func() { _ = taken.Close() })
 	tests := []struct {
 		name string
 		addr string
