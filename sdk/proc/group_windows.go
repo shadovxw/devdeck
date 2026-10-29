@@ -4,6 +4,7 @@ package proc
 
 import (
 	"os/exec"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -34,7 +35,14 @@ func newGroup() (*group, error) {
 	return &group{job: job}, nil
 }
 
-func (g *group) configure(*exec.Cmd) {}
+// configure starts the command with no console window. devdeck's desktop build has no console
+// of its own, so a command that needs one (git, gh, docker, aws) would otherwise get a new
+// window of its own, which flashes on screen every time a page runs one. The command still
+// gets its standard output and error through the pipes. Only the console is left out, not
+// the command's own windows (CREATE_NO_WINDOW; HideWindow would hide those too).
+func (g *group) configure(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NO_WINDOW}
+}
 
 // add puts the started process into the job. Children it spawns afterwards
 // join the job automatically.

@@ -15,7 +15,10 @@ import (
 
 // handler serves the files in dist: a file that exists as it is, anything else as
 // index.html so the app's own routes (/stacks, /hosts) load on a reload too.
-func handler(dist fs.FS) http.Handler {
+//
+// head, when it isn't empty, is added at the end of index.html's <head>: the desktop window
+// uses it to load its own runtime into the page.
+func handler(dist fs.FS, head string) http.Handler {
 	files := http.FileServer(http.FS(dist))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
@@ -37,6 +40,11 @@ func handler(dist fs.FS) http.Handler {
 		if err != nil {
 			http.Error(w, "the web app isn't in this build", http.StatusNotFound)
 			return
+		}
+		if head != "" {
+			if i := bytes.Index(index, []byte("</head>")); i >= 0 {
+				index = append(index[:i:i], append([]byte(head), index[i:]...)...)
+			}
 		}
 		w.Header().Set("Cache-Control", "no-cache")
 		// ServeContent sets the type from the name and answers HEAD and conditional requests.

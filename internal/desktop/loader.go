@@ -28,6 +28,21 @@ func loaderHandler(target string) http.Handler {
 // serverURL is the address of a devdeck server listening on addr.
 func serverURL(addr string) string { return (&url.URL{Scheme: "http", Host: addr}).String() }
 
+// instanceKey is the name of the lock for the devdeck that serves addr: one window each, so
+// a copy on another address (a development build next to the installed one) isn't taken for it.
+func instanceKey(addr string) string {
+	var b strings.Builder
+	b.WriteString("com.shadovxw.devdeck.")
+	for _, r := range addr {
+		if (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '.' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('-')
+		}
+	}
+	return b.String()
+}
+
 // isDevdeck says whether a devdeck server answers at addr, so a second start can use it
 // instead of fighting for the port.
 func isDevdeck(addr string) bool {

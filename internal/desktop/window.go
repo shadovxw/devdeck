@@ -20,8 +20,13 @@ import (
 	"github.com/shadovxw/devdeck/internal/server"
 )
 
-// instanceID names the lock that keeps one devdeck window per user session.
-const instanceID = "com.shadovxw.devdeck"
+// DefaultToWindow: the desktop build opens its window when started with no command.
+const DefaultToWindow = true
+
+// runtimeHead loads the window's runtime (move, minimise, maximise, close) into the page.
+// The window itself serves these two files at wails.localhost, whatever page it shows.
+// It lives here, with its only user, so a build without -tags desktop (lint) doesn't see it unused.
+const runtimeHead = `<script src="http://wails.localhost/wails/ipc.js"></script><script src="http://wails.localhost/wails/runtime.js"></script>`
 
 // Run starts devdeck and shows it in its own window, until the window is closed. When a
 // devdeck server already answers on the address (devdeck serve is running), the window
@@ -52,7 +57,7 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 		log.Info().Str("addr", cfg.Addr).Msg("a devdeck server is already running: the window uses it")
 	} else {
 		var err error
-		if srv, err = server.New(ctx, cfg, version); err != nil {
+		if srv, err = server.New(ctx, cfg, version, server.WithUIHead(runtimeHead)); err != nil {
 			return err
 		}
 		if err := srv.Start(version); err != nil {
@@ -72,11 +77,20 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 		Height:    size.Height,
 		MinWidth:  MinWidth,
 		MinHeight: MinHeight,
+		// No system title bar: the web app draws its own top bar, which is also the part you
+		// drag, with the window buttons beside the theme switch. Wails still gives the window
+		// its shadow, snapping and edge resizing.
+		Frameless: srv != nil,
+		// The page comes from the server's address, so that is the origin allowed to use
+		// the window's runtime (move, minimise, maximise, close).
+		BindingsAllowedOrigins: serverURL(cfg.Addr),
+		// (When the window uses a devdeck that was already running, that server's page has no
+		// runtime and no window buttons, so the window keeps its system title bar.)
 		// The window opens the server's own address, so the app behaves exactly as in a browser.
 		AssetServer:      &assetserver.Options{Handler: loaderHandler(serverURL(cfg.Addr))},
 		BackgroundColour: &options.RGBA{R: 18, G: 23, B: 27, A: 1},
 		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId: instanceID,
+			UniqueId: instanceKey(cfg.Addr),
 			// A second click on the icon brings the window that is already open forward.
 			OnSecondInstanceLaunch: func(options.SecondInstanceData) {
 				if wctx == nil {

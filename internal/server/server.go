@@ -46,15 +46,26 @@ type Server struct {
 	sup      *supervisor.Supervisor
 	tunnels  *remote.Tunnels
 	done     chan error
+	uiHead   string
 }
 
+// Option changes how a Server is built.
+type Option func(*Server)
+
+// WithUIHead adds head (script tags) to the end of the <head> of the web app it serves.
+// The desktop window uses it to load its runtime into the page.
+func WithUIHead(head string) Option { return func(s *Server) { s.uiHead = head } }
+
 // New opens everything and builds the HTTP handler. Nothing listens until Start.
-func New(ctx context.Context, cfg config.Config, version string) (*Server, error) {
+func New(ctx context.Context, cfg config.Config, version string, opts ...Option) (*Server, error) {
 	db, err := store.Open(ctx, filepath.Join(cfg.DataDir, "state.db"))
 	if err != nil {
 		return nil, err
 	}
 	s := &Server{Config: cfg, db: db}
+	for _, o := range opts {
+		o(s)
+	}
 	if err := s.build(version); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -113,7 +124,7 @@ func (s *Server) build(version string) error {
 		FolderPicker: dialog.PickFolder,
 		Workspaces:   workspaces,
 		Hosts:        &remote.Hosts{Workspaces: workspaces, Secrets: secrets.NewKeyring(), Tunnels: s.tunnels},
-		UI:           webui.Handler(),
+		UI:           webui.HandlerWithHead(s.uiHead),
 	})
 	return nil
 }
