@@ -21,6 +21,9 @@ Next: PR 2, `devdeck app` with the Wails window.
 - Dependency: `github.com/wailsapp/wails/v2` v2.17.0 (and what it needs).
 - Checked for real: on a spare port with a throwaway data folder, the exe opened a window titled "devdeck" (WebView2), the page connected to the server, a second launch exited and left the first running, closing the window saved its size and stopped the server.
 
+- **Coverage gate (Sonar, 52.6% on new code against 80%):** `internal/desktop/window.go` is the Wails glue, built only with `-tags desktop` and needing a real WebView2 window, so it can't be unit-tested; it is now in `sonar.coverage.exclusions` (still analysed). New tests cover `Server.Start` (address in use, a bad address, `Done` quiet while serving, `Run` returning a failed start's error) and `pluginIDs`; `internal/server` goes from 80.3% to 86.8%.
+- **Other CI failures on the PR, fixed:** `labstack/echo/v4` v4.16.0 → v4.16.1 (Trivy flagged new CVEs fixed in 4.16.1); `TestClearReachesServicesNeverReadIn` reopened the store with the real clock, so once the seeded day (20 Oct) was more than 7 days old the reopen pruned it and nothing was left to clear. It now reuses the test clock. The new server test closes its listener without tripping errcheck.
+
 Not yet: the tray and the close choice (PR 3); the icon and installer (PR 4). Until then the window uses the default Wails icon and closing it quits.
 
 ## PR 4: the icon and the installer (built before PR 3, the tray)

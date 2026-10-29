@@ -63,7 +63,8 @@ func TestClearReachesServicesNeverReadIn(t *testing.T) {
 	seed(t, s)
 	s.flush()
 	_ = s.Close()
-	again, err := Open(Options{Dir: s.o.Dir, Capacity: 100, FlushEvery: time.Hour})
+	// the test clock, so opening doesn't prune the seeded days as older than the retention
+	again, err := Open(Options{Dir: s.o.Dir, Capacity: 100, Now: s.o.Now, FlushEvery: time.Hour})
 	if err != nil {
 		t.Fatal(err)
 	}
