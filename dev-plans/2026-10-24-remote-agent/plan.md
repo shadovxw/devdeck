@@ -218,9 +218,9 @@ The Linux build needs no C compiler (the SQLite driver is pure Go), so `GOOS=lin
 | 1 | The agent, read-only | merged |
 | 2 | Hosts, SSM tunnel, Remote hosts page, logs | merged (#25); live logs were seen from a real host |
 | 3A | Agent writes: start, stop, restart, up, down, pull, up script | merged (#29); deployed to the first host |
-| 3B | The same writes from the Remote hosts page, each behind a confirmation | committed on `feat/host-writes-ui` (`d1fe40e`); **not pushed, no PR yet**; tried in the app against the real host |
-| 4C | Versions in the agent: read, change, apply, roll back, history | **not started** |
-| 4D | Versions in devdeck: the Versions panel | **not started** |
+| 3B | The same writes from the Remote hosts page, each behind a confirmation | merged (#30) |
+| 4C | Versions in the agent: read, change, apply, roll back, history | **built (2026-10-30), with named agent tokens**; see `changes.md`; needs a new agent release (`agent-dev-3` or newer) on the host |
+| 4D | Versions in devdeck: the Versions tab, Roll back, and Deploy after a build | **built (2026-10-30)**; guide: `docs/remote-versions.md` |
 | 5 | Linux release build, `bootstrap.sh`, `split-env` script, walkthrough | **not started** (done by hand so far, see below) |
 
 ### How an agent build gets onto a host today (by hand, until PR 5)

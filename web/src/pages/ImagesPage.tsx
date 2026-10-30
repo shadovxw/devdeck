@@ -7,6 +7,7 @@ import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { pill, pillDanger, pillInput, pillPrimary } from "../design/pills";
 import { useBuilds, useClearBuilds, useImageBuild, useImages, type BuildRecord, type ImageRow } from "../lib/docker";
+import { useHosts } from "../lib/hosts";
 import { stagger } from "../lib/motion";
 import { ago, took } from "../lib/time";
 import { useNow } from "../lib/use-now";
@@ -45,6 +46,7 @@ function ImageCard({ row }: Readonly<{ row: ImageRow }>) {
   const [tag, setTag] = useState("");
   const [asking, setAsking] = useState(false);
   const { state, run, reset } = useImageBuild(row);
+  const hosts = useHosts();
 
   const secretProblem = row.secrets.find((s) => s.problem)?.problem;
   const blocker = row.folder_missing ? "The repository isn’t on this machine." : (row.problem ?? secretProblem);
@@ -186,6 +188,14 @@ function ImageCard({ row }: Readonly<{ row: ImageRow }>) {
           <Mark ok={state.result.ok}>
             {state.result.ok ? `Pushed ${state.tag ? `${row.repository}:${state.tag}` : ""}` : `Failed: ${state.result.error ?? "the build didn’t finish"}`}
           </Mark>
+        </p>
+      )}
+      {state.result?.ok && state.tag && (hosts.data?.length ?? 0) > 0 && (
+        <p className="m-0 text-[13px] text-ink-2">
+          <Link to={`/hosts?deploy=${encodeURIComponent(`${row.repository}:${state.tag}`)}`} className="underline">
+            Deploy {state.tag} to a host
+          </Link>{" "}
+          to change the tag on a remote stack and recreate its container.
         </p>
       )}
     </section>

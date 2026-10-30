@@ -1,6 +1,6 @@
 # Docker accounts, build by tag, deploy, and devdeck for teammates
 
-> Status: **the Docker half is built (2026-10-30) as one PR: accounts, images and build secrets in the workspace file, the build runner, the Docker Hub and Images pages and editing a workspace; see [`changes.md`](changes.md). Still to do: PRs 1 and 2 below (agent versions and the Versions panel, one PR with named agent tokens) and the deploy button after a build.** The user guide is [`docs/docker-builds.md`](../../docs/docker-builds.md). Builds on the remote-agent work: read [`../2026-10-24-remote-agent/plan.md`](../2026-10-24-remote-agent/plan.md) §12 first. PRs 1 and 2 below are that plan's 4C and 4D.
+> Status: **the Docker half is built (2026-10-30) as one PR: accounts, images and build secrets in the workspace file, the build runner, the Docker Hub and Images pages and editing a workspace; see [`changes.md`](changes.md). PRs 1 and 2 below (agent versions and the Versions panel), named agent tokens and the deploy button after a build are built too, in a third PR; see the remote-agent `changes.md`.** The user guide is [`docs/docker-builds.md`](../../docs/docker-builds.md). Builds on the remote-agent work: read [`../2026-10-24-remote-agent/plan.md`](../2026-10-24-remote-agent/plan.md) §12 first. PRs 1 and 2 below are that plan's 4C and 4D.
 
 ## Context
 

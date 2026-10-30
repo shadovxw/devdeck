@@ -318,3 +318,144 @@ async function follow(url: string, signal: AbortSignal, update: (f: (s: LogState
     if (!signal.aborted) update(() => ({ error: e instanceof Error ? e.message : "the logs stopped", live: false }));
   }
 }
+
+// ----- versions: the image tags of a remote stack -----
+
+/** One service of a stack and where its image tag comes from. */
+export type VersionEntry = {
+  service: string;
+  /** The env variable the compose file takes the image from; empty when the image is written in the compose file. */
+  variable?: string;
+  repository?: string;
+  /** The tag in the host's versions file, and the tag of the container that runs. */
+  file_tag?: string;
+  running_tag?: string;
+  running_image?: string;
+  state?: string;
+  health?: string;
+  /** The file says one tag and another runs: a change saved but not applied, or one made by hand. */
+  differs: boolean;
+  editable: boolean;
+  note?: string;
+};
+
+export type VersionsView = { file: string; services: VersionEntry[] };
+
+/** One tag change from the host's change log. */
+export type VersionEvent = {
+  at: string;
+  stack: string;
+  service: string;
+  variable: string;
+  old: string;
+  new: string;
+  by: string;
+  applied: boolean;
+  ok: boolean;
+  detail?: string;
+};
+
+/** How one changed service ended up after a change was applied. */
+export type VersionResult = { service: string; tag: string; state?: string; health?: string; ok: boolean; detail?: string; logs?: string[] };
+
+export type VersionRequest = { changes: { service: string; tag: string }[]; apply: boolean };
+
+const versionKeys = {
+  versions: (ws: string, host: string, stack: string) => ["hosts", ws, host, "stacks", stack, "versions"] as const,
+  history: (ws: string, host: string, stack: string) => ["hosts", ws, host, "stacks", stack, "versions", "history"] as const,
+};
+
+export function useHostVersions(ws: string, host: string, stack: string, enabled: boolean) {
+  return useQuery({
+    queryKey: versionKeys.versions(ws, host, stack),
+    queryFn: ({ signal }) => api.get<VersionsView>(`${base(ws, host)}/stacks/${encodeURIComponent(stack)}/versions`, signal),
+    enabled,
+    retry: false,
+  });
+}
+
+export function useHostVersionHistory(ws: string, host: string, stack: string, enabled: boolean) {
+  return useQuery({
+    queryKey: versionKeys.history(ws, host, stack),
+    queryFn: ({ signal }) => api.get<VersionEvent[]>(`${base(ws, host)}/stacks/${encodeURIComponent(stack)}/versions/history?limit=30`, signal),
+    enabled,
+    retry: false,
+  });
+}
+
+/** What a tag change has printed so far, and how it ended (result null while it runs). */
+export type VersionsRunState = {
+  request: VersionRequest | null;
+  running: boolean;
+  lines: string[];
+  result: { ok: boolean; error?: string } | null;
+  results: VersionResult[];
+};
+
+const versionsIdle: VersionsRunState = { request: null, running: false, lines: [], result: null, results: [] };
+
+type VersionsEnd = ActionEnd & { line?: string; error?: string; versions?: VersionResult[] };
+
+/**
+ * Changes tags on one stack of a host and, when asked, applies them. The server streams the agent's
+ * output as newline-delimited JSON; the last line says how it ended and how each service came up.
+ * The agent finishes a change even if this page goes away, so leaving only stops the reading.
+ */
+export function useVersionsChange(ws: string, host: string, stack: string) {
+  const qc = useQueryClient();
+  const [state, setState] = useState<VersionsRunState>(versionsIdle);
+  const ctrl = useRef<AbortController | null>(null);
+  useEffect(() => () => ctrl.current?.abort(), []);
+
+  const run = useCallback(
+    async (req: VersionRequest) => {
+      ctrl.current?.abort();
+      const mine = new AbortController();
+      ctrl.current = mine;
+      setState({ request: req, running: true, lines: [], result: null, results: [] });
+      const finish = (result: { ok: boolean; error?: string }, results: VersionResult[] = []) => {
+        if (mine.signal.aborted) return;
+        setState((s) => ({ ...s, running: false, result, results }));
+        void qc.invalidateQueries({ queryKey: versionKeys.versions(ws, host, stack) });
+        void qc.invalidateQueries({ queryKey: keys.services(ws, host, stack) });
+      };
+      try {
+        const res = await fetch(`/api/v1${base(ws, host)}/stacks/${encodeURIComponent(stack)}/versions`, {
+          method: "PUT",
+          signal: mine.signal,
+          headers: { Accept: "application/x-ndjson", "Content-Type": "application/json" },
+          body: JSON.stringify(req),
+        });
+        if (!res.ok || !res.body) {
+          finish({ ok: false, error: await refusal(res) });
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        let ended = false;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const { lines, rest } = splitLines(buf + decoder.decode(value, { stream: true }));
+          buf = rest;
+          for (const l of lines as unknown as VersionsEnd[]) {
+            if (l.done) {
+              ended = true;
+              finish({ ok: l.ok === true, error: l.error }, l.versions ?? []);
+            } else if (l.line !== undefined) {
+              setState((s) => ({ ...s, lines: [...s.lines, l.line ?? ""].slice(-maxActionLines) }));
+            }
+          }
+        }
+        if (!ended) finish({ ok: false, error: "the connection ended before the change did; it may still be running on the host" });
+      } catch (e) {
+        if (!mine.signal.aborted) finish({ ok: false, error: e instanceof Error ? e.message : "the change stopped" });
+      }
+    },
+    [qc, ws, host, stack],
+  );
+
+  const clear = useCallback(() => setState(versionsIdle), []);
+  return { state, run, clear };
+}
