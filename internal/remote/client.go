@@ -55,11 +55,15 @@ func (c *Client) http() *http.Client {
 }
 
 func (c *Client) do(ctx context.Context, path string, q url.Values) (*http.Response, error) {
+	return c.send(ctx, http.MethodGet, path, q)
+}
+
+func (c *Client) send(ctx context.Context, method, path string, q url.Values) (*http.Response, error) {
 	u := strings.TrimRight(c.Base, "/") + path
 	if len(q) > 0 {
 		u += "?" + q.Encode()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, method, u, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +125,69 @@ func (c *Client) Services(ctx context.Context, stack string) ([]compose.Containe
 // Compose is the stack's configuration, without values.
 func (c *Client) Compose(ctx context.Context, stack string) (compose.View, error) {
 	return getJSON[compose.View](ctx, c, "/v1/stacks/"+url.PathEscape(stack)+"/compose")
+}
+
+// Action is one write to ask of an agent: Name is start, stop or restart for a Service,
+// or up, down, pull or script for the whole Stack (Service empty). Mode "down" on "down"
+// removes the containers instead of stopping them.
+type Action struct {
+	Stack   string
+	Service string
+	Name    string
+	Mode    string
+}
+
+// ActionError is a write the agent accepted and started, and that then failed.
+type ActionError struct{ Message string }
+
+func (e *ActionError) Error() string { return e.Message }
+
+// ActionRun is a write the agent accepted. The agent runs it to its end whether or not
+// anyone reads the output.
+type ActionRun struct{ res *http.Response }
+
+// Act asks the agent for a write. A refusal (writes off, busy, no such service) is an
+// *Error, before any output.
+func (c *Client) Act(ctx context.Context, a Action) (*ActionRun, error) {
+	path := "/v1/stacks/" + url.PathEscape(a.Stack) + "/"
+	if a.Service != "" {
+		path += "services/" + url.PathEscape(a.Service) + "/"
+	}
+	q := url.Values{}
+	if a.Mode != "" {
+		q.Set("mode", a.Mode)
+	}
+	res, err := c.send(ctx, http.MethodPost, path+url.PathEscape(a.Name), q)
+	if err != nil {
+		return nil, err
+	}
+	return &ActionRun{res: res}, nil
+}
+
+// Each hands over each line the write printed, until it ends. It returns nil when the
+// write worked, an *ActionError when it failed, and another error when the connection
+// broke first, in which case the write may still be running on the host.
+func (r *ActionRun) Each(fn func(line string)) error {
+	defer func() { _ = r.res.Body.Close() }()
+	sc := bufio.NewScanner(r.res.Body)
+	sc.Buffer(make([]byte, 64<<10), 1<<20)
+	for sc.Scan() {
+		var l agent.ActionLine
+		if json.Unmarshal(sc.Bytes(), &l) != nil || l.Heartbeat {
+			continue
+		}
+		if l.Done {
+			if l.OK {
+				return nil
+			}
+			return &ActionError{Message: l.Error}
+		}
+		fn(l.Line)
+	}
+	if err := sc.Err(); err != nil {
+		return fmt.Errorf("the connection to the agent broke; the action may still be running on the host: %w", err)
+	}
+	return errors.New("the connection to the agent ended before the action did; it may still be running on the host")
 }
 
 // LogQuery says which lines to follow: a service ("" for the whole stack), and from

@@ -81,15 +81,22 @@ func (hostRunner) Stream(ctx context.Context, _ string, _ []string, line func(st
 	return nil
 }
 
-// Exec is for the agent's writes, which devdeck doesn't ask for yet.
-func (hostRunner) Exec(context.Context, string, string, []string, func(string)) error {
-	return errors.New("writes are not part of these tests")
+// Exec is a write on the host: it prints a line, and a pull fails.
+func (hostRunner) Exec(_ context.Context, _, _ string, args []string, line func(string)) error {
+	line("Container acme-api  Working")
+	if slices.Contains(args, "pull") {
+		return errors.New("docker ended with code 1: no such image")
+	}
+	return nil
 }
 
 // fakeSSM serves the agent on the local port the tunnel command names, as the real
 // port forward would. say makes it fail instead, printing that.
 func fakeSSM(say string) remote.Starter {
-	cfg := agent.Config{Listen: agent.DefaultListen, TokenFile: "x", Stacks: []agent.Stack{{ID: "apps", Name: "Applications", Dir: "/srv/acme", Files: []string{"compose.yml"}}}}
+	cfg := agent.Config{Listen: agent.DefaultListen, TokenFile: "x", Stacks: []agent.Stack{
+		{ID: "apps", Name: "Applications", Dir: "/srv/acme", Files: []string{"compose.yml"}, AllowWrite: true},
+		{ID: "locked", Name: "Locked", Dir: "/srv/acme", Files: []string{"compose.yml"}},
+	}}
 	h := agent.New(cfg, []byte(hostToken), hostRunner{}, zerolog.Nop(), "1.0.0").Handler()
 	return func(ctx context.Context, args []string, line func(string)) error {
 		if say != "" {
@@ -180,7 +187,7 @@ func TestHostInfoServicesComposeAndLogsThroughTheTunnel(t *testing.T) {
 
 	rec := do(e, http.MethodGet, "/api/v1/hosts/demo/dev-box/info")
 	info := decode[agent.Info](t, rec.Body.Bytes())
-	if rec.Code != http.StatusOK || info.Version != "1.0.0" || len(info.Stacks) != 1 || info.Stacks[0].ID != "apps" {
+	if rec.Code != http.StatusOK || info.Version != "1.0.0" || len(info.Stacks) != 2 || info.Stacks[0].ID != "apps" || !info.Stacks[0].AllowWrite || info.Stacks[1].AllowWrite {
 		t.Fatalf("info = %d %s", rec.Code, rec.Body)
 	}
 	if v := decode[remote.HostView](t, do(e, http.MethodGet, "/api/v1/hosts/demo/dev-box").Body.Bytes()); !v.Tunnel.Open {
@@ -309,5 +316,69 @@ func TestTheWebAppIsServedBesideTheAPI(t *testing.T) {
 	Register(e2, Deps{Version: "test", Bus: bus, Guard: guard, Hub: NewHub(bus, guard.OriginHosts(), zerolog.Nop()), Plugins: sdk.NewRegistry()})
 	if rec := do(e2, http.MethodGet, "/stacks"); rec.Code != http.StatusNotFound {
 		t.Errorf("no UI = %d", rec.Code)
+	}
+}
+
+// actionLines reads the newline-delimited JSON a write answered with.
+func actionLines(t *testing.T, body string) []agent.ActionLine {
+	t.Helper()
+	var out []agent.ActionLine
+	for _, line := range strings.Split(strings.TrimSpace(body), "\n") {
+		var l agent.ActionLine
+		if err := json.Unmarshal([]byte(line), &l); err != nil {
+			t.Fatalf("not a JSON line: %q", line)
+		}
+		out = append(out, l)
+	}
+	return out
+}
+
+func TestHostWritesGoThroughTheTunnel(t *testing.T) {
+	e, store := hostServer(t, "")
+	store.m["host/demo/dev-box"] = hostToken
+	const base = "/api/v1/hosts/demo/dev-box/stacks/"
+
+	// a service write streams its output, then says it worked
+	rec := postJSON(e, http.MethodPost, base+"apps/services/api/restart", nil)
+	got := actionLines(t, rec.Body.String())
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/x-ndjson" || len(got) != 2 || got[0].Line != "Container acme-api  Working" || !got[1].Done || !got[1].OK {
+		t.Fatalf("restart = %d %s", rec.Code, rec.Body)
+	}
+
+	// a stack write that fails after it began: still 200, and the end says why
+	rec = postJSON(e, http.MethodPost, base+"apps/pull", nil)
+	got = actionLines(t, rec.Body.String())
+	if rec.Code != http.StatusOK || len(got) != 2 || got[1].OK || got[1].Error != "docker ended with code 1: no such image" {
+		t.Errorf("pull = %d %s", rec.Code, rec.Body)
+	}
+
+	// a stack the agent keeps read-only, or a service it doesn't have: refused before any output
+	for path, want := range map[string]int{
+		"locked/up":                  http.StatusForbidden,
+		"locked/services/api/stop":   http.StatusForbidden,
+		"apps/services/db/restart":   http.StatusNotFound,
+		"nope/up":                    http.StatusNotFound,
+		"apps/nuke":                  http.StatusNotFound,
+		"apps/down?mode=wipe":        http.StatusBadRequest,
+		"apps/services/api/restart/": http.StatusNotFound,
+	} {
+		if rec := postJSON(e, http.MethodPost, base+path, nil); rec.Code != want {
+			t.Errorf("%s = %d, want %d (%s)", path, rec.Code, want, rec.Body)
+		}
+	}
+	if rec := postJSON(e, http.MethodPost, "/api/v1/hosts/demo/dev-box/stacks/locked/up", nil); !strings.Contains(rec.Body.String(), "writes are off") {
+		t.Errorf("the page is told why: %s", rec.Body)
+	}
+}
+
+func TestHostWritesNeedAHostAndAToken(t *testing.T) {
+	e, _ := hostServer(t, "")
+	for path, want := range map[string]int{
+		"/api/v1/hosts/demo/dev-box/stacks/apps/up":             http.StatusConflict, // no token saved
+		"/api/v1/hosts/demo/nope/stacks/apps/services/api/stop": http.StatusNotFound,
+	} {
+		if rec := postJSON(e, http.MethodPost, path, nil); rec.Code != want {
+			t.Errorf("%s = %d, want %d (%s)", path, rec.Code, want, rec.Body)
+		}
 	}
 }

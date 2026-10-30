@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -28,6 +29,10 @@ type runner struct {
 	mu     sync.Mutex
 	rounds [][]string // the lines handed over by each follower started, in turn
 	calls  [][]string
+
+	execs     [][]string // the writes run
+	execLines []string
+	execErr   error
 }
 
 func (r *runner) Output(_ context.Context, _ string, args []string) (string, error) {
@@ -56,13 +61,22 @@ func (r *runner) Stream(_ context.Context, _ string, args []string, line func(st
 	return nil // the follower ends, so the connection ends
 }
 
-// Exec is for the agent's writes, which devdeck doesn't ask for yet.
-func (r *runner) Exec(context.Context, string, string, []string, func(string)) error {
-	return errors.New("writes are not part of these tests")
+func (r *runner) Exec(_ context.Context, _, _ string, args []string, line func(string)) error {
+	r.mu.Lock()
+	r.execs = append(r.execs, args)
+	lines, err := r.execLines, r.execErr
+	r.mu.Unlock()
+	for _, l := range lines {
+		line(l)
+	}
+	return err
 }
 
 func server(t *testing.T, r *runner) *httptest.Server {
-	cfg := agent.Config{Listen: agent.DefaultListen, TokenFile: "x", Stacks: []agent.Stack{{ID: "apps", Name: "Apps", Dir: "/srv/acme", Files: []string{"compose.yml"}}}}
+	cfg := agent.Config{Listen: agent.DefaultListen, TokenFile: "x", Stacks: []agent.Stack{
+		{ID: "apps", Name: "Apps", Dir: "/srv/acme", Files: []string{"compose.yml"}, AllowWrite: true},
+		{ID: "locked", Name: "Locked", Dir: "/srv/acme", Files: []string{"compose.yml"}},
+	}}
 	srv := httptest.NewServer(agent.New(cfg, []byte(token), r, zerolog.Nop(), "9.9.9").Handler())
 	t.Cleanup(srv.Close)
 	return srv
@@ -73,7 +87,7 @@ func TestInfoServicesAndCompose(t *testing.T) {
 	c := &Client{Base: srv.URL, Token: token}
 	ctx := context.Background()
 	info, err := c.Info(ctx)
-	if err != nil || info.Version != "9.9.9" || len(info.Stacks) != 1 || info.Stacks[0].ID != "apps" {
+	if err != nil || info.Version != "9.9.9" || len(info.Stacks) != 2 || info.Stacks[0].ID != "apps" {
 		t.Fatalf("info = %+v %v", info, err)
 	}
 	svcs, err := c.Services(ctx, "apps")
@@ -214,3 +228,87 @@ func (m memStore) Get(n string) (secrets.Value, error) {
 }
 func (m memStore) Set(n string, v secrets.Value) error { m[n] = v.Reveal(); return nil }
 func (m memStore) Delete(n string) error               { delete(m, n); return nil }
+
+func TestActRunsAWriteOnTheAgent(t *testing.T) {
+	r := &runner{execLines: []string{"Container acme-api  Restarting", "Container acme-api  Started"}}
+	srv := server(t, r)
+	c := &Client{Base: srv.URL, Token: token}
+	ctx := context.Background()
+
+	run, err := c.Act(ctx, Action{Stack: "apps", Service: "api", Name: "restart"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	if err := run.Each(func(l string) { lines = append(lines, l) }); err != nil {
+		t.Fatalf("a write that worked: %v", err)
+	}
+	if !slices.Equal(lines, r.execLines) || len(r.execs) != 1 || !strings.HasSuffix(strings.Join(r.execs[0], " "), "restart api") {
+		t.Errorf("lines %q, ran %v", lines, r.execs)
+	}
+
+	// a stack write, with the mode that removes the containers
+	run, err = c.Act(ctx, Action{Stack: "apps", Name: "down", Mode: "down"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Each(func(string) {}); err != nil || !strings.HasSuffix(strings.Join(r.execs[1], " "), " down") {
+		t.Errorf("down: %v, ran %v", err, r.execs)
+	}
+
+	// it started and then failed: the reason, as an ActionError
+	r.execErr = errors.New("docker ended with code 1: no such image")
+	run, err = c.Act(ctx, Action{Stack: "apps", Name: "pull"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var failed *ActionError
+	if err := run.Each(func(string) {}); !errors.As(err, &failed) || failed.Message != "docker ended with code 1: no such image" {
+		t.Errorf("a failed write: %v", err)
+	}
+}
+
+func TestActRefusalsComeBeforeAnyOutput(t *testing.T) {
+	r := &runner{}
+	srv := server(t, r)
+	c := &Client{Base: srv.URL, Token: token}
+	var e *Error
+	for name, tc := range map[string]struct {
+		a      Action
+		status int
+	}{
+		"writes off":      {Action{Stack: "locked", Service: "api", Name: "restart"}, 403},
+		"no such service": {Action{Stack: "apps", Service: "db", Name: "restart"}, 404},
+		"no such action":  {Action{Stack: "apps", Name: "nuke"}, 404},
+		"a bad mode":      {Action{Stack: "apps", Name: "down", Mode: "wipe"}, 400},
+	} {
+		if _, err := c.Act(context.Background(), tc.a); !errors.As(err, &e) || e.Status != tc.status {
+			t.Errorf("%s: %v, want %d", name, err, tc.status)
+		}
+	}
+	if len(r.execs) != 0 {
+		t.Errorf("a refused write ran %v", r.execs)
+	}
+}
+
+func TestActWhenTheConnectionBreaks(t *testing.T) {
+	// an agent that sends a line and goes away without saying how it ended
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/stacks/a%20b/services/api/restart" && r.URL.EscapedPath() != "/v1/stacks/a%20b/services/api/restart" {
+			http.Error(w, "path "+r.URL.EscapedPath(), http.StatusTeapot)
+			return
+		}
+		_, _ = w.Write([]byte("{\"heartbeat\":true}\n{\"line\":\"working\"}\n"))
+	}))
+	defer srv.Close()
+	run, err := (&Client{Base: srv.URL, Token: token}).Act(context.Background(), Action{Stack: "a b", Service: "api", Name: "restart"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	err = run.Each(func(l string) { lines = append(lines, l) })
+	var failed *ActionError
+	if err == nil || errors.As(err, &failed) || !strings.Contains(err.Error(), "may still be running") || !slices.Equal(lines, []string{"working"}) {
+		t.Errorf("a stream that ends without done: %v %q (not an ActionError: the write may have worked)", err, lines)
+	}
+}
