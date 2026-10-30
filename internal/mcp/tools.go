@@ -76,7 +76,7 @@ func answerError(status int, body []byte) error {
 func Tools(base string, hc *http.Client) []Tool {
 	c := &client{base: base, http: hc}
 	noArgs := map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false}
-	return []Tool{
+	tools := []Tool{
 		{
 			Name:        "devdeck_status",
 			Description: "Which stacks devdeck is running right now, their state (starting, running, degraded, stopping, stopped) and each service's state. Read this first for \"what is running?\" or \"is something failing?\".",
@@ -115,6 +115,7 @@ func Tools(base string, hc *http.Client) []Tool {
 			Call: c.doctor,
 		},
 	}
+	return append(tools, logTools(c)...)
 }
 
 func (c *client) status(ctx context.Context, args json.RawMessage) (string, error) {
