@@ -14,15 +14,18 @@ import {
   useHostInfo,
   useHostLogs,
   useHosts,
+  useHostAction,
   useHostServices,
   useSaveHostToken,
   type AgentStack,
   type ComposeService,
+  type HostAction,
   type HostView,
   type RemoteContainer,
 } from "../lib/hosts";
 import { readLine } from "../lib/log-line";
 import { stagger } from "../lib/motion";
+import { ActionOutput, ConfirmAction, RowActions, StackActions } from "./HostActions";
 
 // A state is never colour alone: each has its own shape and a word.
 type Shape = "dot" | "ring" | "triangle" | "square";
@@ -59,7 +62,9 @@ function ports(c: RemoteContainer): string {
 const th = "px-4 py-2 text-start text-[13px] font-medium text-ink-3";
 const td = "px-4 py-2 align-top";
 
-function Services({ host, stack, onLogs }: Readonly<{ host: HostView; stack: string; onLogs: (service: string) => void }>) {
+type Writes = Readonly<{ busy: boolean; onPick: (a: HostAction) => void }>;
+
+function Services({ host, stack, onLogs, writes }: Readonly<{ host: HostView; stack: string; onLogs: (service: string) => void; writes?: Writes }>) {
   const q = useHostServices(host.workspace, host.id, stack, true);
   if (q.isPending) return <output aria-label="Loading services" className="skeleton block h-24 w-full" />;
   if (q.isError) return <p role="alert" className="m-0 text-[13px] text-critical">{q.error.message}</p>;
@@ -91,9 +96,12 @@ function Services({ host, stack, onLogs }: Readonly<{ host: HostView; stack: str
               </td>
               <td className={`${td} font-mono text-[12px] text-ink-2`}>{ports(c) || "—"}</td>
               <td className="px-3 py-1.5 text-end">
-                <button type="button" className={pillSmall} onClick={() => onLogs(c.Service)} aria-label={`Logs of ${c.Service}`}>
-                  Logs
-                </button>
+                <span className="inline-flex gap-1.5">
+                  {writes && <RowActions c={c} busy={writes.busy} onPick={writes.onPick} />}
+                  <button type="button" className={pillSmall} onClick={() => onLogs(c.Service)} aria-label={`Logs of ${c.Service}`}>
+                    Logs
+                  </button>
+                </span>
               </td>
             </tr>
           ))}
@@ -244,8 +252,11 @@ type View = "services" | "compose" | "logs";
 function StackPanel({ host, stack }: Readonly<{ host: HostView; stack: AgentStack }>) {
   const [view, setView] = useState<View>("services");
   const [service, setService] = useState("");
+  const [confirm, setConfirm] = useState<HostAction | null>(null);
   const services = useHostServices(host.workspace, host.id, stack.id, true);
+  const action = useHostAction(host.workspace, host.id, stack.id);
   const names = [...new Set((services.data ?? []).map((c) => c.Service))].sort((a, b) => a.localeCompare(b));
+  const writes = stack.allow_write ? { busy: action.state.running || confirm !== null, onPick: setConfirm } : undefined;
   const tab = (v: View, label: string) => (
     <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={view === v ? pillPrimary : pill}>
       {label}
@@ -256,7 +267,7 @@ function StackPanel({ host, stack }: Readonly<{ host: HostView; stack: AgentStac
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-baseline gap-3">
           <h3 className="m-0 text-[15px] font-medium text-ink">{stack.name}</h3>
-          <span className="text-[12px] text-ink-3" title="Start, stop and changes come in the next release; this stack can only be looked at for now.">
+          <span className="text-[12px] text-ink-3" title={stack.allow_write ? "The agent on the host allows start, stop and restart for this stack. Each asks first." : "The agent on the host only lets devdeck look at this stack (allow_write is off)."}>
             {stack.allow_write ? "writes allowed on the host" : "read-only"}
           </span>
         </div>
@@ -266,10 +277,24 @@ function StackPanel({ host, stack }: Readonly<{ host: HostView; stack: AgentStac
           {tab("logs", "Logs")}
         </div>
       </div>
+      {writes && view === "services" && <StackActions busy={writes.busy} onPick={writes.onPick} />}
+      {confirm && (
+        <ConfirmAction
+          action={confirm}
+          stack={stack.name}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => {
+            void action.run(confirm);
+            setConfirm(null);
+          }}
+        />
+      )}
+      <ActionOutput state={action.state} onDismiss={action.clear} />
       {view === "services" && (
         <Services
           host={host}
           stack={stack.id}
+          writes={writes}
           onLogs={(s) => {
             setService(s);
             setView("logs");

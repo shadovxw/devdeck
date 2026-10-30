@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "./api";
 
@@ -134,6 +134,95 @@ export function useDisconnectHost(ws: string, host: string) {
     },
   });
 }
+
+/** A write to ask of a host's agent: a service's start/stop/restart, or a stack's up/down/pull/script. */
+export type HostAction = {
+  name: "start" | "stop" | "restart" | "up" | "down" | "pull" | "script";
+  /** The service, for start, stop and restart; empty for a whole stack. */
+  service?: string;
+  /** "down" with the action "down" removes the containers; otherwise they are only stopped. */
+  remove?: boolean;
+};
+
+/** What a write has printed so far, and how it ended (null while it runs). */
+export type ActionState = {
+  action: HostAction | null;
+  running: boolean;
+  lines: string[];
+  result: { ok: boolean; error?: string } | null;
+};
+
+const idle: ActionState = { action: null, running: false, lines: [], result: null };
+
+/** The most output lines of a write the page keeps. */
+export const maxActionLines = 500;
+
+function actionURL(ws: string, host: string, stack: string, a: HostAction): string {
+  const s = `/api/v1${base(ws, host)}/stacks/${encodeURIComponent(stack)}`;
+  const path = a.service ? `${s}/services/${encodeURIComponent(a.service)}/${a.name}` : `${s}/${a.name}`;
+  return a.name === "down" && a.remove ? `${path}?mode=down` : path;
+}
+
+/**
+ * Runs writes on one stack of a host, one at a time, and keeps what the last one printed.
+ * The server streams the agent's output as newline-delimited JSON; the last line says how
+ * it ended. The agent finishes a write even if this page goes away, so leaving only stops
+ * the reading.
+ */
+export function useHostAction(ws: string, host: string, stack: string) {
+  const qc = useQueryClient();
+  const [state, setState] = useState<ActionState>(idle);
+  const ctrl = useRef<AbortController | null>(null);
+  useEffect(() => () => ctrl.current?.abort(), []);
+
+  const run = useCallback(
+    async (a: HostAction) => {
+      ctrl.current?.abort();
+      const mine = new AbortController();
+      ctrl.current = mine;
+      setState({ action: a, running: true, lines: [], result: null });
+      const finish = (result: { ok: boolean; error?: string }) => {
+        if (mine.signal.aborted) return;
+        setState((s) => ({ ...s, running: false, result }));
+        void qc.invalidateQueries({ queryKey: keys.services(ws, host, stack) });
+      };
+      try {
+        const res = await fetch(actionURL(ws, host, stack, a), { method: "POST", signal: mine.signal, headers: { Accept: "application/x-ndjson" } });
+        if (!res.ok || !res.body) {
+          finish({ ok: false, error: await refusal(res) });
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        let ended = false;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const { lines, rest } = splitLines(buf + decoder.decode(value, { stream: true }));
+          buf = rest;
+          for (const l of lines as (ShownLogLine & ActionEnd)[]) {
+            if (l.done) {
+              ended = true;
+              finish({ ok: l.ok === true, error: l.error });
+            } else if (l.line !== undefined) {
+              setState((s) => ({ ...s, lines: [...s.lines, l.line ?? ""].slice(-maxActionLines) }));
+            }
+          }
+        }
+        if (!ended) finish({ ok: false, error: "the connection ended before the action did; it may still be running on the host" });
+      } catch (e) {
+        if (!mine.signal.aborted) finish({ ok: false, error: e instanceof Error ? e.message : "the action stopped" });
+      }
+    },
+    [qc, ws, host, stack],
+  );
+
+  const clear = useCallback(() => setState(idle), []);
+  return { state, run, clear };
+}
+
+type ActionEnd = { done?: boolean; ok?: boolean };
 
 /** The most lines the logs panel keeps. */
 export const maxHostLogLines = 2000;

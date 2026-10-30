@@ -33,7 +33,7 @@ const services = [
   { Name: "acme-worker", Service: "worker", Image: "acme/worker:1", State: "exited", Health: "", Status: "Exited (2)", ExitCode: 2, Publishers: [] },
 ];
 
-type Server = { hosts?: HostView[]; info?: { error: string } };
+type Server = { hosts?: HostView[]; info?: { error: string }; writable?: boolean };
 
 function ndjson(lines: object[]): Response {
   const body = new ReadableStream<Uint8Array>({
@@ -73,7 +73,15 @@ function mockServer(opts: Server = {}) {
       if (path === `${b}/info`) {
         if (opts.info) return json({ message: opts.info.error }, 502);
         hosts = hosts.map((h) => ({ ...h, tunnel: { open: true, port: 50123, users: 1 } }));
-        return json({ version: "1.0.0", api: 1, stacks: [{ id: "infrabot", name: "InfraBOT dev", allow_write: false, after: [] }] });
+        return json({ version: "1.0.0", api: 1, stacks: [{ id: "infrabot", name: "InfraBOT dev", allow_write: opts.writable === true, after: [] }] });
+      }
+      if (method === "POST" && path.startsWith(`${b}/stacks/infrabot/`)) {
+        const rest = path.slice(`${b}/stacks/infrabot/`.length);
+        if (rest === "services/api/restart") return ndjson([{ line: "Container acme-api  Restarting" }, { line: "Container acme-api  Started" }, { done: true, ok: true }]);
+        if (rest === "pull") return ndjson([{ line: "pulling acme/api" }, { done: true, error: "docker ended with code 1: no such image" }]);
+        if (rest === "up") return json({ message: "busy: restart api is still running" }, 409);
+        if (rest === "script") return ndjson([{ line: "starting" }]); // the connection ends before the agent says how
+        return ndjson([{ done: true, ok: true }]);
       }
       if (path === `${b}/stacks/infrabot/services`) return json(services);
       if (path === `${b}/stacks/infrabot/compose`)
@@ -259,5 +267,94 @@ describe("the Remote hosts page, the less common paths", () => {
     }));
     renderHosts();
     expect((await screen.findByRole("alert")).textContent).toContain("boom");
+  });
+});
+
+async function openStack(opts: Server = {}) {
+  mockServer({ hosts: [host({ tunnel: { open: true, users: 0 } })], ...opts });
+  renderHosts();
+  const stack = within(await screen.findByRole("region", { name: "Stack InfraBOT dev" }));
+  await stack.findByText("acme/api:1.2");
+  return stack;
+}
+
+describe("the Remote hosts page, writes", () => {
+  it("offers no write on a stack the agent keeps read-only", async () => {
+    const stack = await openStack();
+    expect(stack.getByText("read-only")).toBeTruthy();
+    expect(stack.queryByRole("button", { name: "Restart api" })).toBeNull();
+    expect(stack.queryByRole("group", { name: "Stack actions" })).toBeNull();
+  });
+
+  it("asks first, then restarts a service and shows what it printed", async () => {
+    const stack = await openStack({ writable: true });
+    expect(stack.getByText("writes allowed on the host")).toBeTruthy();
+
+    fireEvent.click(stack.getByRole("button", { name: "Restart api" }));
+    const dialog = within(stack.getByRole("alertdialog", { name: "Confirm Restart api" }));
+    expect(dialog.getByText("Restart api?")).toBeTruthy();
+    expect(sent("POST", "/restart")).toHaveLength(0); // nothing runs before Confirm
+
+    fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
+    expect(stack.queryByRole("alertdialog")).toBeNull();
+    expect(sent("POST", "/restart")).toHaveLength(0);
+
+    fireEvent.click(stack.getByRole("button", { name: "Restart api" }));
+    fireEvent.click(within(stack.getByRole("alertdialog")).getByRole("button", { name: "Restart api" }));
+    expect(await stack.findByText("Restart api: done")).toBeTruthy();
+    expect(sent("POST", "/stacks/infrabot/services/api/restart")).toHaveLength(1);
+    expect(stack.getByLabelText("Output").textContent).toContain("Container acme-api  Started");
+    await waitFor(() => expect(sent("GET", "/stacks/infrabot/services").length).toBeGreaterThan(1)); // the table refreshes
+
+    fireEvent.click(stack.getByRole("button", { name: "Dismiss" }));
+    expect(stack.queryByLabelText("Last action")).toBeNull();
+  });
+
+  it("offers Stop for a running service and Start for a stopped one", async () => {
+    const stack = await openStack({ writable: true });
+    expect(stack.getByRole("button", { name: "Stop api" })).toBeTruthy();
+    expect(stack.queryByRole("button", { name: "Start api" })).toBeNull();
+    expect(stack.getByRole("button", { name: "Start worker" })).toBeTruthy();
+    expect(stack.queryByRole("button", { name: "Stop worker" })).toBeNull();
+  });
+
+  it("says why a write failed", async () => {
+    const stack = await openStack({ writable: true });
+    fireEvent.click(stack.getByRole("button", { name: "Pull" }));
+    fireEvent.click(within(stack.getByRole("alertdialog")).getByRole("button", { name: "Pull" }));
+    expect(await stack.findByText("Pull failed")).toBeTruthy();
+    expect(stack.getByRole("alert").textContent).toContain("no such image");
+    expect(stack.getByLabelText("Output").textContent).toContain("pulling acme/api");
+  });
+
+  it("only removes the containers when asked to", async () => {
+    const stack = await openStack({ writable: true });
+    const confirm = async (open: string) => {
+      fireEvent.click(stack.getByRole("button", { name: open }));
+      fireEvent.click(within(stack.getByRole("alertdialog")).getByRole("button", { name: open }));
+      await waitFor(() => expect(stack.queryByRole("alertdialog")).toBeNull());
+      await stack.findByText(`${open}: done`);
+    };
+    await confirm("Stop all");
+    expect(sent("POST", "/stacks/infrabot/down").at(-1)?.url).not.toContain("mode=");
+    fireEvent.click(stack.getByRole("button", { name: "Dismiss" }));
+    await confirm("Remove containers");
+    expect(sent("POST", "/stacks/infrabot/down").at(-1)?.url).toContain("mode=down");
+  });
+
+  it("shows a refusal, such as a stack that is busy", async () => {
+    const stack = await openStack({ writable: true });
+    fireEvent.click(stack.getByRole("button", { name: "Up" }));
+    fireEvent.click(within(stack.getByRole("alertdialog")).getByRole("button", { name: "Up" }));
+    expect(await stack.findByText("Up failed")).toBeTruthy();
+    expect(stack.getByRole("alert").textContent).toContain("busy: restart api is still running");
+  });
+
+  it("says so when the connection ends before the agent said how the write went", async () => {
+    const stack = await openStack({ writable: true });
+    fireEvent.click(stack.getByRole("button", { name: "Run up script" }));
+    fireEvent.click(within(stack.getByRole("alertdialog")).getByRole("button", { name: "Run up script" }));
+    expect(await stack.findByText("Run up script failed")).toBeTruthy();
+    expect(stack.getByRole("alert").textContent).toContain("may still be running on the host");
   });
 });

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -25,6 +26,9 @@ func hostError(err error) error {
 		return echo.NewHTTPError(http.StatusBadGateway, "the agent refused the saved token: save the token again")
 	case errors.As(err, &refusal) && refusal.Status == http.StatusNotFound:
 		return echo.NewHTTPError(http.StatusNotFound, refusal.Message)
+	case errors.As(err, &refusal) && slices.Contains([]int{http.StatusBadRequest, http.StatusForbidden, http.StatusConflict}, refusal.Status):
+		// a write the agent won't do: writes off for the stack, the stack busy, a bad request
+		return echo.NewHTTPError(refusal.Status, refusal.Message)
 	case errors.As(err, &refusal):
 		return echo.NewHTTPError(http.StatusBadGateway, refusal.Message)
 	case errors.Is(err, context.Canceled):
@@ -132,6 +136,49 @@ func registerHosts(g *echo.Group, h *remote.Hosts) {
 	})
 
 	one.GET("/stacks/:stack/logs", hostLogs(h))
+
+	// Writes: start, stop or restart a service; up, down, pull or the up script for a stack.
+	// The agent decides what is allowed (allow_write, one at a time); the page confirms first.
+	one.POST("/stacks/:stack/services/:svc/:action", hostAct(h))
+	one.POST("/stacks/:stack/:action", hostAct(h))
+}
+
+// hostAct is POST .../stacks/:stack[/services/:svc]/:action[?mode=down]. A refusal is an
+// error status; once the agent accepts, the output streams back as newline-delimited
+// JSON ({"line"} per line, then {"done":true,"ok":true} or {"done":true,"error":...}),
+// the shape the agent uses. The agent finishes the write even if the page goes away.
+func hostAct(h *remote.Hosts) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		cl, err := h.Client(c.Param("ws"), c.Param("host"))
+		if err != nil {
+			return hostError(err)
+		}
+		ctx := c.Request().Context()
+		run, err := cl.Act(ctx, remote.Action{Stack: c.Param("stack"), Service: c.Param("svc"), Name: c.Param("action"), Mode: c.QueryParam("mode")})
+		if err != nil {
+			return hostError(err)
+		}
+		w := c.Response()
+		w.Header().Set(echo.HeaderContentType, "application/x-ndjson")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		w.Flush()
+		enc := json.NewEncoder(w)
+		err = run.Each(func(line string) {
+			_ = enc.Encode(agent.ActionLine{Line: line})
+			w.Flush()
+		})
+		switch {
+		case ctx.Err() != nil:
+			// the page left; nobody to tell
+		case err != nil:
+			_ = enc.Encode(agent.ActionLine{Done: true, Error: err.Error()})
+		default:
+			_ = enc.Encode(agent.ActionLine{Done: true, OK: true})
+		}
+		w.Flush()
+		return nil
+	}
 }
 
 // hostLogs is GET .../stacks/:stack/logs?service=&tail=: it follows the logs as
