@@ -56,6 +56,11 @@ func (r *runner) Stream(_ context.Context, _ string, args []string, line func(st
 	return nil // the follower ends, so the connection ends
 }
 
+// Exec is for the agent's writes, which devdeck doesn't ask for yet.
+func (r *runner) Exec(context.Context, string, string, []string, func(string)) error {
+	return errors.New("writes are not part of these tests")
+}
+
 func server(t *testing.T, r *runner) *httptest.Server {
 	cfg := agent.Config{Listen: agent.DefaultListen, TokenFile: "x", Stacks: []agent.Stack{{ID: "apps", Name: "Apps", Dir: "/srv/acme", Files: []string{"compose.yml"}}}}
 	srv := httptest.NewServer(agent.New(cfg, []byte(token), r, zerolog.Nop(), "9.9.9").Handler())
