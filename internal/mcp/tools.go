@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/shadovxw/devdeck/internal/api"
@@ -35,6 +36,8 @@ var errNotRunning = errors.New("devdeck isn't running: open the devdeck app, the
 type client struct {
 	base string // http://127.0.0.1:7070
 	http *http.Client
+	// hostIdle and hostTotal time a host log read; zero means the defaults (tests set them short).
+	hostIdle, hostTotal time.Duration
 }
 
 func (c *client) get(ctx context.Context, path string) ([]byte, error) {
@@ -115,7 +118,8 @@ func Tools(base string, hc *http.Client) []Tool {
 			Call: c.doctor,
 		},
 	}
-	return append(tools, logTools(c)...)
+	tools = append(tools, logTools(c)...)
+	return append(tools, hostTools(c)...)
 }
 
 func (c *client) status(ctx context.Context, args json.RawMessage) (string, error) {

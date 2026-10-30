@@ -122,7 +122,11 @@ func logTools(c *client) []Tool {
 }
 
 func objectSchema(props map[string]any, required ...string) map[string]any {
-	return map[string]any{"type": "object", "properties": props, "required": required, "additionalProperties": false}
+	schema := map[string]any{"type": "object", "properties": props, "additionalProperties": false}
+	if len(required) > 0 {
+		schema["required"] = required
+	}
+	return schema
 }
 
 func (c *client) queryLogs(ctx context.Context, args json.RawMessage) (string, error) {
