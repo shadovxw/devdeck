@@ -32,9 +32,9 @@ On Windows with Docker Desktop (there is no Docker inside WSL here), with a thro
 
 Hosts in the workspace, the SSM tunnel, the web pages (PR 2); start, stop and the other writes (PR 3); versions (PR 4); the bootstrap script and release builds (PR 5).
 
-## PR 2: hosts, the SSM tunnel and the Remote hosts page (in progress)
+## PR 2: hosts, the SSM tunnel and the Remote hosts page (merged, #25)
 
-### Built so far (not committed)
+### What was built
 
 - **Hosts in `workspace.yaml`**: `hosts: [{id, name, type: aws-ssm, aws: {instance, region, profile}, agent_port}]`, in the types, the JSON schema (instance, region and profile patterns) and the checks (an id used twice; an aws-ssm host without `aws`).
 - **`remote.Tunnels`**: every connection to an agent goes through a dialer that opens `aws ssm start-session --document-name AWS-StartPortForwardingSession` on demand, waits until the agent answers, keeps the same local port across restarts, restarts a tunnel that died, and closes one that nobody used for 5 minutes. What the AWS CLI prints is turned into what to do: sign in again (`aws sso login --profile ...`), install the plugin, a profile that isn't set up, a role that may not start a session, an instance not connected to SSM, nothing listening on the agent's port.
@@ -50,10 +50,9 @@ Hosts in the workspace, the SSM tunnel, the web pages (PR 2); start, stop and th
 - **The reason a tunnel failed came wrapped in HTTP wording** ("the agent couldn't be reached (is the tunnel open?): Get "http://127.0.0.1/v1/info": ..."). Tunnel failures are now a `TunnelError` that the client passes on as it is.
 - Checked for real: an SSM port forward to the instance opens with the `devdeck` SSO profile; with no agent there yet, the plugin reports "Connection to destination port failed", which devdeck turns into "is `devdeck agent` running there?".
 
-### Still to do
+### Checked on a real host
 
-- A real check against the instance: in this shell, `aws ssm start-session` said the Session Manager plugin isn't found (installed after this shell started, or not yet installed). Then put the agent on the instance (read-only) and connect from the page.
-- The install steps for the agent on the instance (binary from a pre-release, `agent.yaml`, token, run it).
+The agent (a pre-release build, tag `agent-dev-1`) was put on the first host by hand and the page connected through the tunnel; the stacks, services and live logs showed. The install steps used are in [plan.md §12](plan.md#12-where-we-are-and-what-is-next-read-this-first); they become `bootstrap.sh` in PR 5.
 
 ## PR 3, part A: the agent can start, stop and restart (agent only)
 
@@ -102,3 +101,8 @@ devdeck's side of part A. The agent needs no change: it only has to be the build
 ### Not here
 
 Versions (PR C/D), Up all / Down all, and showing whether a stack has an up script (a stack without one answers "no up script" when asked; the agent's `info` would have to say, which means a new agent build).
+
+### Where it stands (2026-10-30)
+
+- Part A is merged (#29) and runs on the first host. Part B is committed on `feat/host-writes-ui` (`d1fe40e`) and was tried in the app against that host; it is not pushed yet.
+- Done by hand on the first host for the next PRs: `.env` split into `.env` and `versions.env`, `agent.yaml` pointed at both (believed done; the image check passed). **Not done:** editing the stack's up script to read both env files, and checking whether the up script's extra compose file must be in the agent's `files`. Both are in [plan.md §12](plan.md#12-where-we-are-and-what-is-next-read-this-first), with the next PRs (4C agent versions, 4D devdeck Versions panel).

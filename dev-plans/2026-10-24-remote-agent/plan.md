@@ -1,6 +1,6 @@
 # Remote hosts: the devdeck agent
 
-> Status: **plan, not started** · goal: manage the compose stacks on a remote Linux host (an EC2 instance with no public address, reached through SSM) as devdeck manages local ones: see every service and its health, follow logs, start, stop and restart, bring a stack up or down, and change image tags. Several stacks per host. The next phase does the same for a Helm-deployed stack.
+> Status: **in progress: PRs 1 to 3 are built, PRs 4 and 5 are not. Read [§12](#12-where-we-are-and-what-is-next-read-this-first) before doing anything else.** · goal: manage the compose stacks on a remote Linux host (an EC2 instance with no public address, reached through SSM) as devdeck manages local ones: see every service and its health, follow logs, start, stop and restart, bring a stack up or down, and change image tags. Several stacks per host. The next phase does the same for a Helm-deployed stack.
 
 ## 1. The problem
 
@@ -203,6 +203,77 @@ The Linux build needs no C compiler (the SQLite driver is pure Go), so `GOOS=lin
 
 ## 11. Open questions
 
-- The instance's architecture (amd64 or arm64), for the first release build.
+- ~~The instance's architecture~~: x86_64, so `linux/amd64`.
 - Whether to split the current project into infrastructure and applications now or keep it as one stack until later (both work).
 - Whether "change tag" should also list the tags available on Docker Hub (needs the Phase 9 Docker Hub connection; not in this plan).
+
+## 12. Where we are, and what is next (read this first)
+
+> Updated 2026-10-30. A new session reads this section, then [`changes.md`](changes.md), before touching code. Facts about the owner's real host (instance, folders, stack and service names, image names) are **not in this public repo**. Ask the owner for them; don't guess, and never write them into code, docs or tests here.
+
+### State of the PRs
+
+| PR | What | State |
+|---|---|---|
+| 1 | The agent, read-only | merged |
+| 2 | Hosts, SSM tunnel, Remote hosts page, logs | merged (#25); live logs were seen from a real host |
+| 3A | Agent writes: start, stop, restart, up, down, pull, up script | merged (#29); deployed to the first host |
+| 3B | The same writes from the Remote hosts page, each behind a confirmation | committed on `feat/host-writes-ui` (`d1fe40e`); **not pushed, no PR yet**; tried in the app against the real host |
+| 4C | Versions in the agent: read, change, apply, roll back, history | **not started** |
+| 4D | Versions in devdeck: the Versions panel | **not started** |
+| 5 | Linux release build, `bootstrap.sh`, `split-env` script, walkthrough | **not started** (done by hand so far, see below) |
+
+### How an agent build gets onto a host today (by hand, until PR 5)
+
+1. Build: `GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/devdeck-linux-amd64 ./cmd/devdeck`, then in `dist` write the checksum with `sha256sum devdeck-linux-amd64 > SHA256SUMS`.
+2. Publish: `gh release create agent-dev-N dist/devdeck-linux-amd64 dist/SHA256SUMS --target <branch> --prerelease ...`. **A new tag every time** (`agent-dev-1` is the first read-only build and stays as the rollback). The repo is public and the binary holds nothing private.
+3. On the host: `curl -fLo devdeck-linux-amd64.new <asset url>`, the same for `SHA256SUMS`, `mv` it to its name and `sha256sum -c`; `chmod +x`; `./devdeck-linux-amd64 agent check --config agent.yaml`; keep the old binary as `devdeck.prev`; `mv` the new one over the running one (a rename is safe, `cp` over a running program isn't); `systemctl restart devdeck-agent`. Rollback: `mv devdeck.prev devdeck && systemctl restart devdeck-agent`.
+4. The desktop app must be rebuilt to show a new page: `mise run app`, or `mise run package` for the installer. Quit a running devdeck first: one window per address, so a second launch only brings the old window forward.
+
+### Decisions made while building PR 3
+
+- **One stack per host to start; no Up all / Down all** (nothing to order). `allow_write` is per stack, so on one stack it is all or nothing. A `protected_services` list (refuse stop and restart for the database and the secrets store) was offered and **not built**.
+- **A write runs to its end even if the client goes away** (15 minutes at most), so a dropped tunnel can't leave an `up` half done. One write at a time per stack (409 "busy").
+- **The answer is a stream** of `{"line"}` objects, heartbeats, and a last `{"done":true,"ok":...,"error":...}`. The HTTP status is 200 once it begins, so a failure shows in the last line. devdeck's API passes the same shape on; refusals before output are 403 (writes off), 409 (busy or no token), 400, 404.
+- **Stop all** only stops; **Remove containers** is a separate button (`?mode=down`). Volumes can't be removed from devdeck.
+- **The page confirms every write** and allows one at a time per stack.
+- **The agent's `info` doesn't say whether a stack has an up script**, so Run up script always shows. Reporting it needs a new agent build; not done.
+
+### One-time host setup for tag changes: split the env file
+
+Tags change in `versions.env`, which holds only `*_IMAGE=` lines; `.env` keeps secrets and is never opened by the agent. On the host, in the stack's folder (neutral names here):
+
+```bash
+cp -p .env .env.before-split
+{ echo "# versions.env: image tags only, nothing secret. devdeck's agent may change this file."; grep -E '^[A-Z0-9_]+_IMAGE=' .env; } > versions.env
+sed -i -E '/^[A-Z0-9_]+_IMAGE=/d' .env
+```
+
+In `agent.yaml` the stack gets `env_files: [.env, versions.env]` and `versions_file: versions.env`; check with `devdeck agent check`, then restart the agent. Compose needs 2.24 or newer for two env files.
+
+**Check that nothing changed:** `diff <(docker compose -f <files> --env-file .env --env-file versions.env config --images | sort -u) <(docker ps --format '{{.Image}}' | sort -u)` must print nothing, except that `docker.io/library/x` and `x` are the same image.
+
+**Found by doing it on the first host:**
+
+- Everything that runs compose must pass **both** env files, or the images are blank. The stack's own up script has to be edited; until then, don't run it and don't press Run up script.
+- After the split, an image line typed back into `.env` is **silently ignored** (`versions.env` is read last and wins). Anyone who changes tags by hand must edit `versions.env`.
+- The up script may use **more compose files** than the agent's `files` lists. They must match, or the agent's Up starts services differently from the script. Compare `docker compose --dry-run ... up -d` for both file sets: a `Recreate` line means they differ.
+- Tags had been changed by hand on the host between two looks at it. A tag in the file that differs from the running one is something the Versions panel has to show.
+- A `$` inside a value in `.env` or a compose file is read as a variable and cut short (`The "Ff" variable is not set`). Write `$$`.
+
+### Still to do on the first host (the owner's steps; not done yet)
+
+1. **Read-only check.** Print the top-level keys and service names of the extra compose file (not its values), and run `docker compose --dry-run ... up -d` with the agent's two files and then with all three, grepping for `Recreate|Create|Start`. `NOTHING-WOULD-CHANGE` means no difference. The owner has not run this yet.
+2. **Edit the up script** so every `docker compose -f` call (the real one and the two help lines) reads `docker compose --env-file .env --env-file versions.env -f`. Back it up first (`cp -p dev-up.sh dev-up.sh.before-split`). **Not done yet.**
+3. If the three-file run is clean and the two-file run recreates something, add the extra file to `files` in `agent.yaml`, run `agent check` and restart the agent.
+4. Check whether the folder is a git repo with the up script tracked, and tell the team about the `versions.env` rule above.
+5. Confirm the split took: `cat agent.yaml` shows `env_files` and `versions_file`; `.env` has no `_IMAGE=` lines; `versions.env` has the comment plus one line per image. The check in the previous section passed, so this is believed done, but it is worth a look.
+
+### Next PRs, in order
+
+Each is its own branch and PR of **fewer than 10 files**, safe to deploy on its own, with `changes.md` updated and neutral names. Git commands are given to the owner, never run.
+
+1. **Push and open PR 3B** (`feat/host-writes-ui`), after the docs commit that carries this section.
+2. **PR 4C, the agent** ([`milestone-1.md`](milestone-1.md) §4). `GET /v1/stacks/{stack}/versions`: per service whose image comes from a variable, the variable, repository, the tag in the file and the tag the container runs; a difference is visible. `PUT .../versions` with `{changes:[{service,tag}], apply:true|false}`: the stack must allow writes, each service must exist and have an image variable, each tag must match `^[A-Za-z0-9_.-]{1,128}$`; write `versions_file` atomically (temporary file, then rename), keep `<file>.prev`, append to `changes.log` (time, stack, service, old tag, new tag); with apply, `pull <services>` then `up -d --no-deps <services>`, then wait up to 2 minutes for running and healthy; a failed pull puts the file back; an unhealthy service is reported with its last 50 log lines and the file keeps the new tag. `GET .../changes` is the history; roll back is the same request with the previous tags. It writes `versions_file` only and never opens `.env`. Same lock and `allow_write` as PR 3A. Needs `env_files` and `versions_file` in the host's `agent.yaml`.
+3. **PR 4D, devdeck.** Client, API and a Versions panel on the Remote hosts page: a tag field per service, multi-select for a release, Apply, history and Roll back; file tag against running tag. Same confirmation pattern as PR 3B.
+4. **Later:** listing tags from the image registry (needs a registry token in the OS keyring), triggering or watching image builds, PR 5, Helm, `protected_services`, an up-script flag in `info`, Up all / Down all once a host has two stacks.
