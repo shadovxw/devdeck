@@ -17,7 +17,11 @@ const ConnectorHeader = "X-Devdeck-Client"
 const ConnectorClient = "mcp"
 
 // connectorRoutes are the only paths a connector request may GET.
-var connectorRoutes = regexp.MustCompile(`^/api/v1/(health|runs|doctor|workspaces(/[^/]+)?)$`)
+//
+// A stack's logs are readable (the lines, their histogram and their error groups; what
+// is captured and the saved filters are settings and stay out). They are masked when
+// they are stored.
+var connectorRoutes = regexp.MustCompile(`^/api/v1/(health|runs|doctor|workspaces(/[^/]+(/stacks/[^/]+/logs(/histogram|/groups)?)?)?)$`)
 
 // ConnectorGuard refuses, with 403, a connector request that is not a GET of a route
 // in connectorRoutes. Requests that don't name themselves the connector pass through:

@@ -12,10 +12,11 @@ func TestConnectorGuard(t *testing.T) {
 	e := echo.New()
 	e.Use(ConnectorGuard())
 	ok := func(c echo.Context) error { return c.NoContent(http.StatusNoContent) }
-	for _, p := range []string{"/api/v1/health", "/api/v1/runs", "/api/v1/doctor", "/api/v1/workspaces", "/api/v1/workspaces/:id", "/api/v1/hosts", "/api/v1/workspaces/:id/stacks/:stack/logs"} {
+	for _, p := range []string{"/api/v1/health", "/api/v1/runs", "/api/v1/doctor", "/api/v1/workspaces", "/api/v1/workspaces/:id", "/api/v1/hosts", "/api/v1/workspaces/:id/stacks/:stack/logs", "/api/v1/workspaces/:id/stacks/:stack/logs/histogram", "/api/v1/workspaces/:id/stacks/:stack/logs/groups", "/api/v1/workspaces/:id/stacks/:stack/logs/capture", "/api/v1/workspaces/:id/log-filters"} {
 		e.GET(p, ok)
 	}
 	e.POST("/api/v1/workspaces", ok)
+	e.DELETE("/api/v1/workspaces/:id/stacks/:stack/logs", ok)
 	e.PUT("/api/v1/hosts/:ws/:host/token", ok)
 	e.GET("/ws", ok)
 
@@ -34,7 +35,12 @@ func TestConnectorGuard(t *testing.T) {
 		{"connector may not post", http.MethodPost, "/api/v1/workspaces", "mcp", http.StatusForbidden},
 		{"connector may not put a token", http.MethodPut, "/api/v1/hosts/demo/dev/token", "mcp", http.StatusForbidden},
 		{"connector may not read hosts yet", http.MethodGet, "/api/v1/hosts", "mcp", http.StatusForbidden},
-		{"connector may not read logs yet", http.MethodGet, "/api/v1/workspaces/demo/stacks/full/logs", "mcp", http.StatusForbidden},
+		{"connector reads logs", http.MethodGet, "/api/v1/workspaces/demo/stacks/full/logs?level=error&limit=50", "mcp", http.StatusNoContent},
+		{"connector reads the histogram", http.MethodGet, "/api/v1/workspaces/demo/stacks/full/logs/histogram", "mcp", http.StatusNoContent},
+		{"connector reads error groups", http.MethodGet, "/api/v1/workspaces/demo/stacks/full/logs/groups", "mcp", http.StatusNoContent},
+		{"connector may not read what is captured", http.MethodGet, "/api/v1/workspaces/demo/stacks/full/logs/capture", "mcp", http.StatusForbidden},
+		{"connector may not read saved filters", http.MethodGet, "/api/v1/workspaces/demo/log-filters", "mcp", http.StatusForbidden},
+		{"connector may not delete logs", http.MethodDelete, "/api/v1/workspaces/demo/stacks/full/logs", "mcp", http.StatusForbidden},
 		{"connector may not open the websocket", http.MethodGet, "/ws", "mcp", http.StatusForbidden},
 		{"other clients are not limited: post", http.MethodPost, "/api/v1/workspaces", "", http.StatusNoContent},
 		{"other clients are not limited: hosts", http.MethodGet, "/api/v1/hosts", "curl", http.StatusNoContent},

@@ -27,3 +27,23 @@ What changed and why, kept current while coding. See [`plan.md`](plan.md) for th
 ### Not here
 
 Logs (C2), hosts (C3), resources and the YAML check (C4), the Claude access panel and audit (C5), `get_ui_state` (C6), the installer task and Doctor check (C7).
+
+## PR C2: logs
+
+### What was built
+
+- **Three tools:** `query_logs`, `log_histogram`, `log_groups`, over the same routes and filters as the Logs page (service, level, regex, since, until, error group; `query_logs` also pages with `before`).
+  - `query_logs` returns one line per entry (`#number time level service text`, a multi-line entry indented), not JSON, which is shorter and easier to read. It asks for the newest `limit` lines (default 100, at most 500; a bigger number is cut to 500 and the answer says so) and says how to get the older ones (`before=<number>`). One line is cut at 2,000 bytes; the whole answer at 200 KB, each with a note.
+  - `log_histogram` gives the totals and buckets by level; `log_groups` the latest 50 kinds of error.
+- **The connector's allow-list** now has the stack's logs, histogram and groups. What is captured (`.../logs/capture`), the saved filters, deleting logs and every write stay refused.
+
+### Checked
+
+- Table tests for each tool (arguments, escaping of names in the path, paging, the limit cap, refusals, cut lines and answers).
+- `TestConnectorReadsMaskedLogs` takes lines with a fake password, a fake credential in a URL and a fake token in a JSON line through the real intake (the sink, which masks) into the real log routes, reads them with the connector's header and asserts the fake value is in none of the answers, while the lines themselves still are. The guard's table test covers the new routes and the refused ones.
+- `mise run lint:go` clean.
+
+### Not here
+
+- Filtering by a structured field (`field=name=value`), which the Logs page supports. It needs the syntax described to Claude first; add when asked for.
+- Hosts (C3), resources and the YAML check (C4), the Claude access panel and audit (C5), `get_ui_state` (C6), the installer task and Doctor check (C7).
