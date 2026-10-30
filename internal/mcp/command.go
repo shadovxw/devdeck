@@ -57,7 +57,7 @@ func OSEnv(version string) Env {
 		Executable: os.Executable,
 		LookPath:   exec.LookPath,
 		Run: func(ctx context.Context, name string, args []string, out, errw io.Writer) error {
-			cmd := exec.CommandContext(ctx, name, args...)
+			cmd := exec.CommandContext(ctx, name, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- only install() calls this: name is the claude found on the PATH, args are fixed (addArgs) plus this program's own path
 			cmd.Stdout, cmd.Stderr = out, errw
 			return cmd.Run()
 		},
