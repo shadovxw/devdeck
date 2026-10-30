@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 )
@@ -44,13 +45,34 @@ type Resource struct {
 	Read        func() (string, error)
 }
 
-// Server answers MCP requests with its tools and resources.
+// Prompt is a named starting point Claude Code offers the person (a slash command in
+// its menu): it turns a few arguments into the message Claude then works from.
+type Prompt struct {
+	Name        string
+	Description string
+	Arguments   []PromptArg
+	Build       func(args map[string]string) (string, error)
+}
+
+// PromptArg is one argument of a prompt.
+type PromptArg struct {
+	Name        string
+	Description string
+	Required    bool
+}
+
+// toolKey carries the name of the tool being called, so the request it makes can say so
+// for the audit list.
+type toolKey struct{}
+
+// Server answers MCP requests with its tools, resources and prompts.
 type Server struct {
 	Name         string
 	Version      string
 	Instructions string
 	Tools        []Tool
 	Resources    []Resource
+	Prompts      []Prompt
 
 	mu  sync.Mutex // one writer at a time
 	out io.Writer
@@ -146,6 +168,15 @@ func (s *Server) handle(ctx context.Context, req request) (resp response, ok boo
 		} else {
 			resp.Result = result
 		}
+	case "prompts/list":
+		resp.Result = map[string]any{"prompts": s.listPrompts()}
+	case "prompts/get":
+		result, err := s.prompt(req.Params)
+		if err != nil {
+			resp.Error = &rpcError{codeInvalidParams, err.Error()}
+		} else {
+			resp.Result = result
+		}
 	case "tools/call":
 		result, err := s.call(ctx, req.Params)
 		if err != nil {
@@ -173,6 +204,9 @@ func (s *Server) initialize(params json.RawMessage) any {
 	caps := map[string]any{"tools": map[string]any{}}
 	if len(s.Resources) > 0 {
 		caps["resources"] = map[string]any{}
+	}
+	if len(s.Prompts) > 0 {
+		caps["prompts"] = map[string]any{}
 	}
 	return map[string]any{
 		"protocolVersion": version,
@@ -207,7 +241,7 @@ func (s *Server) call(ctx context.Context, params json.RawMessage) (any, error) 
 		if t.Name != p.Name {
 			continue
 		}
-		text, err := t.Call(ctx, p.Arguments)
+		text, err := t.Call(context.WithValue(ctx, toolKey{}, t.Name), p.Arguments)
 		if err != nil {
 			return toolResult(err.Error(), true), nil
 		}
@@ -249,4 +283,45 @@ func (s *Server) read(params json.RawMessage) (any, error) {
 		return map[string]any{"contents": []map[string]any{{"uri": r.URI, "mimeType": r.MIME, "text": text}}}, nil
 	}
 	return nil, errors.New("no such resource: " + p.URI)
+}
+
+func (s *Server) listPrompts() []map[string]any {
+	out := make([]map[string]any, 0, len(s.Prompts))
+	for _, p := range s.Prompts {
+		args := make([]map[string]any, 0, len(p.Arguments))
+		for _, a := range p.Arguments {
+			args = append(args, map[string]any{"name": a.Name, "description": a.Description, "required": a.Required})
+		}
+		out = append(out, map[string]any{"name": p.Name, "description": p.Description, "arguments": args})
+	}
+	return out
+}
+
+func (s *Server) prompt(params json.RawMessage) (any, error) {
+	var p struct {
+		Name      string            `json:"name"`
+		Arguments map[string]string `json:"arguments"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil || p.Name == "" {
+		return nil, errors.New("prompts/get needs a name")
+	}
+	for _, pr := range s.Prompts {
+		if pr.Name != p.Name {
+			continue
+		}
+		for _, a := range pr.Arguments {
+			if a.Required && p.Arguments[a.Name] == "" {
+				return nil, fmt.Errorf("%s is needed", a.Name)
+			}
+		}
+		text, err := pr.Build(p.Arguments)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{
+			"description": pr.Description,
+			"messages":    []map[string]any{{"role": "user", "content": map[string]any{"type": "text", "text": text}}},
+		}, nil
+	}
+	return nil, errors.New("no such prompt: " + p.Name)
 }

@@ -44,9 +44,10 @@ type Deps struct {
 	// Hosts is optional: it adds the routes for remote hosts (machines that run devdeck's
 	// agent, reached through a tunnel). It needs Workspaces.
 	Hosts *remote.Hosts
-	// ConnectorAccess says which switchable areas the Claude Code connector may read (see
-	// FileAccess). Nil keeps them all off.
-	ConnectorAccess func(area string) bool
+	// Claude is optional: it adds the Claude access page's routes, decides which areas the
+	// Claude Code connector may read and keeps the audit list of what it asked for. Without
+	// it the connector gets the default areas and nothing is recorded.
+	Claude *Claude
 	// UI is optional: the built web app, served for every path the API doesn't use. A
 	// build without it (tests, the remote agent) answers 404 there, as before.
 	UI http.Handler
@@ -55,7 +56,11 @@ type Deps struct {
 // Register mounts the API and WebSocket routes on e. Every route sits behind
 // the Host/Origin guard.
 func Register(e *echo.Echo, d Deps) {
-	e.Use(d.Guard.Middleware(), ConnectorGuard(ConnectorPolicy{Access: d.ConnectorAccess, HostConnected: d.hostConnected}))
+	policy := ConnectorPolicy{HostConnected: d.hostConnected}
+	if d.Claude != nil {
+		policy.Access, policy.Record = d.Claude.Allowed, d.Claude.record
+	}
+	e.Use(d.Guard.Middleware(), ConnectorGuard(policy))
 
 	e.GET("/ws", d.Hub.Handler())
 
@@ -64,6 +69,10 @@ func Register(e *echo.Echo, d Deps) {
 		return c.JSON(http.StatusOK, HealthResponse{Status: "ok", Version: d.Version})
 	})
 	registerPlugins(v1, d.Plugins)
+	registerUIState(v1)
+	if d.Claude != nil {
+		registerClaude(v1, d.Claude)
+	}
 	if d.FolderPicker != nil {
 		registerSystem(v1, d.FolderPicker)
 	}

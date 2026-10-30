@@ -19,6 +19,7 @@ import (
 const usage = `Usage:
   devdeck mcp                 the connector Claude Code starts (speaks MCP on stdin and stdout)
   devdeck mcp install         connect devdeck to Claude Code (runs "claude mcp add" for you)
+  devdeck mcp uninstall       take devdeck out of Claude Code again
   devdeck mcp config [--full] print the JSON for a project's .mcp.json
 
 Claude reads what devdeck shows: what is running and the workspaces. It cannot
@@ -73,6 +74,8 @@ func Command(ctx context.Context, args []string, env Env) int {
 	switch args[0] {
 	case "install":
 		return install(ctx, env)
+	case "uninstall":
+		return uninstall(ctx, env)
 	case "config":
 		return printConfig(args[1:], env)
 	case "help", "-h", "--help":
@@ -95,7 +98,7 @@ func serve(ctx context.Context, env Env) int {
 	}
 	// ListenAddr checked that the address is loopback, so plain HTTP never leaves the machine.
 	base := url.URL{Scheme: "http", Host: addr}
-	s := &Server{Name: "devdeck", Version: env.Version, Instructions: instructions, Tools: Tools(base.String(), hc), Resources: Resources()}
+	s := &Server{Name: "devdeck", Version: env.Version, Instructions: instructions, Tools: Tools(base.String(), hc), Resources: Resources(), Prompts: Prompts()}
 	// stdout carries the protocol and nothing else: anything to say goes to stderr.
 	if err := s.Serve(ctx, env.Stdin, env.Stdout); err != nil && !errors.Is(err, context.Canceled) {
 		_, _ = fmt.Fprintln(env.Stderr, "devdeck mcp:", err)
@@ -125,6 +128,20 @@ func install(ctx context.Context, env Env) int {
 		return 1
 	}
 	_, _ = fmt.Fprintln(env.Stdout, "devdeck is connected to Claude Code. Start a new Claude Code session and ask: what is running in devdeck?")
+	return 0
+}
+
+func uninstall(ctx context.Context, env Env) int {
+	claude, err := env.LookPath("claude")
+	if err != nil {
+		_, _ = fmt.Fprintln(env.Stdout, "Claude Code (claude) isn't on your PATH, so there is nothing to remove from it.")
+		return 0
+	}
+	if err := env.Run(ctx, claude, []string{"mcp", "remove", "--scope", "user", "devdeck"}, env.Stdout, env.Stderr); err != nil {
+		_, _ = fmt.Fprintln(env.Stderr, "devdeck mcp: claude couldn't remove the connector (it may not be installed):", err)
+		return 1
+	}
+	_, _ = fmt.Fprintln(env.Stdout, "devdeck is no longer connected to Claude Code.")
 	return 0
 }
 

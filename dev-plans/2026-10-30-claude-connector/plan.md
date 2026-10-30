@@ -1,6 +1,6 @@
 # The Claude Code connector: let Claude see what devdeck sees
 
-> Status: **plan, for review (2026-10-30); no code yet.** Implements plan §10.4 (devdeck MCP server) and §14A.7 (Claude access), pulled forward. Related: [`../2026-10-30-docker-builds/plan.md`](../2026-10-30-docker-builds/plan.md) (its CLI checks `devdeck workspace check` and `devdeck schema` are reused here).
+> Status: **built (2026-10-30), all of C1 to C7 in one PR; see [`changes.md`](changes.md) for what changed from the plan.** The user guide is [`docs/claude-connector.md`](../../docs/claude-connector.md). Implements plan §10.4 (devdeck MCP server) and §14A.7 (Claude access), pulled forward. Related: [`../2026-10-30-docker-builds/plan.md`](../2026-10-30-docker-builds/plan.md) (its CLI checks `devdeck workspace check` and `devdeck schema` are built here).
 
 ## 1. The goal
 
@@ -81,7 +81,7 @@ What is and isn't possible:
 
 Writes (start, stop or restart a service; change an image tag; deploy) as `propose_action`: Claude sends an action, devdeck shows it in a queue ("Claude suggests: restart `demo-api` on host `dev`"), and **only a click in devdeck runs it**, through the same confirmation and locks as the UI buttons. Off by default. Not in the first PRs.
 
-## 8. Order of work (each PR under 10 files, safe on its own, `changes.md` updated, neutral names)
+## 8. Order of work (as planned: one PR per row; built as one PR with a commit per row)
 
 | PR | What | Done when |
 |---|---|---|

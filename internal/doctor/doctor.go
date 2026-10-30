@@ -42,6 +42,7 @@ const (
 	GroupStacks = "stacks"
 	GroupGit    = "git"
 	GroupHosts  = "hosts"
+	GroupClaude = "claude"
 )
 
 // Check is one thing that was looked at.
@@ -86,6 +87,10 @@ type Probes struct {
 	// AWSIdentity returns nil when the AWS CLI is signed in with the profile ("" is the
 	// default one), and otherwise what the CLI said.
 	AWSIdentity func(ctx context.Context, profile, region string) error
+	// ClaudeConnector says whether Claude Code has devdeck's connector. Nil leaves the check
+	// out (a run before starting a stack has no use for it); the Doctor page sets
+	// DetectClaudeConnector.
+	ClaudeConnector func(ctx context.Context) ClaudeConnector
 }
 
 // DefaultProbes asks the real machine.
@@ -231,6 +236,7 @@ func (b *builder) jobs() []job {
 	jobs = append(jobs, b.stackJobs()...)
 	jobs = append(jobs, b.gitJobs()...)
 	jobs = append(jobs, b.hostJobs()...)
+	jobs = append(jobs, b.claudeJobs()...)
 	return jobs
 }
 

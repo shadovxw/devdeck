@@ -1,5 +1,6 @@
 import {
   Bell,
+  Bot,
   Boxes,
   Database,
   FileCode,
@@ -313,6 +314,15 @@ const GROUPS: GroupDef[] = [
           headline: "No connections yet",
           text: "Add GitHub accounts, registries and databases. Secrets stay in your OS keychain.",
           cta: { label: "Add connection", icon: Plus },
+        },
+      },
+      {
+        path: "/claude",
+        label: "Claude access",
+        icon: Bot,
+        empty: {
+          headline: "Claude hasn’t asked yet",
+          text: "Connect Claude Code to let it read your stacks and logs. It can only read.",
         },
       },
       {

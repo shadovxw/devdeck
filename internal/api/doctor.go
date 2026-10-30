@@ -12,6 +12,10 @@ import (
 	"github.com/shadovxw/devdeck/sdk"
 )
 
+// claudeProbe looks for devdeck's connector in Claude Code's settings. Tests replace it so a
+// run doesn't depend on whose machine it is.
+var claudeProbe = doctor.DetectClaudeConnector
+
 func registerDoctor(g *echo.Group, m *workspace.Manager, reg *sdk.Registry, sup *supervisor.Supervisor) {
 	// GET /doctor?workspace=<id>[&stack=<name>] checks the machine for a workspace,
 	// or for one stack of it. It only reads; it never installs or changes anything.
@@ -40,6 +44,7 @@ func registerDoctor(g *echo.Group, m *workspace.Manager, reg *sdk.Registry, sup 
 			Root:      workspace.ResolveRoot(d.Folder, d.Workspace.Root),
 			Plugins:   reg,
 			OwnPorts:  ownPorts(sup, id, c.QueryParam("stack")),
+			Probes:    doctor.Probes{ClaudeConnector: claudeProbe},
 		})
 		switch {
 		case errors.Is(err, doctor.ErrNoSuchStack):

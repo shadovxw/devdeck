@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useDesktopWindow } from "../lib/desktop";
 import { useHealth } from "../lib/queries";
 import { useSocketStatus } from "../lib/socket";
+import { useReportUiState } from "../lib/ui-state";
 import { useUi, type Theme } from "../store/ui";
 import { AppSidebar } from "./AppSidebar";
 import { WindowControls } from "./WindowControls";
@@ -106,6 +107,7 @@ export function Shell() {
   const sidebarOpen = useUi((s) => s.sidebarOpen);
   const setSidebarOpen = useUi((s) => s.setSidebarOpen);
   useFirstLoad();
+  useReportUiState();
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <SkipLink />

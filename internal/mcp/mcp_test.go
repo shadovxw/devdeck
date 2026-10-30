@@ -83,7 +83,7 @@ func TestProtocol(t *testing.T) {
 		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
 		`{"jsonrpc":"2.0","id":2,"method":"ping"}`,
 		`{"jsonrpc":"2.0","id":3,"method":"tools/list"}`,
-		`{"jsonrpc":"2.0","id":4,"method":"prompts/list"}`,
+		`{"jsonrpc":"2.0","id":4,"method":"completion/complete"}`,
 		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"nope"}}`,
 	)
 	if len(answers) != 5 {
@@ -102,7 +102,7 @@ func TestProtocol(t *testing.T) {
 			t.Errorf("%v isn't marked read-only", tool["name"])
 		}
 	}
-	if got := strings.Join(names, ","); got != "devdeck_status,list_workspaces,get_workspace,doctor,query_logs,log_histogram,log_groups,list_hosts,host_info,host_services,host_compose,host_logs,get_schema,validate_workspace_yaml,git_accounts,git_repos" {
+	if got := strings.Join(names, ","); got != "devdeck_status,list_workspaces,get_workspace,doctor,query_logs,log_histogram,log_groups,list_hosts,host_info,host_services,host_compose,host_logs,get_schema,validate_workspace_yaml,git_accounts,git_repos,get_ui_state" {
 		t.Errorf("tools = %s", got)
 	}
 	if code := answers[3]["error"].(map[string]any)["code"]; code != float64(codeMethodNotFound) {
@@ -287,6 +287,29 @@ func TestInstall(t *testing.T) {
 			}
 			if got := strings.Join(tc.rec.ran, " "); got != tc.wantRan {
 				t.Errorf("ran %q, want %q", got, tc.wantRan)
+			}
+		})
+	}
+}
+
+func TestUninstall(t *testing.T) {
+	tests := []struct {
+		name     string
+		rec      recorder
+		wantCode int
+		wantOut  string
+		wantRan  string
+	}{
+		{"removes the connector", recorder{claude: "claude"}, 0, "no longer connected", "claude mcp remove --scope user devdeck"},
+		{"claude is not installed: nothing to do", recorder{claudeErr: errors.New("not found")}, 0, "nothing to remove", ""},
+		{"claude refuses", recorder{claude: "claude", runErr: errors.New("exit status 1")}, 1, "", "claude mcp remove --scope user devdeck"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var out, errw bytes.Buffer
+			code := Command(context.Background(), []string{"uninstall"}, tc.rec.env(&out, &errw))
+			if code != tc.wantCode || !strings.Contains(out.String(), tc.wantOut) || strings.Join(tc.rec.ran, " ") != tc.wantRan {
+				t.Errorf("code %d, stdout %q, ran %q; want code %d, stdout containing %q, ran %q", code, out.String(), strings.Join(tc.rec.ran, " "), tc.wantCode, tc.wantOut, tc.wantRan)
 			}
 		})
 	}
