@@ -15,7 +15,7 @@ Anything devdeck shows a person (stacks and their state, logs, remote hosts, doc
 5. **Secrets never reach Claude** (project rule): names only. No keyring values, no agent tokens, no Docker or GitHub tokens, no `.env`. Log lines are already redacted at ingest (`internal/logs/redact.go`); output is also size-capped (default 100 lines, at most 500 lines and 200 KB per call) and marked as truncated.
 6. **Claude access is a visible switch.** A "Claude access" panel shows "Claude connected, last call 12 s ago", has a switch per area (logs, hosts, git and Docker, workspace files) and an **audit list of every call** (time, tool, arguments, bytes returned). Stored in SQLite through `internal/store`; arguments only, never results.
 7. **Remote host logs are bounded.** Reading a host's logs through the tunnel is a capped read (last N lines or the last few seconds), never an open stream, and it opens no tunnel that isn't already connected in devdeck.
-8. **Use the official Go MCP SDK** (`github.com/modelcontextprotocol/go-sdk`) if a spike confirms it builds with Go 1.26 and needs no CGO; otherwise a small JSON-RPC server by hand (initialize, tools/list, tools/call, resources/list and read; about 300 lines).
+8. **A small JSON-RPC server written by hand, no SDK** (decided in C1): the part of MCP that tools need is initialize, ping, tools/list and tools/call (and later resources), about 200 lines, with no new dependency for CI to scan. Revisit if resources, prompts or progress updates make the hand-written part grow.
 
 ## 3. Installing it (the commands to give to Claude Code)
 
@@ -99,7 +99,7 @@ Writes (start, stop or restart a service; change an image tag; deploy) as `propo
 
 ## 9. Open questions
 
-- Official SDK or hand-written JSON-RPC (decision 8): decided by a half-hour spike at the start of C1.
+- ~~Official SDK or hand-written JSON-RPC~~: hand-written (decision 8).
 - Should "Claude access" be on by default for reading? Proposed: yes for local data, **off** for remote hosts until the person switches it on, since host logs leave the host through the tunnel.
 - The `.mcp.json` form assumes devdeck is on the PATH; teammates who skip that tick use the full-path command or `devdeck mcp install`.
 
