@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -54,6 +55,10 @@ type Runner interface {
 	Output(ctx context.Context, dir string, args []string) (string, error)
 	// Stream runs docker in dir, handing each line of stdout to line, until it ends or ctx does.
 	Stream(ctx context.Context, dir string, args []string, line func(string)) error
+	// Exec runs docker, or program when it is set, in dir until it ends or ctx does, handing
+	// each line of stdout and stderr to line, which may be called from two goroutines at
+	// once. A non-zero exit is an error.
+	Exec(ctx context.Context, dir, program string, args []string, line func(string)) error
 }
 
 // Agent is the server.
@@ -63,8 +68,12 @@ type Agent struct {
 	run     Runner
 	log     zerolog.Logger
 	version string
-	// heartbeat is how often an idle log stream sends a heartbeat.
+	// heartbeat is how often an idle log or action stream sends a heartbeat.
 	heartbeat time.Duration
+
+	// running holds the write each stack is busy with, by stack id: one at a time per stack.
+	mu      sync.Mutex
+	running map[string]string
 }
 
 // New makes an agent. run nil means the real docker.
@@ -72,7 +81,7 @@ func New(cfg Config, token []byte, run Runner, log zerolog.Logger, version strin
 	if run == nil {
 		run = DockerRunner{}
 	}
-	return &Agent{cfg: cfg, token: token, run: run, log: log, version: version, heartbeat: 25 * time.Second}
+	return &Agent{cfg: cfg, token: token, run: run, log: log, version: version, heartbeat: 25 * time.Second, running: map[string]string{}}
 }
 
 // Handler is the agent's HTTP API, behind the host check, the token and the audit log.
@@ -82,6 +91,8 @@ func (a *Agent) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/stacks/{stack}/compose", a.composeView)
 	mux.HandleFunc("GET /v1/stacks/{stack}/services", a.services)
 	mux.HandleFunc("GET /v1/stacks/{stack}/logs", a.logs)
+	mux.HandleFunc("POST /v1/stacks/{stack}/services/{svc}/{action}", a.serviceAct)
+	mux.HandleFunc("POST /v1/stacks/{stack}/{action}", a.stackAct)
 	return a.audit(loopbackHost(a.auth(mux)))
 }
 
@@ -390,6 +401,23 @@ func (d DockerRunner) Stream(ctx context.Context, dir string, args []string, lin
 	}
 	if !res.OK() {
 		return fmt.Errorf("docker compose logs ended with code %d: %s", res.ExitCode, lastLine(res.Stderr))
+	}
+	return nil
+}
+
+// Exec runs docker (or program, the stack's up script) until it ends or ctx does. Docker
+// prints its progress on stderr, so both streams are handed over.
+func (d DockerRunner) Exec(ctx context.Context, dir, program string, args []string, line func(string)) error {
+	name := program
+	if name == "" {
+		name = d.name()
+	}
+	res, err := proc.Run(ctx, proc.Cmd{Name: name, Args: args, Dir: dir, OnLine: func(_ proc.Stream, text string) { line(text) }})
+	if err != nil {
+		return err
+	}
+	if !res.OK() {
+		return fmt.Errorf("%s ended with code %d: %s", filepath.Base(name), res.ExitCode, lastLine(res.Stderr))
 	}
 	return nil
 }

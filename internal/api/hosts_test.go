@@ -81,6 +81,11 @@ func (hostRunner) Stream(ctx context.Context, _ string, _ []string, line func(st
 	return nil
 }
 
+// Exec is for the agent's writes, which devdeck doesn't ask for yet.
+func (hostRunner) Exec(context.Context, string, string, []string, func(string)) error {
+	return errors.New("writes are not part of these tests")
+}
+
 // fakeSSM serves the agent on the local port the tunnel command names, as the real
 // port forward would. say makes it fail instead, printing that.
 func fakeSSM(say string) remote.Starter {

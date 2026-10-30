@@ -54,3 +54,31 @@ Hosts in the workspace, the SSM tunnel, the web pages (PR 2); start, stop and th
 
 - A real check against the instance: in this shell, `aws ssm start-session` said the Session Manager plugin isn't found (installed after this shell started, or not yet installed). Then put the agent on the instance (read-only) and connect from the page.
 - The install steps for the agent on the instance (binary from a pre-release, `agent.yaml`, token, run it).
+
+## PR 3, part A: the agent can start, stop and restart (agent only)
+
+The agent on a host now offers writes. devdeck's side (client, API, buttons) is the next PR; nothing in devdeck calls these routes yet, so this is safe to deploy on its own.
+
+### What was built
+
+- **Routes** (`internal/agent/actions.go`): `POST /v1/stacks/{stack}/services/{svc}/{start|stop|restart}` and `POST /v1/stacks/{stack}/{up|down|pull|script}`. The list of actions is fixed in code; anything else is a 404, so a request can't name a command.
+- **`down`** only stops the containers by default; `?mode=down` removes them. Volumes are never removed and there is no way to ask.
+- **`script`** runs the stack's `up_script` from `agent.yaml` (a path inside `dir`, never from the request). A stack without one answers 400.
+- **`allow_write`** is checked on every write: a read-only stack answers 403 and nothing runs. A service must be one that `docker compose config --services` returns (404 otherwise).
+- **One write at a time per stack:** a second one gets 409 `busy: restart api is still running`.
+- **Streamed answer:** newline-delimited JSON, `{"line":...}` as the command prints (stdout and stderr, because Compose prints its progress on stderr), heartbeats while it is quiet, and a last `{"done":true,"ok":...,"error":...}`. The HTTP status is 200 once the stream begins, so a failure shows in that last line.
+- **Not tied to the request:** a write runs to its end (or 15 minutes) even if the tunnel drops, so an `up` is never left half started. The stack stays locked until it ends.
+- **Audit line per write** in the journal (`journalctl -u devdeck-agent`): stack, action, service, duration and the error if any. Never output, arguments, files or the token.
+- `Runner` gained `Exec`; `DockerRunner.Exec` runs docker, or the up script when a program is given.
+
+### Tests
+
+Handler tests with a fake runner (every action and its exact command, refusals, 403/404/400/405/401, the lock, a client that goes away, heartbeats, the failure and timeout endings, the audit line) and a real child process for `DockerRunner.Exec` (both streams, a non-zero exit, a program that can't start). Package coverage 87.8%.
+
+### Left out on purpose
+
+Up all / Down all (one stack on the first host, so nothing to order) and a list of protected services (offered, not asked for).
+
+### Putting it on the host
+
+Build `GOOS=linux CGO_ENABLED=0 go build -o devdeck ./cmd/devdeck`, replace the binary the unit runs, set `allow_write: true` on the stack in `agent.yaml`, and `systemctl restart devdeck-agent`.

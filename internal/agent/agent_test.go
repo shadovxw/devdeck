@@ -147,6 +147,43 @@ type fakeRunner struct {
 	failing map[string]error    // by service: Stream ends with this
 	hold    bool                // Stream waits for ctx after its lines
 	calls   [][]string
+
+	// Exec, for the writes
+	execs     []execCall
+	execLines []string
+	execErr   error
+	execGate  chan struct{} // Exec waits until it is closed
+	execBegan chan struct{} // Exec sends here when it starts (when set)
+}
+
+// execCall is one Exec the fake saw: what ran, where, and whether its context was alive.
+type execCall struct {
+	dir, program string
+	args         []string
+	ctxErr       error
+}
+
+func (f *fakeRunner) Exec(ctx context.Context, dir, program string, args []string, line func(string)) error {
+	f.mu.Lock()
+	f.execs = append(f.execs, execCall{dir, program, args, ctx.Err()})
+	lines, fail, gate, began := f.execLines, f.execErr, f.execGate, f.execBegan
+	f.mu.Unlock()
+	if began != nil {
+		began <- struct{}{}
+	}
+	if gate != nil {
+		<-gate
+	}
+	for _, l := range lines {
+		line(l)
+	}
+	return fail
+}
+
+func (f *fakeRunner) execCalls() []execCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.execs)
 }
 
 func (f *fakeRunner) Output(_ context.Context, dir string, args []string) (string, error) {
