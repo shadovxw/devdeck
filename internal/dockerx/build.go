@@ -207,7 +207,10 @@ func (b *Builder) Build(ctx context.Context, spec Spec, out func(string)) error 
 
 	var red logs.Redactor
 	red.SetEnv(pl.maskEnv)
-	var tail []string
+	var (
+		lines sync.Mutex
+		tail  []string
+	)
 	timeout := b.Timeout
 	if timeout == 0 {
 		timeout = 30 * time.Minute
@@ -228,6 +231,9 @@ func (b *Builder) Build(ctx context.Context, spec Spec, out func(string)) error 
 			if clean == "" {
 				return
 			}
+			// stdout and stderr are read by two goroutines: one line at a time through here.
+			lines.Lock()
+			defer lines.Unlock()
 			tail = append(tail[max(0, len(tail)-39):], clean)
 			out(clean)
 		},
