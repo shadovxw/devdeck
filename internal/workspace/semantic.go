@@ -114,11 +114,48 @@ func checkWorkspace(p *parsed, w *WorkspaceFile) []Issue {
 		if r.Connection != "" && !connIDs[r.Connection] {
 			missingConn(path+"/connection", r.Connection)
 		}
+		out = append(out, checkImages(p, path, r.Images)...)
 		switch {
 		case urlCreds.MatchString(r.Remote):
 			out = append(out, p.issue(path+"/remote", "Remove the user name or token from the remote. Write host/owner/repo; credentials belong in a connection."))
 		case strings.Contains(r.Remote, "://") || strings.Contains(r.Remote, "@"):
 			out = append(out, p.warn(path+"/remote", "Write the remote as host/owner/repo, for example github.com/acme/api."))
+		}
+	}
+	return out
+}
+
+// checkImages checks a repository's Docker images: each id and Docker Hub repository once,
+// and the Dockerfile and context inside the repository.
+func checkImages(p *parsed, repoPath string, images []Image) []Issue {
+	var out []Issue
+	ids, repos := map[string]bool{}, map[string]bool{}
+	for j, im := range images {
+		path := fmt.Sprintf("%s/images/%d", repoPath, j)
+		if ids[im.ID] {
+			out = append(out, p.issue(path+"/id", fmt.Sprintf("Image id %q is used more than once in this repo.", im.ID)))
+		}
+		ids[im.ID] = true
+		if repos[im.Repository] {
+			out = append(out, p.warn(path+"/repository", fmt.Sprintf("%q is built twice from this repo. Pushing two images to one repository overwrites tags.", im.Repository)))
+		}
+		repos[im.Repository] = true
+		if im.Dockerfile != "" && !insideRoot(im.Dockerfile) {
+			out = append(out, p.issue(path+"/dockerfile", "The Dockerfile must be inside the repository: relative, with no ..."))
+		}
+		if im.Context != "" && !insideRoot(im.Context) {
+			out = append(out, p.issue(path+"/context", "The build context must be inside the repository: relative, with no ..."))
+		}
+		secretIDs := map[string]bool{}
+		for k, sec := range im.Secrets {
+			sp := fmt.Sprintf("%s/secrets/%d", path, k)
+			if secretIDs[sec.ID] {
+				out = append(out, p.issue(sp+"/id", fmt.Sprintf("Build secret %q is listed twice for this image.", sec.ID)))
+			}
+			secretIDs[sec.ID] = true
+			if sec.Name != "" && sec.From != SecretFromKeyring {
+				out = append(out, p.issue(sp+"/name", "A name only applies to from: keyring."))
+			}
 		}
 	}
 	return out

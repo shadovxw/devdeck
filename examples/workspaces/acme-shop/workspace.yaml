@@ -14,6 +14,21 @@ repos:
     path: api
     type: go
     remote: github.com/acme/shop-api
+    # Docker images built from this repo. devdeck builds and pushes the one you pick when you
+    # type a tag on the Images page, with the Docker Hub account that owns the namespace.
+    images:
+      - id: api
+        repository: acme/shop-api
+        # dockerfile: Dockerfile     # relative to the repo
+        # context: .                 # relative to the repo
+        # platforms: [linux/amd64]
+        # account: acme-bot          # a Docker account on this machine, if the namespace alone is ambiguous
+        # Build secrets the Dockerfile asks for (RUN --mount=type=secret,id=gh_token). Only where each
+        # comes from is written here: github is the token of the GitHub account devdeck picks for this
+        # repo; keyring is a named secret you saved in your OS keychain on the Docker Hub page.
+        secrets:
+          - id: gh_token
+            from: github
   - id: web
     path: web
     type: node

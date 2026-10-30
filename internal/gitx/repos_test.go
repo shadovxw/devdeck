@@ -119,3 +119,26 @@ func TestApplyIdentityPartsAndRefusals(t *testing.T) {
 		t.Error("a folder that isn't a repository can't take an identity")
 	}
 }
+
+func TestHead(t *testing.T) {
+	g := isolatedGit(t)
+	ctx := context.Background()
+	dir := repo(t, g, "")
+
+	if _, err := g.Head(ctx, dir); err == nil {
+		t.Error("a repository with no commit has no head")
+	}
+	if _, err := g.Head(ctx, filepath.Join(t.TempDir(), "nope")); err == nil {
+		t.Error("a folder that isn't there has no head")
+	}
+
+	commit := exec.Command("git", "-C", dir, "-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "first")
+	commit.Env = append(os.Environ(), g.Env...)
+	if out, err := commit.CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+	head, err := g.Head(ctx, dir)
+	if err != nil || len(head) != 40 {
+		t.Errorf("Head = %q, %v: want a full commit hash", head, err)
+	}
+}

@@ -116,6 +116,43 @@ func registerWorkspaces(g *echo.Group, m *workspace.Manager, sup *supervisor.Sup
 		return c.JSON(http.StatusCreated, sum)
 	})
 
+	// GET /:id/file is workspace.yaml as text, for the editor.
+	ws.GET("/:id/file", func(c echo.Context) error {
+		text, err := m.YAML(c.Param("id"))
+		switch {
+		case errors.Is(err, workspace.ErrNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, "no such workspace")
+		case err != nil:
+			c.Logger().Error(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "the workspace couldn't be read")
+		}
+		return c.JSON(http.StatusOK, map[string]string{"yaml": text})
+	})
+
+	// PUT /:id replaces the workspace's workspace.yaml with new text. The text is checked first;
+	// the name can't change; a sample can't be changed. The old file is kept as workspace.yaml.prev.
+	ws.PUT("/:id", func(c echo.Context) error {
+		var req createRequest
+		if err := c.Bind(&req); err != nil {
+			return bindError(err)
+		}
+		sum, issues, err := m.Update(c.Param("id"), req.YAML)
+		switch {
+		case errors.Is(err, workspace.ErrInvalid):
+			return c.JSON(http.StatusUnprocessableEntity, invalidResponse{Message: err.Error(), Issues: issues})
+		case errors.Is(err, workspace.ErrNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, "no such workspace")
+		case errors.Is(err, workspace.ErrReadOnly):
+			return echo.NewHTTPError(http.StatusForbidden, err.Error())
+		case errors.Is(err, workspace.ErrRenameWorkspace):
+			return echo.NewHTTPError(http.StatusConflict, err.Error())
+		case err != nil:
+			c.Logger().Error(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "the workspace couldn't be saved")
+		}
+		return c.JSON(http.StatusOK, sum)
+	})
+
 	ws.GET("/:id", func(c echo.Context) error {
 		d, err := m.Get(c.Param("id"))
 		switch {

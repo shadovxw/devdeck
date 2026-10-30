@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,9 +20,11 @@ import (
 	"github.com/shadovxw/devdeck/internal/config"
 	"github.com/shadovxw/devdeck/internal/desktop"
 	"github.com/shadovxw/devdeck/internal/dialog"
+	"github.com/shadovxw/devdeck/internal/dockerx"
 	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/mcp"
 	"github.com/shadovxw/devdeck/internal/remote"
+	"github.com/shadovxw/devdeck/internal/secrets"
 	"github.com/shadovxw/devdeck/internal/server"
 )
 
@@ -37,6 +41,17 @@ func main() {
 	// itself this way, so the dialog can always be closed by ending the process.
 	if len(os.Args) > 1 && os.Args[1] == dialog.ChildArg {
 		os.Exit(dialog.RunChild(os.Args[2:], os.Stdout, os.Stderr, dialog.Native))
+	}
+
+	// docker-credential-devdeck is docker's credential helper while devdeck builds an image: a
+	// build runs docker with a private config that names it, and puts a copy of this program
+	// under that name on the PATH. `devdeck docker-credential <verb>` is the same, for trying it.
+	// It reads the account's token from the keychain itself; it never starts the server.
+	if name := strings.TrimSuffix(strings.ToLower(filepath.Base(os.Args[0])), ".exe"); name == dockerx.HelperName {
+		os.Exit(dockerx.CredentialCommand(os.Args[1:], os.Stdin, os.Stdout, os.Getenv, secrets.NewKeyring()))
+	}
+	if len(os.Args) > 1 && os.Args[1] == "docker-credential" {
+		os.Exit(dockerx.CredentialCommand(os.Args[2:], os.Stdin, os.Stdout, os.Getenv, secrets.NewKeyring()))
 	}
 
 	// devdeck git-credential is git's credential helper: git runs it, reads its answer, and

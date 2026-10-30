@@ -30,6 +30,8 @@ var (
 	ErrNoDir = errors.New("no folder is set up for workspaces")
 	// ErrReadOnly means the workspace ships with devdeck and can't be changed or deleted.
 	ErrReadOnly = errors.New("sample workspaces can't be changed")
+	// ErrRenameWorkspace means an update changed the workspace's name, which is its folder.
+	ErrRenameWorkspace = errors.New("a workspace can't be renamed here: its name is its folder. Create a new one with the new name")
 
 	idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
 )
@@ -208,6 +210,72 @@ func (s *Manager) Create(yamlText string) (*Summary, []Issue, error) {
 		return nil, nil, fmt.Errorf("save workspace: %w", err)
 	}
 	d, err := s.Get(w.Name)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &d.Summary, nil, nil
+}
+
+// YAML returns workspace.yaml as text, for the editor. Samples can be read too.
+func (s *Manager) YAML(id string) (string, error) {
+	if !idPattern.MatchString(id) {
+		return "", ErrNotFound
+	}
+	f, ok := s.folders()[id]
+	if !ok {
+		return "", ErrNotFound
+	}
+	b, err := os.ReadFile(filepath.Join(f[0], "workspace.yaml"))
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// Update replaces one of the user's own workspace.yaml files with new text. The text is
+// checked first, and when it has errors nothing is written and the issues come back with
+// ErrInvalid. The name can't change (it is the folder). The old file is kept next to it
+// as workspace.yaml.prev, and the new one is written in one step, so a crash never leaves
+// half a file. Samples can't be updated.
+func (s *Manager) Update(id, yamlText string) (*Summary, []Issue, error) {
+	if !idPattern.MatchString(id) {
+		return nil, nil, ErrNotFound
+	}
+	f, ok := s.folders()[id]
+	if !ok {
+		return nil, nil, ErrNotFound
+	}
+	if f[1] == SourceExample {
+		return nil, nil, ErrReadOnly
+	}
+	w, issues := checkWorkspaceText("workspace.yaml", "", []byte(yamlText), Options{})
+	if w == nil || HasErrors(issues) {
+		return nil, tidy(issues), ErrInvalid
+	}
+	if w.Name != id {
+		return nil, nil, ErrRenameWorkspace
+	}
+	file := filepath.Join(f[0], "workspace.yaml")
+	if old, err := os.ReadFile(file); err == nil {
+		if err := os.WriteFile(file+".prev", old, 0o644); err != nil {
+			return nil, nil, fmt.Errorf("keep the old workspace.yaml: %w", err)
+		}
+	}
+	tmp, err := os.CreateTemp(f[0], ".workspace-*.yaml")
+	if err != nil {
+		return nil, nil, fmt.Errorf("save workspace: %w", err)
+	}
+	_, werr := tmp.WriteString(yamlText)
+	cerr := tmp.Close()
+	if werr != nil || cerr != nil {
+		_ = os.Remove(tmp.Name())
+		return nil, nil, fmt.Errorf("save workspace: %w", errors.Join(werr, cerr))
+	}
+	if err := os.Rename(tmp.Name(), file); err != nil {
+		_ = os.Remove(tmp.Name())
+		return nil, nil, fmt.Errorf("save workspace: %w", err)
+	}
+	d, err := s.Get(id)
 	if err != nil {
 		return nil, nil, err
 	}

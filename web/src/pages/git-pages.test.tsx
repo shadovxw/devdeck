@@ -362,14 +362,15 @@ describe("the GitHub page, in small parts", () => {
 });
 
 describe("Connections, the page above GitHub", () => {
-  it("lists the kinds of connection, with GitHub as the one that is built", async () => {
+  it("lists the kinds of connection, with GitHub and Docker Hub as the ones that are built", async () => {
     mockServer();
     renderAt("/connections");
     const github = within(await screen.findByRole("main")).getByRole("link", { name: /GitHub/ });
     expect(github.getAttribute("href")).toBe("/connections/github");
     expect(await within(github).findByText("2 connections · 2 accounts signed in with gh")).toBeTruthy();
+    expect(within(await screen.findByRole("main")).getByRole("link", { name: /Docker Hub/ }).getAttribute("href")).toBe("/connections/docker");
     // the others say when they come, and are not links
-    for (const [name, phase] of [["Docker Hub", "Phase 9"], ["SonarQube", "Phase 8"], ["Postgres", "Phase 6"]]) {
+    for (const [name, phase] of [["SonarQube", "Phase 8"], ["Postgres", "Phase 6"]]) {
       expect(screen.queryByRole("link", { name: new RegExp(name) })).toBeNull();
       expect(screen.getByText(name).closest("[aria-disabled]")?.textContent).toContain("Comes with " + phase);
     }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/shadovxw/devdeck/internal/dockerx"
 	"github.com/shadovxw/devdeck/internal/events"
 	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/logs"
@@ -44,6 +45,9 @@ type Deps struct {
 	// Hosts is optional: it adds the routes for remote hosts (machines that run devdeck's
 	// agent, reached through a tunnel). It needs Workspaces.
 	Hosts *remote.Hosts
+	// Docker is optional: it adds the routes for Docker Hub accounts, build secrets and building
+	// and pushing images. It needs Workspaces.
+	Docker *dockerx.Service
 	// Claude is optional: it adds the Claude access page's routes, decides which areas the
 	// Claude Code connector may read and keeps the audit list of what it asked for. Without
 	// it the connector gets the default areas and nothing is recorded.
@@ -84,6 +88,9 @@ func Register(e *echo.Echo, d Deps) {
 			registerGit(v1, d.GitX, d.Workspaces)
 		}
 		registerLogFilters(v1, d.Workspaces)
+		if d.Docker != nil {
+			registerDocker(v1, d.Docker, d.Workspaces, d.GitX)
+		}
 		if d.Hosts != nil {
 			registerHosts(v1, d.Hosts)
 		}

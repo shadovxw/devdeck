@@ -1,4 +1,4 @@
-import { Boxes, ChevronDown, FolderOpen, FolderSearch, Plus, Trash2 } from "lucide-react";
+import { Boxes, ChevronDown, FolderOpen, FolderSearch, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 
@@ -17,8 +17,10 @@ import {
   useDeleteWorkspace,
   usePickFolder,
   useScanFolder,
+  useUpdateWorkspace,
   useValidateWorkspace,
   useWorkspace,
+  useWorkspaceYaml,
   useWorkspaces,
 } from "../lib/queries";
 import type { WorkspaceSummary } from "../lib/types";
@@ -201,6 +203,57 @@ function AddWorkspace({ onCreated }: { onCreated: (id: string) => void }) {
   );
 }
 
+/** Change a workspace's workspace.yaml: the text as it is, checked as it is typed, saved only when it has no errors. */
+function EditWorkspace({ id, onSaved }: { id: string; onSaved: () => void }) {
+  const file = useWorkspaceYaml(id);
+  const [edited, setEdited] = useState<string | null>(null);
+  const update = useUpdateWorkspace(id);
+  const text = edited ?? file.data?.yaml ?? "";
+  const checked = useValidateWorkspace(useDebounced(text, 400));
+  const issues = checked.data?.issues ?? [];
+  const unchanged = edited === null || edited === file.data?.yaml;
+  const blocked = unchanged || update.isPending || checked.data?.valid === false || checked.isPending;
+
+  if (file.isPending) return <div role="status" aria-label="Loading workspace.yaml…" className="skeleton mx-4 h-40" />;
+  if (file.isError) {
+    return (
+      <p role="alert" className="m-0 px-4 text-[14px] text-critical">
+        workspace.yaml couldn’t be read: {file.error.message}
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4 px-4 pb-6">
+      <label className="flex flex-col gap-1.5 text-[13px] text-ink-3">
+        workspace.yaml
+        <textarea
+          value={text}
+          onChange={(e) => {
+            setEdited(e.target.value);
+            update.reset();
+          }}
+          rows={Math.min(28, Math.max(10, text.split("\n").length + 1))}
+          spellCheck={false}
+          className="w-full resize-y rounded-ctl bg-inset p-3 font-mono text-[13px] leading-5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        />
+      </label>
+      <div aria-live="polite">{issues.length > 0 && <IssueList issues={issues} />}</div>
+      {update.error && !(update.error instanceof ApiError && update.error.issues.length > 0) && (
+        <p role="alert" className="m-0 text-[14px] text-critical">
+          {update.error.message}
+        </p>
+      )}
+      <div>
+        <button type="button" onClick={() => update.mutate(text, { onSuccess: onSaved })} disabled={blocked} className={`${primaryButton} disabled:cursor-not-allowed disabled:opacity-45`}>
+          <Save size={18} aria-hidden />
+          {update.isPending ? "Saving…" : "Save changes"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const iconButton =
   "grid size-8 shrink-0 place-items-center rounded-ctl text-ink-3 transition hover:bg-accent-soft hover:text-ink active:scale-90";
 
@@ -209,7 +262,7 @@ const iconButton =
  * opens the details under it, and the arrow turns to show it is open. Delete
  * (with a confirmation) is only on the user's own workspaces.
  */
-function WorkspaceCard({ w, onDeleted }: { w: WorkspaceSummary; onDeleted: () => void }) {
+function WorkspaceCard({ w, onDeleted, onEdit }: { w: WorkspaceSummary; onDeleted: () => void; onEdit: () => void }) {
   const del = useDeleteWorkspace();
   const [confirming, setConfirming] = useState(false);
   const mine = w.source === "local";
@@ -233,6 +286,11 @@ function WorkspaceCard({ w, onDeleted }: { w: WorkspaceSummary; onDeleted: () =>
           {w.root && <p className="m-0 mt-0.5 truncate font-mono text-[12px] text-ink-3">{w.root}</p>}
         </div>
         <span className="shrink-0 rounded-ctl bg-inset px-2 py-0.5 text-[12px] text-ink-3">{mine ? "Yours" : "Example"}</span>
+        {mine && (
+          <button type="button" onClick={onEdit} title="Edit this workspace's file" aria-label={`Edit ${w.name}`} className={`${iconButton} relative z-10 -mt-1`}>
+            <Pencil size={16} aria-hidden />
+          </button>
+        )}
         {mine && (
           <button type="button" onClick={() => setConfirming(true)} title="Delete this workspace" aria-label={`Delete ${w.name}`} className={`${iconButton} relative z-10 -mt-1`}>
             <Trash2 size={16} aria-hidden />
@@ -317,6 +375,7 @@ export function WorkspacesPage() {
   const item = navByPath("/workspaces");
   const [params, setParams] = useSearchParams();
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const { data, isPending, isError } = useWorkspaces();
   const openId = params.get("open") ?? undefined;
 
@@ -367,6 +426,7 @@ export function WorkspacesPage() {
             <WorkspaceCard
               key={w.id}
               w={w}
+              onEdit={() => setEditing(w.id)}
               onDeleted={() => {
                 if (openId === w.id) open();
               }}
@@ -374,6 +434,18 @@ export function WorkspacesPage() {
           ))}
         </Accordion>
       )}
+
+      <Sheet open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
+        <SheetContent side="right" className="w-full gap-0 overflow-y-auto border-0 bg-surface-1 sm:max-w-3xl">
+          <SheetHeader className="pe-12 pt-5">
+            <SheetTitle className="text-[18px] text-ink">Edit {editing}</SheetTitle>
+            <SheetDescription className="text-[14px] leading-5 text-ink-3">
+              Change the file as text. It is checked as you type and saved only when it has no errors. The name can’t change. The previous file is kept as workspace.yaml.prev.
+            </SheetDescription>
+          </SheetHeader>
+          {editing && <EditWorkspace id={editing} onSaved={() => setEditing(null)} />}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={adding} onOpenChange={setAdding}>
         <SheetContent side="right" className="w-full gap-0 overflow-y-auto border-0 bg-surface-1 sm:max-w-2xl">

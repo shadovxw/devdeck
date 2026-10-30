@@ -80,6 +80,31 @@ export function useValidateWorkspace(yaml: string) {
   });
 }
 
+/** The text of workspace.yaml, for the editor. */
+export function useWorkspaceYaml(id: string | undefined) {
+  return useQuery({
+    queryKey: ["workspaces", "yaml", id ?? ""],
+    queryFn: ({ signal }) => api.get<{ yaml: string }>(`/workspaces/${encodeURIComponent(id ?? "")}/file`, signal),
+    enabled: Boolean(id),
+    // the editor holds its own copy while the person types: don't replace it from under them
+    staleTime: Infinity,
+    gcTime: 0,
+  });
+}
+
+/** Saves new text over one of the user's own workspace.yaml files. It is checked first; the name can't change. */
+export function useUpdateWorkspace(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (yaml: string) => api.put<WorkspaceSummary>(`/workspaces/${encodeURIComponent(id)}`, { yaml }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.workspace(id) });
+      void qc.invalidateQueries({ queryKey: ["images"] });
+      return qc.invalidateQueries({ queryKey: keys.workspaces });
+    },
+  });
+}
+
 /** Deletes one of the user's own workspaces. Its files move to a trash folder; the repositories are untouched. */
 export function useDeleteWorkspace() {
   const qc = useQueryClient();
