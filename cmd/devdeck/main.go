@@ -85,6 +85,14 @@ func main() {
 		os.Exit(0)
 	}
 
+	// devdeck workspace check | schema read files and exit: no server needed.
+	if len(os.Args) > 1 && slices.Contains(cli.WorkspaceCommands, os.Args[1]) {
+		if os.Args[1] == "schema" {
+			os.Exit(cli.Schema(os.Args[2:], os.Stdout, os.Stderr))
+		}
+		os.Exit(cli.Workspace(os.Args[2:], os.Getenv, os.Stdout, os.Stderr))
+	}
+
 	// devdeck up | down | status talk to the running server and exit.
 	if len(os.Args) > 1 && slices.Contains(cli.Commands, os.Args[1]) {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

@@ -1,6 +1,6 @@
 # The Claude Code connector: let Claude see what devdeck sees
 
-> Status: **plan, for review (2026-10-30); no code yet.** Implements plan §10.4 (devdeck MCP server) and §14A.7 (Claude access), pulled forward. Related: [`../2026-10-30-docker-builds/plan.md`](../2026-10-30-docker-builds/plan.md) (its CLI checks `devdeck workspace check` and `devdeck schema` are reused here).
+> Status: **built (2026-10-30), all of C1 to C7 in one PR; see [`changes.md`](changes.md) for what changed from the plan.** The user guide is [`docs/claude-connector.md`](../../docs/claude-connector.md). Implements plan §10.4 (devdeck MCP server) and §14A.7 (Claude access), pulled forward. Related: [`../2026-10-30-docker-builds/plan.md`](../2026-10-30-docker-builds/plan.md) (its CLI checks `devdeck workspace check` and `devdeck schema` are built here).
 
 ## 1. The goal
 
@@ -11,7 +11,7 @@ Anything devdeck shows a person (stacks and their state, logs, remote hosts, doc
 1. **An MCP server, `devdeck mcp`, over stdio.** Claude Code starts it as a child process (no network port, nothing new listening). It is one more sub-command of the same binary, like `git-credential` and `agent`.
 2. **It is a thin client of the running devdeck**, as `devdeck status` is: it calls `127.0.0.1:7070` (`DEVDECK_ADDR`). So Claude sees exactly what the UI sees, and there is no second copy of the logic. If devdeck isn't running, every tool answers "devdeck isn't running; open it" and nothing else.
 3. **Read-only to start.** No tool writes, starts, stops or deploys. Writes come later as *proposals* the person approves in devdeck (§7), never as direct calls.
-4. **The server enforces it, not just the connector.** Every request from `devdeck mcp` carries `X-Devdeck-Client: mcp`; a middleware lets those requests reach only an allow-list of GET routes and refuses everything else with 403. A bug or a modified connector still can't write.
+4. **The server enforces it, not just the connector.** Every request from `devdeck mcp` carries `X-Devdeck-Client: mcp`; a middleware lets those requests reach only an allow-list of GET routes and refuses everything else with 403. A bug or a modified connector still can't write. The one exception is `POST /api/v1/workspaces/validate`, which checks YAML and saves nothing.
 5. **Secrets never reach Claude** (project rule): names only. No keyring values, no agent tokens, no Docker or GitHub tokens, no `.env`. Log lines are already redacted at ingest (`internal/logs/redact.go`); output is also size-capped (default 100 lines, at most 500 lines and 200 KB per call) and marked as truncated.
 6. **Claude access is a visible switch.** A "Claude access" panel shows "Claude connected, last call 12 s ago", has a switch per area (logs, hosts, git and Docker, workspace files) and an **audit list of every call** (time, tool, arguments, bytes returned). Stored in SQLite through `internal/store`; arguments only, never results.
 7. **Remote host logs are bounded.** Reading a host's logs through the tunnel is a capped read (last N lines or the last few seconds), never an open stream, and it opens no tunnel that isn't already connected in devdeck.
@@ -48,14 +48,14 @@ Open point, settled in the first PR: the installed exe is built `-H windowsgui` 
 | `list_workspaces`, `get_workspace` | workspaces and their repos, stacks, hosts (no tokens) | `/workspaces` |
 | `query_logs` | stored lines of a stack, filtered by service, level, field, regex, since and until | `/workspaces/:id/stacks/:stack/logs` |
 | `log_histogram`, `log_groups` | counts by level and time; what a line group is | same, `/histogram`, `/groups` |
-| `list_hosts`, `host_services`, `host_compose`, `host_logs` | remote hosts, their stacks and services, image tags, a bounded log tail | `/hosts/...` |
+| `list_hosts`, `host_info`, `host_services`, `host_compose`, `host_logs` | remote hosts, the agent's stacks, their services and image tags, a bounded and re-masked log tail (off until switched on; only over a tunnel that is already open) | `/hosts/...` |
 | `doctor` | tool and host checks, as on the Doctor page | `/doctor` |
-| `git_accounts`, `git_repos` | which account a repo uses, whether identity matches (no tokens) | `/git/...` |
+| `git_accounts`, `git_repos` | which account a repo uses, whether identity matches (no tokens; on unless switched off) | `/git`, `/git/repos` |
 | `docker_accounts`, `image_history` | account names and namespaces; recent builds (once the Docker work lands) | `/docker/...`, `/images/...` |
-| `validate_workspace_yaml` | the issues (file, line, message) in a YAML text | `/workspaces/validate` |
+| `validate_workspace_yaml`, `get_schema` | the issues (file, line, message) in a YAML text; the JSON Schema of a file kind (works with devdeck closed) | `/workspaces/validate`, built in |
 | `get_ui_state` | what page, workspace, stack, host and filters the person has open (§5) | §5 |
 
-**Resources:** the JSON Schemas (`devdeck://schema/workspace`, `stack`, `flow`) and each workspace's own YAML. This also covers the teammate SOP's need for "what does the format look like" with no extra command.
+**Resources:** the three JSON Schemas (`devdeck://schema/workspace`, `stack`, `flow`), built in. A workspace's own YAML is not offered yet: the API gives parsed workspaces (`get_workspace`), not the raw files.
 
 **Prompts** (short, named starting points Claude Code offers): `why-is-this-stack-failing` (status, then error-level logs of the failing service, then its compose), `compare-host-and-local`, `explain-this-screen` (uses `get_ui_state`).
 
@@ -81,7 +81,7 @@ What is and isn't possible:
 
 Writes (start, stop or restart a service; change an image tag; deploy) as `propose_action`: Claude sends an action, devdeck shows it in a queue ("Claude suggests: restart `demo-api` on host `dev`"), and **only a click in devdeck runs it**, through the same confirmation and locks as the UI buttons. Off by default. Not in the first PRs.
 
-## 8. Order of work (each PR under 10 files, safe on its own, `changes.md` updated, neutral names)
+## 8. Order of work (as planned: one PR per row; built as one PR with a commit per row)
 
 | PR | What | Done when |
 |---|---|---|
@@ -100,7 +100,7 @@ Writes (start, stop or restart a service; change an image tag; deploy) as `propo
 ## 9. Open questions
 
 - ~~Official SDK or hand-written JSON-RPC~~: hand-written (decision 8).
-- Should "Claude access" be on by default for reading? Proposed: yes for local data, **off** for remote hosts until the person switches it on, since host logs leave the host through the tunnel.
+- ~~Should "Claude access" be on by default?~~ Decided: local data (git) on, remote hosts off, kept in `<data dir>/claude-access.yaml` (`hosts:` and `git:` as true or false; no file means the defaults, a file that can't be read means everything off).
 - The `.mcp.json` form assumes devdeck is on the PATH; teammates who skip that tick use the full-path command or `devdeck mcp install`.
 
 ## 10. Checking it works

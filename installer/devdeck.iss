@@ -35,6 +35,7 @@ RestartApplications=yes
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"
 Name: "autostart"; Description: "Start devdeck when I &sign in to Windows"; GroupDescription: "Startup:"; Flags: unchecked
 Name: "addtopath"; Description: "Add devdeck to my &PATH, to use devdeck in a terminal (devdeck status, devdeck up)"; GroupDescription: "Command line:"; Flags: unchecked
+Name: "claude"; Description: "Connect devdeck to &Claude Code, so Claude can read your stacks and logs (you choose what on the Claude access page)"; GroupDescription: "Claude Code:"; Flags: unchecked
 
 [Files]
 Source: "..\dist\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
@@ -48,7 +49,13 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant('{app}'))
 
 [Run]
+; Needs Claude Code's "claude" program on the PATH; when it isn't, nothing is connected and the Doctor page says so.
+Filename: "{app}\{#AppExe}"; Parameters: "mcp install"; Tasks: claude; Flags: runhidden waituntilterminated; StatusMsg: "Connecting devdeck to Claude Code..."
 Filename: "{app}\{#AppExe}"; Description: "Open devdeck"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+; Takes the connector out of Claude Code, so it doesn't point at a program that is gone.
+Filename: "{app}\{#AppExe}"; Parameters: "mcp uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "ClaudeConnectorRemove"
 
 [Code]
 const

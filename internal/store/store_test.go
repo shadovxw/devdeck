@@ -33,8 +33,8 @@ func TestOpenAppliesMigrationsOnce(t *testing.T) {
 		t.Fatalf("value = %q, err = %v", value, err)
 	}
 	var n int
-	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil || n != 1 {
-		t.Fatalf("applied migrations = %d, err = %v, want 1", n, err)
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil || n != 2 {
+		t.Fatalf("applied migrations = %d, err = %v, want 2 (settings, claude_calls)", n, err)
 	}
 }
 

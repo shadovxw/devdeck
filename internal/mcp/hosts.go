@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/shadovxw/devdeck/internal/agent"
-	"github.com/shadovxw/devdeck/internal/api"
 	"github.com/shadovxw/devdeck/internal/compose"
 	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/remote"
@@ -290,7 +289,7 @@ func (c *client) readLogLines(ctx context.Context, path string, limit int) ([]ag
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set(api.ConnectorHeader, api.ConnectorClient)
+	stamp(ctx, req)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {

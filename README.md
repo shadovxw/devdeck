@@ -21,6 +21,7 @@ The Go server listens on `127.0.0.1:7070` and the web app on `http://127.0.0.1:5
 |---|---|
 | Implementation plan (phases 0–13, decisions, architecture) | [`dev-plans/00-implementation-plan.md`](dev-plans/00-implementation-plan.md) |
 | Bare HTML mockup of every page (start at the sitemap) | [`ui-mockup/sitemap.html`](ui-mockup/sitemap.html) |
+| Connect Claude Code so it can read what devdeck shows (read only) | [`docs/claude-connector.md`](docs/claude-connector.md) |
 
 To view the mockup, serve the folder and open `http://localhost:7071/sitemap.html`:
 

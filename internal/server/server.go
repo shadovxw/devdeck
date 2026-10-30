@@ -124,9 +124,9 @@ func (s *Server) build(version string) error {
 		FolderPicker: dialog.PickFolder,
 		Workspaces:   workspaces,
 		Hosts:        &remote.Hosts{Workspaces: workspaces, Secrets: secrets.NewKeyring(), Tunnels: s.tunnels},
-		// What Claude may read beyond the basics (remote hosts) is switched on in this file.
-		ConnectorAccess: api.FileAccess(filepath.Join(cfg.DataDir, "claude-access.yaml")),
-		UI:              webui.HandlerWithHead(s.uiHead),
+		// What Claude Code's connector may read is switched on and off on the Claude access page.
+		Claude: api.NewClaude(s.db.DB, filepath.Join(cfg.DataDir, "claude-access.yaml")),
+		UI:     webui.HandlerWithHead(s.uiHead),
 	})
 	return nil
 }

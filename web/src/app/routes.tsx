@@ -4,6 +4,7 @@ import type { RouteObject } from "react-router";
 
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
+import { ClaudePage } from "../pages/ClaudePage";
 import { ConnectionsPage } from "../pages/ConnectionsPage";
 import { GitHubConnectionPage } from "../pages/GitHubConnectionPage";
 import { DoctorPage } from "../pages/DoctorPage";
@@ -31,6 +32,7 @@ const built: Record<string, ReactElement> = {
   "/connections/github": <GitHubConnectionPage />,
   "/repos": <ReposPage />,
   "/hosts": <HostsPage />,
+  "/claude": <ClaudePage />,
 };
 
 function NotFound() {

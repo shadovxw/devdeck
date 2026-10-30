@@ -45,7 +45,46 @@ func (c *client) get(ctx context.Context, path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	stamp(ctx, req)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, fmt.Errorf("%w (nothing answered at %s)", errNotRunning, c.base)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, answerError(resp.StatusCode, body)
+	}
+	return body, nil
+}
+
+// stamp marks a request as the connector's, and says which tool it is for.
+func stamp(ctx context.Context, req *http.Request) {
 	req.Header.Set(api.ConnectorHeader, api.ConnectorClient)
+	if tool, ok := ctx.Value(toolKey{}).(string); ok {
+		req.Header.Set(api.ToolHeader, tool)
+	}
+}
+
+// post sends a JSON body. The server lets the connector POST only to the YAML check,
+// which saves nothing.
+func (c *client) post(ctx context.Context, path string, in any) ([]byte, error) {
+	payload, err := json.Marshal(in)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	stamp(ctx, req)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -119,7 +158,10 @@ func Tools(base string, hc *http.Client) []Tool {
 		},
 	}
 	tools = append(tools, logTools(c)...)
-	return append(tools, hostTools(c)...)
+	tools = append(tools, hostTools(c)...)
+	tools = append(tools, checkTools(c)...)
+	tools = append(tools, gitTools(c)...)
+	return append(tools, uiTools(c)...)
 }
 
 func (c *client) status(ctx context.Context, args json.RawMessage) (string, error) {
