@@ -19,6 +19,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/desktop"
 	"github.com/shadovxw/devdeck/internal/dialog"
 	"github.com/shadovxw/devdeck/internal/gitx"
+	"github.com/shadovxw/devdeck/internal/mcp"
 	"github.com/shadovxw/devdeck/internal/remote"
 	"github.com/shadovxw/devdeck/internal/server"
 )
@@ -54,6 +55,15 @@ func main() {
 		} else {
 			code = remote.Command(ctx, os.Args[2:], os.Stdout, os.Stderr, os.Getenv)
 		}
+		stop()
+		os.Exit(code)
+	}
+
+	// devdeck mcp is the Claude Code connector: Claude Code starts it and talks to it on
+	// stdin and stdout. It reads the running devdeck and never starts the server.
+	if len(os.Args) > 1 && os.Args[1] == "mcp" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		code := mcp.Command(ctx, os.Args[2:], mcp.OSEnv(version))
 		stop()
 		os.Exit(code)
 	}

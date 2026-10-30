@@ -52,7 +52,7 @@ type Deps struct {
 // Register mounts the API and WebSocket routes on e. Every route sits behind
 // the Host/Origin guard.
 func Register(e *echo.Echo, d Deps) {
-	e.Use(d.Guard.Middleware())
+	e.Use(d.Guard.Middleware(), ConnectorGuard())
 
 	e.GET("/ws", d.Hub.Handler())
 
