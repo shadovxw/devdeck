@@ -35,12 +35,22 @@ type Tool struct {
 	Call func(ctx context.Context, args json.RawMessage) (string, error)
 }
 
-// Server answers MCP requests with its tools.
+// Resource is a document Claude can read by its address, without asking a tool.
+type Resource struct {
+	URI         string
+	Name        string
+	Description string
+	MIME        string
+	Read        func() (string, error)
+}
+
+// Server answers MCP requests with its tools and resources.
 type Server struct {
 	Name         string
 	Version      string
 	Instructions string
 	Tools        []Tool
+	Resources    []Resource
 
 	mu  sync.Mutex // one writer at a time
 	out io.Writer
@@ -125,6 +135,17 @@ func (s *Server) handle(ctx context.Context, req request) (resp response, ok boo
 		resp.Result = struct{}{}
 	case "tools/list":
 		resp.Result = map[string]any{"tools": s.list()}
+	case "resources/list":
+		resp.Result = map[string]any{"resources": s.listResources()}
+	case "resources/templates/list":
+		resp.Result = map[string]any{"resourceTemplates": []any{}}
+	case "resources/read":
+		result, err := s.read(req.Params)
+		if err != nil {
+			resp.Error = &rpcError{codeInvalidParams, err.Error()}
+		} else {
+			resp.Result = result
+		}
 	case "tools/call":
 		result, err := s.call(ctx, req.Params)
 		if err != nil {
@@ -149,9 +170,13 @@ func (s *Server) initialize(params json.RawMessage) any {
 			version = v
 		}
 	}
+	caps := map[string]any{"tools": map[string]any{}}
+	if len(s.Resources) > 0 {
+		caps["resources"] = map[string]any{}
+	}
 	return map[string]any{
 		"protocolVersion": version,
-		"capabilities":    map[string]any{"tools": map[string]any{}},
+		"capabilities":    caps,
 		"serverInfo":      map[string]any{"name": s.Name, "version": s.Version},
 		"instructions":    s.Instructions,
 	}
@@ -196,4 +221,32 @@ func toolResult(text string, isError bool) map[string]any {
 		"content": []map[string]any{{"type": "text", "text": text}},
 		"isError": isError,
 	}
+}
+
+func (s *Server) listResources() []map[string]any {
+	out := make([]map[string]any, 0, len(s.Resources))
+	for _, r := range s.Resources {
+		out = append(out, map[string]any{"uri": r.URI, "name": r.Name, "description": r.Description, "mimeType": r.MIME})
+	}
+	return out
+}
+
+func (s *Server) read(params json.RawMessage) (any, error) {
+	var p struct {
+		URI string `json:"uri"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil || p.URI == "" {
+		return nil, errors.New("resources/read needs a uri")
+	}
+	for _, r := range s.Resources {
+		if r.URI != p.URI {
+			continue
+		}
+		text, err := r.Read()
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"contents": []map[string]any{{"uri": r.URI, "mimeType": r.MIME, "text": text}}}, nil
+	}
+	return nil, errors.New("no such resource: " + p.URI)
 }

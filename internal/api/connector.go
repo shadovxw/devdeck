@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+	"io/fs"
 	"net/http"
 	"os"
 	"regexp"
@@ -24,6 +26,13 @@ const ConnectorClient = "mcp"
 // the machine through the tunnel.
 const AreaHosts = "hosts"
 
+// AreaGit is the access area for git accounts: which accounts are signed in, the commit
+// identities (names and emails) and each repository's account. On unless switched off.
+const AreaGit = "git"
+
+// DefaultAccess is what an area is set to when nobody has said: git on, hosts off.
+func DefaultAccess(area string) bool { return area == AreaGit }
+
 // maxConnectorTail is the most host log lines the connector gets in one request.
 const maxConnectorTail = 200
 
@@ -34,6 +43,13 @@ const maxConnectorTail = 200
 // they are stored.
 var connectorRoutes = regexp.MustCompile(`^/api/v1/(health|runs|doctor|workspaces(/[^/]+(/stacks/[^/]+/logs(/histogram|/groups)?)?)?)$`)
 
+// gitRoutes are the git paths a connector request may GET once AreaGit is on.
+var gitRoutes = regexp.MustCompile(`^/api/v1/git(/repos)?$`)
+
+// validatePath checks YAML text and saves nothing, so the connector may POST it (the one
+// write-shaped request it gets).
+const validatePath = "/api/v1/workspaces/validate"
+
 // hostRoutes are the host paths a connector request may GET once AreaHosts is on: the
 // list, one host, and, for a host whose tunnel is already open, what its agent says.
 var (
@@ -43,8 +59,8 @@ var (
 
 // ConnectorPolicy says what the connector may reach beyond its always-open routes.
 type ConnectorPolicy struct {
-	// Access reports whether an area (AreaHosts) is switched on. Nil means everything
-	// switchable is off.
+	// Access reports whether an area (AreaHosts, AreaGit) is switched on. Nil means
+	// DefaultAccess.
 	Access func(area string) bool
 	// HostConnected reports whether a host's tunnel is open now. The connector never
 	// opens one: the person opens it on the Remote hosts page. Nil means none is.
@@ -55,6 +71,10 @@ type ConnectorPolicy struct {
 // route. Requests that don't name themselves the connector pass through: the guard
 // limits the connector, it does not police other local clients.
 func ConnectorGuard(p ConnectorPolicy) echo.MiddlewareFunc {
+	access := p.Access
+	if access == nil {
+		access = DefaultAccess
+	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			req := c.Request()
@@ -63,12 +83,19 @@ func ConnectorGuard(p ConnectorPolicy) echo.MiddlewareFunc {
 			}
 			path := req.URL.Path
 			switch {
+			case req.Method == http.MethodPost && path == validatePath:
+				return next(c)
 			case req.Method != http.MethodGet:
 				// a write: refused below
 			case connectorRoutes.MatchString(path):
 				return next(c)
+			case gitRoutes.MatchString(path):
+				if !access(AreaGit) {
+					return echo.NewHTTPError(http.StatusForbidden, "git accounts are switched off for Claude: turn them on in devdeck's Claude access setting")
+				}
+				return next(c)
 			case hostViewRoutes.MatchString(path) || hostDataRoutes.MatchString(path):
-				if p.Access == nil || !p.Access(AreaHosts) {
+				if !access(AreaHosts) {
 					return echo.NewHTTPError(http.StatusForbidden, "remote hosts are switched off for Claude: turn them on in devdeck's Claude access setting")
 				}
 				if m := hostDataRoutes.FindStringSubmatch(path); m != nil {
@@ -102,11 +129,15 @@ func clampTail(req *http.Request) {
 }
 
 // FileAccess reads the switches from a YAML file of area: true/false lines, each time it
-// is asked, so a change applies at once. A missing or unreadable file means everything
-// is off. The Claude access panel writes this file.
+// is asked, so a change applies at once. With no file, or an area the file doesn't
+// mention, the area is at DefaultAccess; a file that can't be read or understood switches
+// everything off. The Claude access panel writes this file.
 func FileAccess(path string) func(area string) bool {
 	return func(area string) bool {
 		b, err := os.ReadFile(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			return DefaultAccess(area)
+		}
 		if err != nil {
 			return false
 		}
@@ -114,6 +145,9 @@ func FileAccess(path string) func(area string) bool {
 		if yaml.Unmarshal(b, &on) != nil {
 			return false
 		}
-		return on[area]
+		if v, set := on[area]; set {
+			return v
+		}
+		return DefaultAccess(area)
 	}
 }

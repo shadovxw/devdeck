@@ -45,6 +45,13 @@ Flags for up:
 
 The commands talk to the running server (DEVDECK_ADDR, default 127.0.0.1:7070).
 
+These two read files and don't need the server:
+  devdeck workspace check <folder or name>   check a workspace's files (--json for machines)
+  devdeck schema <workspace|stack|flow>      print the JSON Schema of one kind of file
+
+Claude Code connector (see devdeck mcp help):
+  devdeck mcp install             connect devdeck to Claude Code
+
 git calls this one itself (set it up on the Connections page; you don't run it):
   devdeck git-credential <get|store|erase>
 `

@@ -95,7 +95,7 @@ func serve(ctx context.Context, env Env) int {
 	}
 	// ListenAddr checked that the address is loopback, so plain HTTP never leaves the machine.
 	base := url.URL{Scheme: "http", Host: addr}
-	s := &Server{Name: "devdeck", Version: env.Version, Instructions: instructions, Tools: Tools(base.String(), hc)}
+	s := &Server{Name: "devdeck", Version: env.Version, Instructions: instructions, Tools: Tools(base.String(), hc), Resources: Resources()}
 	// stdout carries the protocol and nothing else: anything to say goes to stderr.
 	if err := s.Serve(ctx, env.Stdin, env.Stdout); err != nil && !errors.Is(err, context.Canceled) {
 		_, _ = fmt.Fprintln(env.Stderr, "devdeck mcp:", err)

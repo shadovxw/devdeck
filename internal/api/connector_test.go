@@ -18,6 +18,11 @@ func TestConnectorGuard(t *testing.T) {
 		e.GET(p, ok)
 	}
 	e.POST("/api/v1/workspaces", ok)
+	e.POST("/api/v1/workspaces/validate", ok)
+	e.GET("/api/v1/git", ok)
+	e.GET("/api/v1/git/repos", ok)
+	e.GET("/api/v1/git/setup", ok)
+	e.POST("/api/v1/git/repos/op", ok)
 	e.DELETE("/api/v1/workspaces/:id/stacks/:stack/logs", ok)
 	e.PUT("/api/v1/hosts/:ws/:host/token", ok)
 	e.GET("/ws", ok)
@@ -44,6 +49,11 @@ func TestConnectorGuard(t *testing.T) {
 		{"connector may not read saved filters", http.MethodGet, "/api/v1/workspaces/demo/log-filters", "mcp", http.StatusForbidden},
 		{"connector may not delete logs", http.MethodDelete, "/api/v1/workspaces/demo/stacks/full/logs", "mcp", http.StatusForbidden},
 		{"connector may not open the websocket", http.MethodGet, "/ws", "mcp", http.StatusForbidden},
+		{"connector reads git accounts (on unless switched off)", http.MethodGet, "/api/v1/git", "mcp", http.StatusNoContent},
+		{"connector reads each repo's account", http.MethodGet, "/api/v1/git/repos", "mcp", http.StatusNoContent},
+		{"connector may not read git setup", http.MethodGet, "/api/v1/git/setup", "mcp", http.StatusForbidden},
+		{"connector may not run a git operation", http.MethodPost, "/api/v1/git/repos/op", "mcp", http.StatusForbidden},
+		{"connector may check YAML", http.MethodPost, "/api/v1/workspaces/validate", "mcp", http.StatusNoContent},
 		{"other clients are not limited: post", http.MethodPost, "/api/v1/workspaces", "", http.StatusNoContent},
 		{"other clients are not limited: hosts", http.MethodGet, "/api/v1/hosts", "curl", http.StatusNoContent},
 	}
@@ -59,6 +69,23 @@ func TestConnectorGuard(t *testing.T) {
 				t.Errorf("%s %s as %q: got %d, want %d", tc.method, tc.path, tc.client, rec.Code, tc.want)
 			}
 		})
+	}
+}
+
+func TestConnectorGitSwitch(t *testing.T) {
+	var gitOn bool
+	e := echo.New()
+	e.Use(ConnectorGuard(ConnectorPolicy{Access: func(area string) bool { return gitOn && area == AreaGit }}))
+	e.GET("/api/v1/git", func(c echo.Context) error { return c.NoContent(http.StatusNoContent) })
+	for on, want := range map[bool]int{true: http.StatusNoContent, false: http.StatusForbidden} {
+		gitOn = on
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/git", nil)
+		req.Header.Set(ConnectorHeader, ConnectorClient)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		if rec.Code != want {
+			t.Errorf("git switched %v: got %d, want %d", on, rec.Code, want)
+		}
 	}
 }
 
@@ -138,21 +165,26 @@ func TestFileAccess(t *testing.T) {
 		return p
 	}
 	tests := []struct {
-		name string
-		path string
-		want bool
+		name               string
+		path               string
+		wantHosts, wantGit bool
 	}{
-		{"no file means off", filepath.Join(dir, "missing.yaml"), false},
-		{"hosts on", write("on.yaml", "hosts: true\n"), true},
-		{"hosts off", write("off.yaml", "hosts: false\n"), false},
-		{"other areas don't switch hosts on", write("other.yaml", "logs: true\n"), false},
-		{"unreadable YAML means off", write("bad.yaml", "hosts: [unclosed"), false},
-		{"not a map means off", write("list.yaml", "- hosts\n"), false},
+		{"no file: the defaults", filepath.Join(dir, "missing.yaml"), false, true},
+		{"hosts on", write("on.yaml", "hosts: true\n"), true, true},
+		{"hosts off", write("off.yaml", "hosts: false\n"), false, true},
+		{"git off", write("gitoff.yaml", "git: false\n"), false, false},
+		{"other areas change nothing", write("other.yaml", "logs: true\n"), false, true},
+		{"unreadable YAML: everything off", write("bad.yaml", "hosts: [unclosed"), false, false},
+		{"not a map: everything off", write("list.yaml", "- hosts\n"), false, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := FileAccess(tc.path)(AreaHosts); got != tc.want {
-				t.Errorf("hosts = %v, want %v", got, tc.want)
+			access := FileAccess(tc.path)
+			if got := access(AreaHosts); got != tc.wantHosts {
+				t.Errorf("hosts = %v, want %v", got, tc.wantHosts)
+			}
+			if got := access(AreaGit); got != tc.wantGit {
+				t.Errorf("git = %v, want %v", got, tc.wantGit)
 			}
 		})
 	}

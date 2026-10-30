@@ -64,6 +64,37 @@ func (c *client) get(ctx context.Context, path string) ([]byte, error) {
 	return body, nil
 }
 
+// post sends a JSON body. The server lets the connector POST only to the YAML check,
+// which saves nothing.
+func (c *client) post(ctx context.Context, path string, in any) ([]byte, error) {
+	payload, err := json.Marshal(in)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(api.ConnectorHeader, api.ConnectorClient)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, fmt.Errorf("%w (nothing answered at %s)", errNotRunning, c.base)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, answerError(resp.StatusCode, body)
+	}
+	return body, nil
+}
+
 // answerError turns an error answer into the words devdeck gave for it.
 func answerError(status int, body []byte) error {
 	var v struct {
@@ -119,7 +150,9 @@ func Tools(base string, hc *http.Client) []Tool {
 		},
 	}
 	tools = append(tools, logTools(c)...)
-	return append(tools, hostTools(c)...)
+	tools = append(tools, hostTools(c)...)
+	tools = append(tools, checkTools(c)...)
+	return append(tools, gitTools(c)...)
 }
 
 func (c *client) status(ctx context.Context, args json.RawMessage) (string, error) {

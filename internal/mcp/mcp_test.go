@@ -83,7 +83,7 @@ func TestProtocol(t *testing.T) {
 		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
 		`{"jsonrpc":"2.0","id":2,"method":"ping"}`,
 		`{"jsonrpc":"2.0","id":3,"method":"tools/list"}`,
-		`{"jsonrpc":"2.0","id":4,"method":"resources/list"}`,
+		`{"jsonrpc":"2.0","id":4,"method":"prompts/list"}`,
 		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"nope"}}`,
 	)
 	if len(answers) != 5 {
@@ -102,7 +102,7 @@ func TestProtocol(t *testing.T) {
 			t.Errorf("%v isn't marked read-only", tool["name"])
 		}
 	}
-	if got := strings.Join(names, ","); got != "devdeck_status,list_workspaces,get_workspace,doctor,query_logs,log_histogram,log_groups,list_hosts,host_info,host_services,host_compose,host_logs" {
+	if got := strings.Join(names, ","); got != "devdeck_status,list_workspaces,get_workspace,doctor,query_logs,log_histogram,log_groups,list_hosts,host_info,host_services,host_compose,host_logs,get_schema,validate_workspace_yaml,git_accounts,git_repos" {
 		t.Errorf("tools = %s", got)
 	}
 	if code := answers[3]["error"].(map[string]any)["code"]; code != float64(codeMethodNotFound) {
