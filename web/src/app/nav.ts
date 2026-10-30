@@ -2,6 +2,7 @@ import {
   Bell,
   Bot,
   Boxes,
+  Container,
   Database,
   FileCode,
   FolderGit2,
@@ -255,11 +256,10 @@ const GROUPS: GroupDef[] = [
         path: "/images",
         label: "Images and tags",
         icon: Package,
-        phase: "Phase 9",
         empty: {
           headline: "No images yet",
-          text: "Build, scan and push Docker images with automatic version tags.",
-          cta: { label: "Build image" },
+          text: "Build and push Docker images by typing a tag.",
+          cta: { label: "Open workspaces", to: "/workspaces" },
         },
       },
     ],
@@ -314,6 +314,16 @@ const GROUPS: GroupDef[] = [
           headline: "No connections yet",
           text: "Add GitHub accounts, registries and databases. Secrets stay in your OS keychain.",
           cta: { label: "Add connection", icon: Plus },
+        },
+      },
+      {
+        path: "/connections/docker",
+        label: "Docker Hub",
+        icon: Container,
+        empty: {
+          headline: "No Docker Hub account yet",
+          text: "Add an account and its access token to push images. The token stays in your OS keychain.",
+          cta: { label: "Back to Connections", to: "/connections" },
         },
       },
       {
@@ -376,7 +386,7 @@ const GROUPS: GroupDef[] = [
 const NESTED: Record<string, string[]> = {
   "/databases": ["/migrations", "/sql", "/scripts"],
   "/flows": ["/runs"],
-  "/connections": ["/connections/github"],
+  "/connections": ["/connections/github", "/connections/docker"],
 };
 const nestedPaths = new Set(Object.values(NESTED).flat());
 

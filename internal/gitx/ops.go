@@ -72,6 +72,15 @@ func (g Git) Work(ctx context.Context, dir string) (Work, error) {
 	return ParseWork(out), nil
 }
 
+// Head is the commit the repository in dir has checked out, as the full hash.
+func (g Git) Head(ctx context.Context, dir string) (string, error) {
+	out, code, err := g.run(ctx, dir, "rev-parse", "HEAD")
+	if err != nil || code != 0 || out == "" {
+		return "", fmt.Errorf("git couldn't read the current commit of %s", dir)
+	}
+	return out, nil
+}
+
 // The operations devdeck runs. Each has one fixed command, shown before it runs.
 const (
 	OpFetch = "fetch"

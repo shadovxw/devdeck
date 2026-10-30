@@ -5,6 +5,8 @@ import type { RouteObject } from "react-router";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { ClaudePage } from "../pages/ClaudePage";
+import { DockerHubPage } from "../pages/DockerHubPage";
+import { ImagesPage } from "../pages/ImagesPage";
 import { ConnectionsPage } from "../pages/ConnectionsPage";
 import { GitHubConnectionPage } from "../pages/GitHubConnectionPage";
 import { DoctorPage } from "../pages/DoctorPage";
@@ -33,6 +35,8 @@ const built: Record<string, ReactElement> = {
   "/repos": <ReposPage />,
   "/hosts": <HostsPage />,
   "/claude": <ClaudePage />,
+  "/images": <ImagesPage />,
+  "/connections/docker": <DockerHubPage />,
 };
 
 function NotFound() {

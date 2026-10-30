@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { navByPath } from "../app/nav";
 import { PageHeader } from "../design/PageHeader";
+import { useDocker } from "../lib/docker";
 import { useGit } from "../lib/git";
 import { stagger } from "../lib/motion";
 
@@ -17,7 +18,7 @@ type Kind = {
 
 const kinds: Kind[] = [
   { name: "GitHub", icon: GitFork, to: "/connections/github", text: "The accounts your repositories use: which one each repository belongs to, and the commit name and email." },
-  { name: "Docker Hub", icon: Container, phase: "Phase 9", text: "A registry sign-in for images and tags." },
+  { name: "Docker Hub", icon: Container, to: "/connections/docker", text: "The accounts images are pushed with, and the secrets a build asks for." },
   { name: "SonarQube", icon: ShieldCheck, phase: "Phase 8", text: "Quality and security reports for your projects." },
   { name: "Postgres", icon: Database, phase: "Phase 6", text: "Databases to browse, query and migrate." },
 ];
@@ -34,10 +35,19 @@ function githubStatus(git: ReturnType<typeof useGit>): string {
   return `${n} ${n === 1 ? "connection" : "connections"} · ${a} ${a === 1 ? "account" : "accounts"} signed in with gh`;
 }
 
+/** What the Docker Hub card says about the current state. */
+function dockerStatus(docker: ReturnType<typeof useDocker>): string {
+  if (docker.isPending) return "Looking…";
+  if (docker.isError) return "Couldn’t be read";
+  const n = docker.data.accounts.length;
+  return `${n} ${n === 1 ? "account" : "accounts"}${docker.data.docker_installed ? "" : " · Docker isn’t installed"}`;
+}
+
 /** The accounts and services devdeck signs in to, one page for each kind. */
 export function ConnectionsPage() {
   const item = navByPath("/connections");
   const git = useGit();
+  const docker = useDocker();
 
   return (
     <>
@@ -51,7 +61,7 @@ export function ConnectionsPage() {
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-[16px] font-medium text-ink">{k.name}</span>
                 <span className="text-[13px] text-ink-3">{k.text}</span>
-                <span className="text-[13px] text-ink-2">{k.to ? githubStatus(git) : `Comes with ${k.phase}`}</span>
+                <span className="text-[13px] text-ink-2">{k.name === "GitHub" ? githubStatus(git) : k.name === "Docker Hub" ? dockerStatus(docker) : `Comes with ${k.phase}`}</span>
               </span>
               {k.to && <ChevronRight size={18} aria-hidden className="shrink-0 text-ink-3" />}
             </>

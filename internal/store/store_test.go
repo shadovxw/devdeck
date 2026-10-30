@@ -33,8 +33,8 @@ func TestOpenAppliesMigrationsOnce(t *testing.T) {
 		t.Fatalf("value = %q, err = %v", value, err)
 	}
 	var n int
-	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil || n != 2 {
-		t.Fatalf("applied migrations = %d, err = %v, want 2 (settings, claude_calls)", n, err)
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil || n != 3 {
+		t.Fatalf("applied migrations = %d, err = %v, want 3 (settings, claude_calls, image_builds)", n, err)
 	}
 }
 
@@ -47,18 +47,19 @@ func TestMigrationsRunInOrderAndRollBackOnError(t *testing.T) {
 	defer func() { _ = s.Close() }()
 
 	files := fstest.MapFS{
-		"migrations/0001_a.sql":   {Data: []byte(`CREATE TABLE a (id INTEGER);`)},
-		"migrations/0003_bad.sql": {Data: []byte(`CREATE TABLE c (id INTEGER); THIS IS NOT SQL;`)},
-		"migrations/0002_b.sql":   {Data: []byte(`CREATE TABLE b (id INTEGER);`)},
+		"migrations/0100_a.sql":   {Data: []byte(`CREATE TABLE a (id INTEGER);`)},
+		"migrations/0102_bad.sql": {Data: []byte(`CREATE TABLE c (id INTEGER); THIS IS NOT SQL;`)},
+		"migrations/0101_b.sql":   {Data: []byte(`CREATE TABLE b (id INTEGER);`)},
 	}
 	if err := s.migrate(ctx, files); err == nil {
 		t.Fatal("expected the bad migration to fail")
 	}
 
 	var applied int
-	if err := s.DB.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&applied); err != nil || applied != 2 {
-		t.Fatalf("highest applied = %d, err = %v, want 2", applied, err)
+	if err := s.DB.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&applied); err != nil || applied != 101 {
+		t.Fatalf("highest applied = %d, err = %v, want 101", applied, err)
 	}
+	// (the real migrations are 1 to 3, so these use higher versions)
 	// The failed migration's CREATE TABLE c must have been rolled back.
 	if _, err := s.DB.ExecContext(ctx, `INSERT INTO c VALUES (1)`); err == nil {
 		t.Fatal("table c exists; the failed migration was not rolled back")

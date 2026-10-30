@@ -21,6 +21,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/api"
 	"github.com/shadovxw/devdeck/internal/config"
 	"github.com/shadovxw/devdeck/internal/dialog"
+	"github.com/shadovxw/devdeck/internal/dockerx"
 	"github.com/shadovxw/devdeck/internal/events"
 	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/logs"
@@ -121,6 +122,7 @@ func (s *Server) build(version string) error {
 		Supervisor:   s.sup,
 		Logs:         s.logStore,
 		GitX:         gitx.NewService(cfg.DataDir, exePath()),
+		Docker:       dockerx.NewService(cfg.DataDir, os.Executable, s.db.DB),
 		FolderPicker: dialog.PickFolder,
 		Workspaces:   workspaces,
 		Hosts:        &remote.Hosts{Workspaces: workspaces, Secrets: secrets.NewKeyring(), Tunnels: s.tunnels},

@@ -61,6 +61,47 @@ type Repo struct {
 	Remote        string `yaml:"remote,omitempty" json:"remote,omitempty"`
 	Connection    string `yaml:"connection,omitempty" json:"connection,omitempty"`
 	DefaultBranch string `yaml:"default_branch,omitempty" json:"default_branch,omitempty"`
+	// Images are the Docker images built from this repository.
+	Images []Image `yaml:"images,omitempty" json:"images,omitempty"`
+}
+
+// Image is one Docker image built from a repository and pushed to a Docker Hub repository.
+// Which Docker Hub account does the push is not here: accounts belong to the person, not
+// to the workspace, so devdeck picks one by the repository's namespace (Account, when set,
+// names one).
+type Image struct {
+	ID string `yaml:"id" json:"id"`
+	// Repository is the Docker Hub repository, namespace/name, without a tag.
+	Repository string `yaml:"repository" json:"repository"`
+	// Dockerfile is relative to the repository ("Dockerfile" when empty).
+	Dockerfile string `yaml:"dockerfile,omitempty" json:"dockerfile,omitempty"`
+	// Context is the build context, relative to the repository ("." when empty).
+	Context string `yaml:"context,omitempty" json:"context,omitempty"`
+	// Platforms are what the image is built for (linux/amd64 when empty).
+	Platforms []string `yaml:"platforms,omitempty" json:"platforms,omitempty"`
+	// Account is the id of a Docker account on this machine, to use instead of picking by namespace.
+	Account string `yaml:"account,omitempty" json:"account,omitempty"`
+	// Secrets are build secrets the Dockerfile asks for (RUN --mount=type=secret,id=...).
+	// Only where each comes from is written here, never its value.
+	Secrets []ImageSecret `yaml:"secrets,omitempty" json:"secrets,omitempty"`
+}
+
+// Where an image's build secret comes from.
+const (
+	// SecretFromGitHub is the token of the GitHub account devdeck's rules pick for the repository.
+	SecretFromGitHub = "github"
+	// SecretFromKeyring is a named build secret saved in the OS keyring.
+	SecretFromKeyring = "keyring"
+)
+
+// ImageSecret is one build secret of an image.
+type ImageSecret struct {
+	// ID is what the Dockerfile asks for: --mount=type=secret,id=<ID>.
+	ID string `yaml:"id" json:"id"`
+	// From is "github" or "keyring".
+	From string `yaml:"from" json:"from"`
+	// Name is the keyring entry when From is "keyring" (the ID when empty).
+	Name string `yaml:"name,omitempty" json:"name,omitempty"`
 }
 
 // Connection is a configured account or service. Secrets are never stored here.

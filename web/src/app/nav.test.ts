@@ -17,7 +17,7 @@ describe("nav config", () => {
       if (item.path === "/plugins") continue;
       expect(item.empty, item.path).toBeDefined();
       expect(item.empty!.headline.length, item.path).toBeGreaterThan(0);
-      if (!["/", "/workspaces", "/stacks", "/doctor", "/hosts", "/claude"].includes(item.path)) expect(item.phase, item.path).toBeDefined();
+      if (!["/", "/workspaces", "/stacks", "/doctor", "/hosts", "/claude", "/images", "/connections/docker"].includes(item.path)) expect(item.phase, item.path).toBeDefined();
       const to = item.empty!.cta?.to;
       if (to) expect(paths.has(to), `${item.path} -> ${to}`).toBe(true);
     }
@@ -30,7 +30,7 @@ describe("nav config", () => {
 
   it("nests GitHub under Connections, so other kinds can sit beside it", () => {
     const connections = NAV.flatMap((g) => g.items).find((i) => i.path === "/connections");
-    expect(connections?.children?.map((c) => c.path)).toEqual(["/connections/github"]);
+    expect(connections?.children?.map((c) => c.path)).toEqual(["/connections/github", "/connections/docker"]);
     expect(navByPath("/connections/github").parent).toBe("Connections");
     expect(navByPath("/connections/github").group).toBe("Platform");
   });

@@ -36,7 +36,61 @@
         "type": { "enum": ["go", "node", "python", "docker", "other"] },
         "remote": { "type": "string", "description": "Where it lives, as host/owner/repo (no credentials)." },
         "connection": { "type": "string", "description": "Overrides the account rules for this repo." },
-        "default_branch": { "type": "string" }
+        "default_branch": { "type": "string" },
+        "images": {
+          "type": "array",
+          "description": "Docker images built from this repository.",
+          "items": { "$ref": "#/$defs/image" }
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "repository"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "repository": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*(/[a-z0-9]+([._-][a-z0-9]+)*)+$",
+          "description": "The Docker Hub repository, namespace/name, with no tag: for example acme/demo-api."
+        },
+        "dockerfile": { "type": "string", "minLength": 1, "description": "Relative to the repository. Default: Dockerfile." },
+        "context": { "type": "string", "minLength": 1, "description": "Build context, relative to the repository. Default: ." },
+        "platforms": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["linux/amd64", "linux/arm64", "linux/arm/v7"] },
+          "description": "Default: linux/amd64."
+        },
+        "account": { "$ref": "#/$defs/id", "description": "A Docker account on this machine to push with, instead of the one that owns the namespace." },
+        "secrets": {
+          "type": "array",
+          "description": "Build secrets the Dockerfile asks for. Only where each comes from is written here, never its value.",
+          "items": { "$ref": "#/$defs/imageSecret" }
+        }
+      }
+    },
+    "imageSecret": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$",
+          "description": "What the Dockerfile asks for: RUN --mount=type=secret,id=<id>."
+        },
+        "from": {
+          "enum": ["github", "keyring"],
+          "description": "github: the token of the GitHub account devdeck picks for this repo. keyring: a named build secret saved in your OS keychain."
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+          "description": "For from: keyring, the name it was saved under (the id when left out)."
+        }
       }
     },
     "connection": {
