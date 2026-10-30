@@ -29,6 +29,9 @@ import (
 
 var hostToken = strings.Repeat("test", 12)
 
+// hostTagsDir, when set, is the folder of a stack with a versions file on the fake host.
+var hostTagsDir string
+
 // memSecrets is a keychain in memory.
 type memSecrets struct {
 	mu sync.Mutex
@@ -84,7 +87,8 @@ func (hostRunner) Stream(ctx context.Context, _ string, _ []string, line func(st
 // Exec is a write on the host: it prints a line, and a pull fails.
 func (hostRunner) Exec(_ context.Context, _, _ string, args []string, line func(string)) error {
 	line("Container acme-api  Working")
-	if slices.Contains(args, "pull") {
+	// a stack that reads versions.env pulls fine; the others can't find the image
+	if slices.Contains(args, "pull") && !slices.Contains(args, "versions.env") {
 		return errors.New("docker ended with code 1: no such image")
 	}
 	return nil
@@ -97,6 +101,12 @@ func fakeSSM(say string) remote.Starter {
 		{ID: "apps", Name: "Applications", Dir: "/srv/acme", Files: []string{"compose.yml"}, AllowWrite: true},
 		{ID: "locked", Name: "Locked", Dir: "/srv/acme", Files: []string{"compose.yml"}},
 	}}
+	if hostTagsDir != "" {
+		cfg.Stacks = append(cfg.Stacks, agent.Stack{
+			ID: "tags", Name: "Tags", Dir: hostTagsDir, Files: []string{"compose.yml"}, EnvFiles: []string{"versions.env"},
+			VersionsFile: "versions.env", AllowWrite: true,
+		})
+	}
 	h := agent.New(cfg, []byte(hostToken), hostRunner{}, zerolog.Nop(), "1.0.0").Handler()
 	return func(ctx context.Context, args []string, line func(string)) error {
 		if say != "" {
@@ -380,5 +390,89 @@ func TestHostWritesNeedAHostAndAToken(t *testing.T) {
 		if rec := postJSON(e, http.MethodPost, path, nil); rec.Code != want {
 			t.Errorf("%s = %d, want %d (%s)", path, rec.Code, want, rec.Body)
 		}
+	}
+}
+
+func TestHostVersionsThroughTheTunnel(t *testing.T) {
+	hostTagsDir = t.TempDir()
+	t.Cleanup(func() { hostTagsDir = "" })
+	must(t, os.WriteFile(filepath.Join(hostTagsDir, "versions.env"), []byte("API_IMAGE=acme/api:1.0\n"), 0o600))
+	e, store := hostServer(t, "")
+	store.m["host/demo/dev-box"] = hostToken
+	const base = "/api/v1/hosts/demo/dev-box/stacks/tags/versions"
+
+	// what the file says, and what runs
+	rec := postJSON(e, http.MethodGet, base, nil)
+	var v agent.Versions
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &v) != nil || len(v.Services) != 1 {
+		t.Fatalf("versions = %d %s", rec.Code, rec.Body)
+	}
+	if s := v.Services[0]; s.Service != "api" || s.Variable != "API_IMAGE" || s.FileTag != "1.0" || s.RunningTag != "1.2" || !s.Differs || !s.Editable {
+		t.Errorf("api = %+v: the file says 1.0, 1.2 runs", s)
+	}
+
+	// a change that is applied streams its output and ends with how the service ended up
+	rec = postJSON(e, http.MethodPut, base, agent.VersionsRequest{Changes: []agent.VersionChange{{Service: "api", Tag: "1.2"}}, Apply: true})
+	got := actionLines(t, rec.Body.String())
+	last := got[len(got)-1]
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/x-ndjson" || !last.Done || !last.OK || len(last.Versions) != 1 || !last.Versions[0].OK || last.Versions[0].Tag != "1.2" {
+		t.Fatalf("change = %d %s", rec.Code, rec.Body)
+	}
+	if b, _ := os.ReadFile(filepath.Join(hostTagsDir, "versions.env")); string(b) != "API_IMAGE=acme/api:1.2\n" {
+		t.Errorf("the file on the host = %q", b)
+	}
+
+	// and is in the history, newest first
+	rec = postJSON(e, http.MethodGet, base+"/history", nil)
+	var hist []agent.VersionEvent
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &hist) != nil || len(hist) != 1 || hist[0].Old != "1.0" || hist[0].New != "1.2" || !hist[0].Applied || !hist[0].OK {
+		t.Errorf("history = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postJSON(e, http.MethodGet, base+"/history?limit=0", nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("limit=0 = %d, want 400", rec.Code)
+	}
+}
+
+func TestHostVersionRefusals(t *testing.T) {
+	hostTagsDir = t.TempDir()
+	t.Cleanup(func() { hostTagsDir = "" })
+	must(t, os.WriteFile(filepath.Join(hostTagsDir, "versions.env"), []byte("API_IMAGE=acme/api:1.0\n"), 0o600))
+	e, store := hostServer(t, "")
+	store.m["host/demo/dev-box"] = hostToken
+	const base = "/api/v1/hosts/demo/dev-box/stacks/"
+
+	for name, tc := range map[string]struct {
+		path string
+		body any
+		want int
+		msg  string
+	}{
+		"a bad tag":                     {"tags/versions", agent.VersionsRequest{Changes: []agent.VersionChange{{Service: "api", Tag: "1:x"}}}, http.StatusBadRequest, "isn't a tag"},
+		"no changes":                    {"tags/versions", agent.VersionsRequest{}, http.StatusBadRequest, "between 1 and 50"},
+		"a service that isn't there":    {"tags/versions", agent.VersionsRequest{Changes: []agent.VersionChange{{Service: "ghost", Tag: "1"}}}, http.StatusNotFound, "no such service"},
+		"a read-only stack":             {"locked/versions", agent.VersionsRequest{Changes: []agent.VersionChange{{Service: "api", Tag: "1"}}}, http.StatusForbidden, "writes are off"},
+		"a stack with no versions file": {"apps/versions", agent.VersionsRequest{Changes: []agent.VersionChange{{Service: "api", Tag: "1"}}}, http.StatusBadRequest, "no versions_file"},
+	} {
+		if rec := postJSON(e, http.MethodPut, base+tc.path, tc.body); rec.Code != tc.want || !strings.Contains(rec.Body.String(), tc.msg) {
+			t.Errorf("%s = %d %s, want %d containing %q", name, rec.Code, rec.Body, tc.want, tc.msg)
+		}
+	}
+	if rec := postJSON(e, http.MethodPut, base+"tags/versions", nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("no body = %d, want 400", rec.Code)
+	}
+	if rec := postJSON(e, http.MethodGet, base+"apps/versions", nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("reading versions of a stack with no versions file = %d, want 400", rec.Code)
+	}
+}
+
+func TestHostVersionsNeedAHostAndAToken(t *testing.T) {
+	e, _ := hostServer(t, "")
+	for _, path := range []string{"/api/v1/hosts/demo/dev-box/stacks/apps/versions", "/api/v1/hosts/demo/dev-box/stacks/apps/versions/history"} {
+		if rec := postJSON(e, http.MethodGet, path, nil); rec.Code != http.StatusConflict {
+			t.Errorf("%s with no token = %d, want 409", path, rec.Code)
+		}
+	}
+	if rec := postJSON(e, http.MethodPut, "/api/v1/hosts/demo/nope/stacks/apps/versions", agent.VersionsRequest{}); rec.Code != http.StatusNotFound {
+		t.Errorf("an unknown host = %d, want 404", rec.Code)
 	}
 }

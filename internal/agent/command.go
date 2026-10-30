@@ -54,13 +54,17 @@ func Command(ctx context.Context, args []string, stdout, stderr io.Writer, versi
 		_, _ = fmt.Fprintln(stderr, "devdeck agent:", err)
 		return 1
 	}
-	tok, err := ReadToken(cfg.TokenFile)
+	tokens, err := ReadTokens(cfg)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "devdeck agent:", err)
 		return 1
 	}
 	if sub == "check" {
-		_, _ = fmt.Fprintf(stdout, "configuration and token are fine; listening on %s\n", cfg.Listen)
+		var names []string
+		for _, t := range tokens {
+			names = append(names, t.Name)
+		}
+		_, _ = fmt.Fprintf(stdout, "configuration and tokens are fine; listening on %s; tokens: %s\n", cfg.Listen, strings.Join(names, ", "))
 		for _, s := range cfg.Stacks {
 			mode := "read-only"
 			if s.AllowWrite {
@@ -72,7 +76,9 @@ func Command(ctx context.Context, args []string, stdout, stderr io.Writer, versi
 	}
 	// JSON lines on stderr, which systemd hands to the journal.
 	log := zerolog.New(stderr).With().Timestamp().Str("component", "agent").Logger()
-	if err := New(cfg, tok, nil, log, version).Serve(ctx); err != nil {
+	a := New(cfg, nil, nil, log, version)
+	a.AddTokens(tokens...)
+	if err := a.Serve(ctx); err != nil {
 		log.Error().Err(err).Msg("agent stopped")
 		return 1
 	}

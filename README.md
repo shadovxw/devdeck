@@ -23,6 +23,8 @@ The Go server listens on `127.0.0.1:7070` and the web app on `http://127.0.0.1:5
 | Bare HTML mockup of every page (start at the sitemap) | [`ui-mockup/sitemap.html`](ui-mockup/sitemap.html) |
 | Connect Claude Code so it can read what devdeck shows (read only) | [`docs/claude-connector.md`](docs/claude-connector.md) |
 | Build and push Docker images with several Docker Hub accounts | [`docs/docker-builds.md`](docs/docker-builds.md) |
+| Change image tags on a remote host and redeploy, with roll back | [`docs/remote-versions.md`](docs/remote-versions.md) |
+| Setting devdeck up on your own machine, and a prompt for your Claude | [`docs/teammate-setup.md`](docs/teammate-setup.md) |
 
 To view the mockup, serve the folder and open `http://localhost:7071/sitemap.html`:
 

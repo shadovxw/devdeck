@@ -24,6 +24,8 @@ type ActionLine struct {
 	Done      bool   `json:"done,omitempty"`
 	OK        bool   `json:"ok,omitempty"`
 	Error     string `json:"error,omitempty"`
+	// Versions is, on the last line of a tag change, how each changed service ended up.
+	Versions []VersionResult `json:"versions,omitempty"`
 }
 
 // The writes the agent offers. Anything else is a 404: devdeck can't ask for a command.
@@ -139,10 +141,18 @@ func (a *Agent) lock(stack string, what write) (release func(), busy string) {
 	}, ""
 }
 
-// act runs one write and streams its output. It is not tied to the request: a tunnel that
-// drops half way through an `up` must not leave the stack half started, so the command
-// runs to its end (or to actionTimeout) and the stack stays locked until then.
+// act runs one docker command as a write, streaming its output.
 func (a *Agent) act(w http.ResponseWriter, r *http.Request, s Stack, what write, program string, args []string) {
+	a.streamWrite(w, r, s, what, func(ctx context.Context, line func(string)) ([]VersionResult, error) {
+		return nil, a.run.Exec(ctx, s.Dir, program, args, line)
+	})
+}
+
+// streamWrite runs one write, and streams what it says. It is not tied to the request: a tunnel
+// that drops half way through an `up` must not leave the stack half started, so the write
+// runs to its end (or to actionTimeout) and the stack stays locked until then. body does the
+// work, handing each line of output to line; the results it returns go on the last line.
+func (a *Agent) streamWrite(w http.ResponseWriter, r *http.Request, s Stack, what write, body func(ctx context.Context, line func(string)) ([]VersionResult, error)) {
 	release, busy := a.lock(s.ID, what)
 	if release == nil {
 		writeError(w, http.StatusConflict, "busy: "+busy+" is still running")
@@ -186,12 +196,12 @@ func (a *Agent) act(w http.ResponseWriter, r *http.Request, s Stack, what write,
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), actionTimeout)
 	defer cancel()
 	began := time.Now()
-	err := a.run.Exec(ctx, s.Dir, program, args, func(text string) { send(ActionLine{Line: text}) })
+	results, err := body(ctx, func(text string) { send(ActionLine{Line: text}) })
 	close(stop)
 	beating.Wait()
 
-	// The audit line of a write: what, where and how it ended. Output and arguments stay out.
-	audit := a.log.With().Str("stack", s.ID).Str("action", what.action).Str("service", what.service).Dur("took", time.Since(began)).Logger()
+	// The audit line of a write: who, what, where and how it ended. Output and arguments stay out.
+	audit := a.log.With().Str("by", callerName(r)).Str("stack", s.ID).Str("action", what.action).Str("service", what.service).Dur("took", time.Since(began)).Logger()
 	if err != nil {
 		audit.Warn().Err(err).Msg("write")
 	} else {
@@ -202,8 +212,8 @@ func (a *Agent) act(w http.ResponseWriter, r *http.Request, s Stack, what write,
 		if errors.Is(err, context.DeadlineExceeded) {
 			err = errors.New("stopped after " + actionTimeout.String())
 		}
-		send(ActionLine{Done: true, Error: err.Error()})
+		send(ActionLine{Done: true, Error: err.Error(), Versions: results})
 		return
 	}
-	send(ActionLine{Done: true, OK: true})
+	send(ActionLine{Done: true, OK: true, Versions: results})
 }

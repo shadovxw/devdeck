@@ -1,5 +1,6 @@
 import { Server } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ import {
 import { readLine } from "../lib/log-line";
 import { stagger } from "../lib/motion";
 import { ActionOutput, ConfirmAction, RowActions, StackActions } from "./HostActions";
+import { HostVersions, type Deploy } from "./HostVersions";
 
 // A state is never colour alone: each has its own shape and a word.
 type Shape = "dot" | "ring" | "triangle" | "square";
@@ -247,10 +249,11 @@ function Logs({ host, stack, services, service, setService }: Readonly<{ host: H
   );
 }
 
-type View = "services" | "compose" | "logs";
+type View = "services" | "compose" | "logs" | "versions";
 
-function StackPanel({ host, stack }: Readonly<{ host: HostView; stack: AgentStack }>) {
-  const [view, setView] = useState<View>("services");
+function StackPanel({ host, stack, deploy }: Readonly<{ host: HostView; stack: AgentStack; deploy?: Deploy | null }>) {
+  // A tag from a build opens the Versions tab, where it is filled in.
+  const [view, setView] = useState<View>(deploy ? "versions" : "services");
   const [service, setService] = useState("");
   const [confirm, setConfirm] = useState<HostAction | null>(null);
   const services = useHostServices(host.workspace, host.id, stack.id, true);
@@ -274,6 +277,7 @@ function StackPanel({ host, stack }: Readonly<{ host: HostView; stack: AgentStac
         <div role="tablist" aria-label={`Views of ${stack.name}`} className="flex gap-2">
           {tab("services", "Services")}
           {tab("compose", "Compose")}
+          {tab("versions", "Versions")}
           {tab("logs", "Logs")}
         </div>
       </div>
@@ -302,6 +306,7 @@ function StackPanel({ host, stack }: Readonly<{ host: HostView; stack: AgentStac
         />
       )}
       {view === "compose" && <Compose host={host} stack={stack.id} />}
+      {view === "versions" && <HostVersions host={host} stack={stack} deploy={deploy} />}
       {view === "logs" && <Logs host={host} stack={stack.id} services={names} service={service} setService={setService} />}
     </section>
   );
@@ -366,7 +371,7 @@ function TokenForm({ host }: Readonly<{ host: HostView }>) {
   );
 }
 
-function HostCard({ host }: Readonly<{ host: HostView }>) {
+function HostCard({ host, deploy }: Readonly<{ host: HostView; deploy?: Deploy | null }>) {
   const [connect, setConnect] = useState(host.tunnel.open);
   const enabled = host.token_set && (connect || host.tunnel.open);
   const info = useHostInfo(host.workspace, host.id, enabled);
@@ -431,7 +436,7 @@ function HostCard({ host }: Readonly<{ host: HostView }>) {
             Agent {info.data.version} · {info.data.stacks.length} {info.data.stacks.length === 1 ? "stack" : "stacks"}
           </p>
           {info.data.stacks.map((s) => (
-            <StackPanel key={s.id} host={host} stack={s} />
+            <StackPanel key={s.id} host={host} stack={s} deploy={deploy} />
           ))}
         </div>
       )}
@@ -448,10 +453,23 @@ const example = `hosts:
       region: ap-south-1
       profile: dev`;
 
+/** A tag a build pushed, from ?deploy=repository:tag. Anything else is ignored. */
+function parseDeploy(raw: string | null): Deploy | null {
+  if (!raw) return null;
+  const i = raw.lastIndexOf(":");
+  if (i < 1) return null;
+  const repository = raw.slice(0, i);
+  const tag = raw.slice(i + 1);
+  if (!/^[a-z0-9]+([._-][a-z0-9]+)*(\/[a-z0-9]+([._-][a-z0-9]+)*)+$/.test(repository) || !/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(tag)) return null;
+  return { repository, tag };
+}
+
 /** Machines that run devdeck's agent, reached through an SSM tunnel: their stacks, services and live logs. */
 export function HostsPage() {
   const item = navByPath("/hosts");
   const hosts = useHosts();
+  const [params] = useSearchParams();
+  const deploy = parseDeploy(params.get("deploy"));
   const header = <PageHeader title={item.label} group={item.group} description="Compose stacks on other machines, reached through an SSM tunnel that opens when you need it." />;
 
   if (hosts.isPending) {
@@ -492,9 +510,14 @@ export function HostsPage() {
   return (
     <>
       {header}
+      {deploy && (
+        <p role="status" className="enter mt-4 rounded-ctl bg-fill p-3 text-[13px] text-ink-2" style={stagger(1)}>
+          Deploying <span className="font-mono text-ink">{deploy.repository}:{deploy.tag}</span>: connect the host it should go to, then open Versions on its stack.
+        </p>
+      )}
       <div className="enter mt-4 flex flex-col gap-4" style={stagger(1)}>
         {hosts.data.map((h) => (
-          <HostCard key={`${h.workspace}/${h.id}`} host={h} />
+          <HostCard key={`${h.workspace}/${h.id}`} host={h} deploy={deploy} />
         ))}
       </div>
     </>

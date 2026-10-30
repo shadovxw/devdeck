@@ -68,6 +68,8 @@ type Server = {
   checkError?: string;
   // what POST .../build answers: a stream, or a refusal
   buildAnswer?: (body: { tag: string; overwrite: boolean }) => Response;
+  /** The remote hosts; the Deploy link after a build only shows when there is one. */
+  hosts?: object[];
   yaml?: string;
   invalid?: boolean;
   saveError?: string;
@@ -88,6 +90,7 @@ function mockServer(opts: Server = {}) {
       if (path === "/health") return json({ status: "ok", version: "test" });
       if (path === "/runs") return json([]);
       if (path === "/ui/state") return empty();
+      if (path === "/hosts") return json(opts.hosts ?? []);
       if (path === "/workspaces" && method === "GET") return json([{ id: "demo", name: "demo", source: "local", root: "~/code", repos: 1, stacks: 0, flows: 0, errors: 0, warnings: 0 }]);
       if (path === "/workspaces/demo" && method === "GET") return json({ id: "demo", name: "demo", source: "local", repos: 1, errors: 0, warnings: 0, workspace: { name: "demo", repos: [] }, stacks: [], flows: [], issues: [] });
       if (path === "/workspaces/demo/file") return json({ yaml: opts.yaml ?? "version: 1\nname: demo\nroot: ~/code\nrepos: []\n" });
@@ -349,6 +352,26 @@ describe("the Images page", () => {
     expect(await screen.findByText("Pushed acme/demo-api:1.0.4")).toBeTruthy();
     expect(sent("POST", "/build")[0].url).toBe("/api/v1/images/demo/api/api/build");
     expect(sent("POST", "/build")[0].body).toEqual({ tag: "1.0.4", overwrite: false });
+  });
+
+  it("offers to deploy the pushed tag to a host, when there is one", async () => {
+    mockServer({ hosts: [{ workspace: "demo", id: "dev-box", name: "Dev box", token_set: true, tunnel: { open: false, users: 0 } }] });
+    renderAt("/images");
+    fireEvent.change(await screen.findByPlaceholderText("tag, for example 1.0.4"), { target: { value: "1.0.4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Build and push" }));
+    fireEvent.click(within(screen.getByRole("group", { name: "Confirm the build" })).getByRole("button", { name: "Build and push" }));
+    const link = await screen.findByRole("link", { name: "Deploy 1.0.4 to a host" });
+    expect(link.getAttribute("href")).toBe("/hosts?deploy=acme%2Fdemo-api%3A1.0.4");
+  });
+
+  it("offers no deploy link without a host, or after a failed build", async () => {
+    mockServer({ hosts: [] });
+    renderAt("/images");
+    fireEvent.change(await screen.findByPlaceholderText("tag, for example 1.0.4"), { target: { value: "1.0.4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Build and push" }));
+    fireEvent.click(within(screen.getByRole("group", { name: "Confirm the build" })).getByRole("button", { name: "Build and push" }));
+    expect(await screen.findByText("Pushed acme/demo-api:1.0.4")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Deploy 1\.0\.4/ })).toBeNull();
   });
 
   it("can be cancelled before anything is sent", async () => {
