@@ -279,3 +279,4 @@ Each is its own branch and PR of **fewer than 10 files**, safe to deploy on its 
 4. **Later:** listing tags from the image registry (needs a registry token in the OS keyring), triggering or watching image builds, PR 5, Helm, `protected_services`, an up-script flag in `info`, Up all / Down all once a host has two stacks.
 
 5. **Docker accounts, builds by tag and teammate setup:** planned in [`../2026-10-30-docker-builds/plan.md`](../2026-10-30-docker-builds/plan.md); its PRs 1 and 2 are 4C and 4D above.
+6. **What comes next (2026-10-31): [`../2026-10-31-next-steps.md`](../2026-10-31-next-steps.md)**: the owner's steps on the host, PR 5 (release builds and bootstrap) and the follow-ups. Start there.

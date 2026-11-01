@@ -1,29 +1,19 @@
 import { useState } from "react";
 
 import type { ToolState } from "../lib/types";
+import { StatusDot, type Tone } from "./StatusDot";
 
-// Status is never colour alone: each state has its own shape and a label
-// (flight-deck convention, dev-plans/02-frontend-design-system.md section 2.1).
-const look: Record<ToolState, { label: string; color: string; shape: "dot" | "triangle" | "diamond" | "square" }> = {
-  ok: { label: "Ready", color: "var(--good)", shape: "dot" },
-  degraded: { label: "Degraded", color: "var(--warning)", shape: "triangle" },
-  outdated: { label: "Outdated", color: "var(--serious)", shape: "diamond" },
-  missing: { label: "Missing", color: "var(--critical)", shape: "square" },
+// Status is a round dot plus a word, never colour alone (dev-plans/02-frontend-design-system.md
+// section 2.4): the dot carries the colour and the word stays black.
+const look: Record<ToolState, { label: string; tone: Tone }> = {
+  ok: { label: "Ready", tone: "good" },
+  degraded: { label: "Degraded", tone: "warning" },
+  outdated: { label: "Outdated", tone: "serious" },
+  missing: { label: "Missing", tone: "critical" },
 };
 
-function Shape({ shape, color }: { shape: (typeof look)[ToolState]["shape"]; color: string }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden fill={color}>
-      {shape === "dot" && <circle cx="6" cy="6" r="4.5" />}
-      {shape === "triangle" && <path d="M6 1.2 11 10.2H1Z" />}
-      {shape === "diamond" && <path d="M6 .8 11.2 6 6 11.2.8 6Z" />}
-      {shape === "square" && <rect x="1.8" y="1.8" width="8.4" height="8.4" />}
-    </svg>
-  );
-}
-
 export function StatusPill({ state, title }: { state: ToolState; title?: string }) {
-  const { label, color, shape } = look[state];
+  const { label, tone } = look[state];
 
   // When the state changes, flash the pill once. A change in the first render is not a
   // change, so nothing flashes on load. (Adjusting state while rendering is React's
@@ -39,10 +29,10 @@ export function StatusPill({ state, title }: { state: ToolState; title?: string 
     <span
       // A new key restarts the one-shot flash animation.
       key={flashes}
-      className={`-mx-1.5 inline-flex items-center gap-2 px-1.5 py-0.5 text-ink-2 ${flashes > 0 ? "flash" : ""}`}
+      className={`-mx-1.5 inline-flex items-center gap-2 px-1.5 py-0.5 text-ink ${flashes > 0 ? "flash" : ""}`}
       title={title}
     >
-      <Shape shape={shape} color={color} />
+      <StatusDot tone={tone} />
       {label}
     </span>
   );

@@ -1,36 +1,33 @@
 import type { LogLevel } from "../lib/types";
+import { StatusDot, toneColor, type Tone } from "./StatusDot";
 
-// A level is never colour alone: each has its own shape and a word (the same rule
-// as the service states). Trace and debug are rings, info a dot, warn a triangle,
-// error a square, fatal a diamond.
-export const levelLook: Record<LogLevel, { word: string; label: string; shape: "ring" | "dot" | "triangle" | "square" | "diamond"; color: string }> = {
-  trace: { word: "TRACE", label: "trace", shape: "ring", color: "var(--ink-3)" },
-  debug: { word: "DEBUG", label: "debug", shape: "ring", color: "var(--ink-2)" },
-  info: { word: "INFO", label: "info", shape: "dot", color: "var(--accent)" },
-  warn: { word: "WARN", label: "warning", shape: "triangle", color: "var(--warning)" },
-  error: { word: "ERROR", label: "error", shape: "square", color: "var(--critical)" },
-  fatal: { word: "FATAL", label: "fatal", shape: "diamond", color: "var(--critical)" },
+// A level is a round dot plus a word. Trace and debug are empty rings, info a quiet grey
+// dot, warn amber, error red and fatal black (worse than red, like the strip's failing minute).
+const tones: Record<LogLevel, { word: string; label: string; tone: Tone; ring?: boolean }> = {
+  trace: { word: "TRACE", label: "trace", tone: "neutral", ring: true },
+  debug: { word: "DEBUG", label: "debug", tone: "ink-3", ring: true },
+  info: { word: "INFO", label: "info", tone: "ink-3" },
+  warn: { word: "WARN", label: "warning", tone: "warning" },
+  error: { word: "ERROR", label: "error", tone: "critical" },
+  fatal: { word: "FATAL", label: "fatal", tone: "ink" },
 };
+
+/** The colour of each level, for charts that draw bars by level. */
+export const levelLook: Record<LogLevel, { word: string; label: string; color: string }> = Object.fromEntries(
+  (Object.keys(tones) as LogLevel[]).map((l) => [l, { word: tones[l].word, label: tones[l].label, color: toneColor[tones[l].tone] }]),
+) as Record<LogLevel, { word: string; label: string; color: string }>;
 
 export const levelOrder: LogLevel[] = ["trace", "debug", "info", "warn", "error", "fatal"];
 
-/** The shape of a level alone, for a legend or a chart. */
-export function LevelShape({ level, size = 10 }: { level: LogLevel; size?: number }) {
-  const { shape, color } = levelLook[level];
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" aria-hidden className="shrink-0">
-      {shape === "dot" && <circle cx="6" cy="6" r="4.5" fill={color} />}
-      {shape === "ring" && <circle cx="6" cy="6" r="4" fill="none" stroke={color} strokeWidth="1.6" />}
-      {shape === "triangle" && <path d="M6 1.2 11 10.2H1Z" fill={color} />}
-      {shape === "square" && <rect x="1.8" y="1.8" width="8.4" height="8.4" fill={color} />}
-      {shape === "diamond" && <path d="M6 .8 11.2 6 6 11.2.8 6Z" fill={color} />}
-    </svg>
-  );
+/** The dot of a level alone, for a legend or a filter. */
+export function LevelShape({ level, size = 8 }: { level: LogLevel; size?: number }) {
+  const { tone, ring } = tones[level];
+  return <StatusDot tone={tone} ring={ring} size={size} />;
 }
 
-/** A level as its shape and its word; screen readers get the whole word. */
+/** A level as its dot and its word; screen readers get the whole word. */
 export function LevelMark({ level = "info" }: { level?: LogLevel }) {
-  const { word, label } = levelLook[level];
+  const { word, label } = tones[level];
   return (
     <span className="inline-flex w-[4.5rem] shrink-0 items-center gap-1.5 text-ink-2" data-level={level}>
       <LevelShape level={level} />

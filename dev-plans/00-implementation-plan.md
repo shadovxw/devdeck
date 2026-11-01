@@ -53,12 +53,14 @@ A personal **developer cockpit** that runs on this Windows machine, works for **
 | Frontend framework | **React 19 + Vite + TypeScript** (not Next.js) | Next.js is built for server-rendered websites (SSR, server components, API routes). Here the server is Go and the app is local, so those features are dead weight, and they don't work inside a Wails/`go:embed` bundle. Vite gives the fastest HMR for heavy animation work, is what infrabot-frontend already uses, and Wails supports it. |
 | Routing | React Router v7 (data routers + `viewTransition`) | Same as infrabot; built-in View Transitions hook |
 | Styling | Tailwind v4 + Radix / Base UI primitives (shadcn-style, fully re-skinned) | Accessible primitives; all visual identity is ours |
-| Animation | **Motion** (`motion/react`) for UI and layout transitions; **GSAP** (now fully free, incl. SplitText/MorphSVG) for timelines and signature sequences | Motion = declarative React layout/exit animations; GSAP = choreographed multi-element sequences |
-| 3D | **React Three Fiber v9** (pairs with React 19) + drei + postprocessing | Declarative three.js inside React |
+| Animation | **Motion** (`motion/react`) for UI, layout transitions and signature sequences. `tw-animate-css` stays only because shadcn uses it for open/close. **GSAP dropped 2026-10-31.** | Motion can already run sequences; two animation engines is extra weight and two APIs to keep in sync |
+| 3D | **React Three Fiber v9** (pairs with React 19) + drei, **deferred**. If it is ever built, it is lazy-loaded inside the Map view only (design system §10). No 3D on Home, no persistent background canvas. | ~600 KB+ and against "calm by default"; every page works without it |
 | Charts | **ECharts** for heavy live time-series and treemaps; custom SVG + Motion for signature visuals | ECharts handles 10k-point streams with built-in animation; custom SVG for hero graphics |
 | Graph canvas | **@xyflow/react** (flow builder, ER diagram, service map 2D) | Already used in infrabot's workflow builder |
-| Editor / terminal | Monaco (SQL, YAML) · xterm.js (psql / shell) | Industry standard |
-| Client state | TanStack Query (server state) + Zustand (UI state) | Zustand already in infrabot |
+| Editor / terminal | **CodeMirror 6** (`@uiw/react-codemirror`; SQL, YAML) · xterm.js (psql / shell) | CodeMirror is much lighter than Monaco (decided 2026-10-31) |
+| Palette / toasts / tables | `cmdk` (Ctrl+K), `sonner` (toasts), `@tanstack/react-table` + `@tanstack/react-virtual` (tables, logs list) | The design system already calls for each; shadcn wraps cmdk and sonner |
+| Forms / shortcuts | `react-hook-form` + `zod` (Connections, Settings, Hosts) · `react-hotkeys-hook` | Keyboard-first rule (P6) |
+| Client state | TanStack Query (server state) + Zustand (UI state). **No second state library.** | Zustand already in infrabot |
 | Backend | **Go 1.26**, Echo v4, zerolog | Same stack as infrabot services |
 | Local storage | **SQLite** via `modernc.org/sqlite` (pure Go, no CGO) | Runs, history, findings, migration history, metrics |
 | Config | **YAML files** in a workspace folder (git-trackable) | Diffable, editable in VS Code, portable to a new PC |
@@ -269,7 +271,7 @@ Working name: **"Deck"**, an instrument panel for your codebase. Dark-first, wit
 | `quick` | small state changes, toasts | 180 ms |
 | `move` | layout moves, list reorder | 320 ms spring (stiffness 300, damping 30) |
 | `scene` | route transitions, camera moves | 600–900 ms, ease-in-out-cubic |
-| `story` | signature sequences (stack boot) | GSAP timeline, 1.5–3 s, skippable |
+| `story` | signature sequences (stack boot) | Motion sequence, 1.5–3 s, skippable |
 
 Rules: motion always **explains change** (where something came from or went). Live data animates in, never jumps. Every animation has a reduced-motion fallback.
 
@@ -287,7 +289,7 @@ Rules: motion always **explains change** (where something came from or went). Li
 | Findings | Severity heat grid / bubble cluster; filters re-layout with Motion `layout` | Cluster explodes into a list on click |
 | Images | Tag timeline per service; build progress as a filling capsule | |
 | Databases | **ER diagram** (tables as nodes, FKs as edges, force layout); migration timeline | Zoom from server → DB → table |
-| SQL console | Monaco; results grid reveals rows in a short stagger | |
+| SQL console | CodeMirror 6; results grid reveals rows in a short stagger | |
 | Plugins | Card grid with tilt/parallax; install progress ring | Card flips to the manifest view |
 | Doctor | "System scan" checklist sweep; missing tools pulse | |
 | Connections | Account identity cards (work vs group) with colour coding | |
@@ -353,13 +355,13 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 - **1.2 Tokens**
   - 1.2.1 Colour (surfaces, ink, accents, status, categorical series, validated for CVD + contrast, light & dark)
   - 1.2.2 Type scale, spacing, radii, elevation/depth, glass/blur levels
-  - 1.2.3 Motion tokens (§7.3) as Motion presets + GSAP defaults
+  - 1.2.3 Motion tokens (§7.3) as Motion presets
 - **1.3 Shell**
   - 1.3.1 Dock sidebar, top status strip, command palette (Ctrl+K)
   - 1.3.2 Route transition system: AnimatePresence + View Transitions; shared-element (`layoutId`) helpers for list → detail
   - 1.3.3 Entity link chips + hover preview cards (generic, data-driven)
 - **1.4 3D scene system**
-  - 1.4.1 Persistent R3F canvas behind the app; scene registry per route; camera rig with tweened moves
+  - 1.4.1 Deferred. If built, an R3F canvas lazy-loaded inside the Map view only, added after the kit. No persistent canvas behind the routes.
   - 1.4.2 Visibility/perf controller: demand frameloop, pause when hidden, performance mode, reduced motion
   - 1.4.3 Postprocessing preset (bloom, vignette) with a quality switch
 - **1.5 Component kit**
@@ -499,7 +501,7 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
   - 6.2.3 Data preview with filters; inline edit on `local` only
   - 6.2.4 ER diagram (xyflow, force layout)
 - **6.3 SQL console**
-  - 6.3.1 Monaco with schema-aware autocomplete
+  - 6.3.1 CodeMirror 6 with schema-aware autocomplete
   - 6.3.2 Execute (multi-statement), explain, cancel; results grid; CSV/JSON export
   - 6.3.3 Safety: env badge, confirm on UPDATE/DELETE without WHERE, transaction mode with Commit/Rollback
   - 6.3.4 History

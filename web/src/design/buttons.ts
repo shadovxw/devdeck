@@ -1,9 +1,9 @@
-/** The big accent button used for a page's main next step. */
+/** The blue button used for a page's main next step: one per view. */
 export const primaryButton =
-  "inline-flex h-11 items-center gap-2.5 rounded-ctl bg-accent px-5 text-[15px] font-medium text-on-accent " +
-  "transition hover:brightness-110 active:scale-[.97]";
+  "inline-flex h-[34px] items-center gap-2 bg-primary px-3.5 text-[13px] font-medium text-primary-foreground " +
+  "transition-colors hover:bg-primary-hover active:bg-primary-hover";
 
-/** The quieter text button beside it. */
+/** The quieter button beside it, on --fill. */
 export const quietButton =
-  "inline-flex h-11 items-center gap-2.5 rounded-ctl px-3 text-[15px] text-ink-2 transition " +
-  "hover:bg-accent-soft hover:text-ink active:scale-[.97]";
+  "inline-flex h-[34px] items-center gap-2 bg-fill px-3.5 text-[13px] font-medium text-ink transition-colors " +
+  "hover:bg-fill-hover active:bg-fill-press";

@@ -27,6 +27,7 @@ func badQuery(format string, a ...any) error { return &QueryError{Msg: fmt.Sprin
 const (
 	maxQueryServices = 50
 	maxQueryFields   = 20
+	maxQueryMutes    = 20
 )
 
 // FieldFilter keeps entries whose structured field has a value ("user.id=42") or,
@@ -136,6 +137,9 @@ type Query struct {
 	Since, Until time.Time
 	// Group keeps the entries of one error group (its fingerprint).
 	Group string
+	// Mutes leave out entries whose text matches any of these patterns (Go RE2, at most 500
+	// characters each, at most 20): noise the reader has chosen not to see. Nothing is deleted.
+	Mutes []string
 
 	// Before returns the entries just older than this number; After the ones newer.
 	// With neither, the newest entries are returned.
@@ -158,6 +162,9 @@ type matcher struct {
 	fields       []FieldFilter
 	since, until time.Time
 	group        string
+	mutes        []*regexp.Regexp
+	// keepMuted lets muted entries pass `ok`, for a count that wants to tell them apart.
+	keepMuted bool
 }
 
 func (q Query) matcher() (*matcher, error) {
@@ -184,14 +191,42 @@ func (q Query) matcher() (*matcher, error) {
 	if len(q.Fields) > maxQueryFields {
 		return nil, badQuery("at most %d field filters", maxQueryFields)
 	}
+	if len(q.Mutes) > maxQueryMutes {
+		return nil, badQuery("at most %d muted patterns", maxQueryMutes)
+	}
+	for _, pat := range q.Mutes {
+		if len(pat) > maxMatch {
+			return nil, badQuery("a muted pattern is too long (the limit is %d characters)", maxMatch)
+		}
+		re, err := regexp.Compile(pat)
+		if err != nil {
+			return nil, badQuery("a muted pattern isn't valid: %v", err)
+		}
+		m.mutes = append(m.mutes, re)
+	}
 	if !q.Since.IsZero() && !q.Until.IsZero() && q.Until.Before(q.Since) {
 		return nil, badQuery("until is before since")
 	}
 	return m, nil
 }
 
-// ok says whether an entry passes every filter. Cheap checks come first.
+// ok says whether an entry passes every filter and is not muted.
 func (m *matcher) ok(e *Entry) bool {
+	return m.okBase(e) && (m.keepMuted || !m.isMuted(e))
+}
+
+// isMuted says whether the text of an entry matches a muted pattern.
+func (m *matcher) isMuted(e *Entry) bool {
+	for _, re := range m.mutes {
+		if re.MatchString(e.Text) {
+			return true
+		}
+	}
+	return false
+}
+
+// okBase says whether an entry passes every filter except the muted patterns. Cheap checks come first.
+func (m *matcher) okBase(e *Entry) bool {
 	if m.levels != nil {
 		l := e.Level
 		if l == "" {

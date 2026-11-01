@@ -8,7 +8,9 @@
   --color-surface-2: var(--surface-2);
   --color-fill: var(--fill);
   --color-fill-hover: var(--fill-hover);
-  --color-inset: var(--surface-inset);
+  --color-fill-press: var(--fill-press);
+  --color-inset: var(--inset);
+  --color-surface-float: var(--surface-float);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
@@ -17,11 +19,18 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-on-accent: var(--on-accent);
+  --color-link: var(--link);
+  --color-selected: var(--selected);
+  --color-primary-hover: var(--primary-hover);
   --color-good: var(--good);
   --color-warning: var(--warning);
   --color-serious: var(--serious);
   --color-critical: var(--critical);
   --color-neutral: var(--neutral);
+  --color-strip-ok: var(--strip-ok);
+  --color-strip-idle: var(--strip-idle);
+  --color-strip-off: var(--strip-off);
+  --color-strip-bad: var(--strip-bad);
 
   --color-brand: var(--brand);
   --color-brand-dev: var(--brand-dev);
@@ -43,20 +52,30 @@
   --color-background: var(--bg);
   --color-foreground: var(--ink);
   --color-muted-foreground: var(--ink-3);
-  --color-primary: var(--accent);
-  --color-primary-foreground: var(--on-accent);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--on-primary);
   --color-secondary: var(--fill);
   --color-secondary-foreground: var(--ink);
   --color-destructive: var(--critical);
   --color-border: var(--line);
   --color-input: var(--line-strong);
-  --color-ring: var(--accent);
+  --color-ring: var(--focus);
 
   --default-transition-duration: var(--dur-instant);
   --default-transition-timing-function: var(--ease-out);
 
-  --radius-tag: 3px;
-  --radius-ctl: 4px;
-  --radius-card: 4px;
-  --radius-sheet: 6px;
+  /* Square: radius 0 on everything. Only status dots are round (rounded-full). The
+     named radii stay so existing classes keep working; the stock Tailwind steps are
+     zeroed so shadcn components follow. */
+  --radius-tag: 0px;
+  --radius-ctl: 0px;
+  --radius-card: 0px;
+  --radius-sheet: 0px;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
 }

@@ -181,7 +181,20 @@ export type LogHistogram = {
   to: string;
   bucket_seconds: number;
   total: number;
+  /** How many more lines matched but for the muted patterns. */
+  muted?: number;
   buckets: { t: string; counts: Partial<Record<LogLevel, number>> }[];
+};
+
+/** Entries of one service or one kind of error, counted in each bucket of a range (GET .../logs/trends). */
+export type LogSeries = { key: string; total: number; errors?: number; counts: number[] };
+
+export type LogTrends = {
+  from: string;
+  to: string;
+  bucket_seconds: number;
+  services: LogSeries[];
+  groups: LogSeries[];
 };
 
 /** One kind of error seen in a stack. */
