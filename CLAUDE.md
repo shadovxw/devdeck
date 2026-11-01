@@ -33,8 +33,8 @@ The plan is in [`dev-plans/00-implementation-plan.md`](dev-plans/00-implementati
 ## UI
 
 - Flat: no borders or shadows on cards, tight radii (3/4/6px), no icon-background chrome.
-- Minimal text; explanations go in tooltips. Geist + Geist Mono. Dark first, with a working light theme.
-- Colours, type and motion come from tokens (plan §7, `dev-plans/02-frontend-design-system.md`). The design samples in `ui-design/` are the reference.
+- Minimal text; explanations go in tooltips. Geist + Geist Mono. Paper (light) is the default; Paper Dark and custom themes are built in (`web/src/theme/`, `docs/appearance.md`).
+- Colours, type and motion come from tokens (`dev-plans/02-frontend-design-system.md`). Never hard-code a colour in a component: use the tokens, so every theme reaches every screen. The design samples in `ui-design/` are the reference.
 
 ## Working rules
 

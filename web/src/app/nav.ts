@@ -371,10 +371,9 @@ const GROUPS: GroupDef[] = [
         path: "/settings",
         label: "Settings",
         icon: Settings,
-        phase: "Phase 13",
         empty: {
           headline: "More settings are coming",
-          text: "The theme switch is in the top bar. Everything else arrives in a later phase.",
+          text: "Appearance is here. Everything else arrives in a later phase.",
         },
       },
     ],

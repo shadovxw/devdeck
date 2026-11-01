@@ -9,10 +9,23 @@
     <meta name="theme-color" content="#ffffff" />
     <title>devdeck</title>
     <script>
-      // Apply the saved theme before first paint so there is no flash.
+      // Apply the saved theme's colours before first paint so there is no flash: the theme for the
+      // mode (light, dark, or whichever the operating system is using). They were worked out by the
+      // app (src/theme/store.ts); only plain variable names and values pass.
       try {
-        var t = localStorage.getItem("devdeck.theme");
-        if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+        if (localStorage.getItem("devdeck.reduce-motion") === "1") document.documentElement.dataset.motion = "reduced";
+        var mode = localStorage.getItem("devdeck.theme.mode");
+        var dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        var raw = localStorage.getItem("devdeck.theme.tokens." + (dark ? "dark" : "light"));
+        if (raw) {
+          var tokens = JSON.parse(raw);
+          for (var name in tokens) {
+            if (/^(--[a-z0-9-]+|color-scheme)$/.test(name) && typeof tokens[name] === "string" && !/[;{}]/.test(tokens[name])) {
+              document.documentElement.style.setProperty(name, tokens[name]);
+            }
+          }
+          if (typeof tokens["--bg"] === "string") document.querySelector('meta[name="theme-color"]').content = tokens["--bg"];
+        }
       } catch (e) {}
     </script>
   </head>

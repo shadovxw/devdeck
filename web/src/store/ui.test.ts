@@ -1,32 +1,29 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { syncThemeColor, useUi } from "./ui";
-
-const color = () => document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content;
+import { useUi } from "./ui";
 
 afterEach(() => {
   localStorage.clear();
-  useUi.getState().setTheme("system");
+  useUi.getState().setReduceMotion(false);
 });
 
-describe("theme colour", () => {
-  it("matches the page background of the chosen theme", () => {
-    useUi.getState().setTheme("light");
-    expect(color()).toBe("#f3f6f6");
-    expect(document.documentElement.dataset.theme).toBe("light");
+describe("reduce motion", () => {
+  it("marks the page, so every loop stops and every move is a cut, and remembers the choice", () => {
+    useUi.getState().setReduceMotion(true);
+    expect(document.documentElement.dataset.motion).toBe("reduced");
+    expect(localStorage.getItem("devdeck.reduce-motion")).toBe("1");
 
-    useUi.getState().setTheme("dark");
-    expect(color()).toBe("#0c1012");
+    useUi.getState().setReduceMotion(false);
+    expect(document.documentElement.dataset.motion).toBeUndefined();
+    expect(localStorage.getItem("devdeck.reduce-motion")).toBeNull();
   });
 
-  it("follows the OS preference for the system theme (dark in the test browser)", () => {
-    syncThemeColor("system");
-    expect(color()).toBe("#0c1012"); // the test setup reports no light preference
-  });
-
-  it("creates the tag when the page has none", () => {
-    document.querySelector('meta[name="theme-color"]')?.remove();
-    syncThemeColor("light");
-    expect(color()).toBe("#f3f6f6");
+  it("starts from what was kept", async () => {
+    localStorage.setItem("devdeck.reduce-motion", "1");
+    const { vi } = await import("vitest");
+    vi.resetModules(); // the store reads storage when its module loads
+    const fresh = (await import("./ui")).useUi;
+    expect(fresh.getState().reduceMotion).toBe(true);
+    expect(document.documentElement.dataset.motion).toBe("reduced");
   });
 });

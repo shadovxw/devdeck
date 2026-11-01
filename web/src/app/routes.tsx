@@ -16,6 +16,7 @@ import { Placeholder } from "../pages/Placeholder";
 import { PluginsPage } from "../pages/PluginsPage";
 import { HostsPage } from "../pages/HostsPage";
 import { ReposPage } from "../pages/ReposPage";
+import { SettingsPage } from "../pages/SettingsPage";
 import { StacksPage } from "../pages/StacksPage";
 import { WorkspacesPage } from "../pages/WorkspacesPage";
 import { FatalError, PageError } from "./ErrorPages";
@@ -37,6 +38,7 @@ const built: Record<string, ReactElement> = {
   "/claude": <ClaudePage />,
   "/images": <ImagesPage />,
   "/connections/docker": <DockerHubPage />,
+  "/settings": <SettingsPage />,
 };
 
 function NotFound() {

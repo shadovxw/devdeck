@@ -52,6 +52,8 @@ type Deps struct {
 	// Claude Code connector may read and keeps the audit list of what it asked for. Without
 	// it the connector gets the default areas and nothing is recorded.
 	Claude *Claude
+	// Themes is optional: it adds the Appearance page's routes and keeps the themes a person made.
+	Themes *Themes
 	// UI is optional: the built web app, served for every path the API doesn't use. A
 	// build without it (tests, the remote agent) answers 404 there, as before.
 	UI http.Handler
@@ -76,6 +78,9 @@ func Register(e *echo.Echo, d Deps) {
 	registerUIState(v1)
 	if d.Claude != nil {
 		registerClaude(v1, d.Claude)
+	}
+	if d.Themes != nil {
+		registerThemes(v1, d.Themes)
 	}
 	if d.FolderPicker != nil {
 		registerSystem(v1, d.FolderPicker)
