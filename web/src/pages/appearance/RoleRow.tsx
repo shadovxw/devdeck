@@ -22,7 +22,7 @@ type Props = {
 /** The least comfortable of a role's checks: its grade and ratio. */
 function Mark({ checks }: Readonly<{ checks: Check[] }>) {
   if (checks.length === 0) return <span className="w-28" />;
-  const worst = checks.reduce((a, b) => (b.ratio / b.min < a.ratio / a.min ? b : a));
+  const worst = checks.reduce((a, b) => (b.ratio / b.min < a.ratio / a.min ? b : a), checks[0]);
   const grade = gradeOf(worst);
   const detail = checks.map((c) => `${c.label}: ${c.ratio.toFixed(1)}:1, needs ${c.min}:1`).join("\n");
   return (

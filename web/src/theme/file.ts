@@ -11,20 +11,11 @@ export function themeFileText(t: ThemeData): string {
 
 export const themeFileName = (t: ThemeData) => `${t.id}.devdeck-theme.json`;
 
-function readText(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsText(file);
-  });
-}
-
 /** A theme from a file a person picked: checked the way the server checks one. */
 export async function readThemeFile(file: File): Promise<ParsedTheme> {
   if (file.size > maxFileBytes) return { error: "This file is too big to be a theme." };
   try {
-    return parseTheme(await readText(file));
+    return parseTheme(await file.text());
   } catch {
     return { error: "This file couldn’t be read." };
   }

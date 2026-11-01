@@ -9,6 +9,15 @@ function varsOf(tokens: TokenMap): CSSProperties {
   return Object.fromEntries(Object.entries(tokens).filter(([name]) => name.startsWith("--"))) as CSSProperties;
 }
 
+/** What the line under the preview says: all fine, or which colours are hard to read and what to aim for. */
+function summaryOf(failing: Check[]): string {
+  if (failing.length === 0) return "All text and status colours pass WCAG AA.";
+  const names = failing.map((c) => c.label).join(", ");
+  const verb = failing.length > 1 ? "are" : "is";
+  const aim = failing.some((c) => c.min === 4.5) ? "4.5" : "3";
+  return `${names} ${verb} hard to read. Aim for ${aim}:1 or more.`;
+}
+
 /** A small stack page in the theme's colours, and whether its text and status colours are readable. */
 export function ThemePreview({ tokens, checks }: Readonly<{ tokens: TokenMap; checks: Check[] }>) {
   const failing = checks.filter((c) => !c.ok);
@@ -62,9 +71,7 @@ export function ThemePreview({ tokens, checks }: Readonly<{ tokens: TokenMap; ch
       <p className="m-0 flex gap-2 bg-fill px-2.5 py-2 text-[12px] text-ink-2" role={failing.length > 0 ? "alert" : undefined}>
         <StatusDot tone={failing.length > 0 ? "critical" : "good"} size={7} className="mt-1" />
         <span>
-          {failing.length > 0
-            ? `${failing.map((c) => c.label).join(", ")} ${failing.length > 1 ? "are" : "is"} hard to read. Aim for ${failing.some((c) => c.min === 4.5) ? "4.5" : "3"}:1 or more.`
-            : "All text and status colours pass WCAG AA."}
+          {summaryOf(failing)}
         </span>
       </p>
     </aside>

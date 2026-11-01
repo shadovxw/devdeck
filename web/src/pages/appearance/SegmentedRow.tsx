@@ -18,7 +18,8 @@ export function SegmentedRow<T extends string>({ title, description, options, va
         <h3 className="m-0 text-[14px] font-medium leading-5 text-ink">{title}</h3>
         <p className="m-0 mt-0.5 text-[13px] text-ink-3">{description}</p>
       </div>
-      <div role="group" aria-label={title} className="inline-flex bg-fill p-0.5">
+      <fieldset className="m-0 inline-flex border-0 bg-fill p-0.5">
+        <legend className="sr-only">{title}</legend>
         {options.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -31,7 +32,7 @@ export function SegmentedRow<T extends string>({ title, description, options, va
             {label}
           </button>
         ))}
-      </div>
+      </fieldset>
     </div>
   );
 }

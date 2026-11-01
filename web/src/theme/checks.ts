@@ -34,7 +34,10 @@ export function colorOf(tokens: TokenMap, name: string): string {
 
 /** The grade a check earns: AAA from 7:1, AA when it meets what it needs, LOW when it does not. */
 export type Grade = "AAA" | "AA" | "LOW";
-export const gradeOf = (c: Pick<Check, "ratio" | "ok">): Grade => (c.ratio >= 7 ? "AAA" : c.ok ? "AA" : "LOW");
+export function gradeOf(c: Pick<Check, "ratio" | "ok">): Grade {
+  if (c.ratio >= 7) return "AAA";
+  return c.ok ? "AA" : "LOW";
+}
 
 /** How a theme does on each pair. A failing pair doesn't stop a theme being saved; the page says so. */
 export function contrastChecks(tokens: TokenMap): Check[] {

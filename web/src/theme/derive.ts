@@ -128,26 +128,32 @@ const order: RoleId[] = ["background", "text", "controls", "primary", "selected"
  */
 export function tokensWith(base: TokenMap, colors: Colors): TokenMap {
   const t: TokenMap = { ...base };
-  const has = (...ids: RoleId[]) => ids.some((id) => colors[id] !== undefined);
   for (const id of order) {
     const color = colors[id];
     if (color !== undefined) picks[id](t, color);
   }
-  if (has("background", "text")) deriveSurface(t);
-  if (has("background", "text")) deriveText(t);
+  deriveFollowing(t, colors);
+  // What a person set in Advanced wins over everything worked out.
+  for (const { token } of ADVANCED) {
+    if (colors[token] !== undefined) t[token] = colors[token];
+  }
+  return t;
+}
+
+/** Works out the tokens that follow from the roles that were set, each only when something it reads was set. */
+function deriveFollowing(t: TokenMap, colors: Colors): void {
+  const has = (...ids: RoleId[]) => ids.some((id) => colors[id] !== undefined);
+  if (has("background", "text")) {
+    deriveSurface(t);
+    deriveText(t);
+  }
   if (has("controls", "text", "background")) deriveControls(t);
   if (has("primary", "background")) derivePrimary(t);
   if (has("selected", "text", "background")) deriveSidebar(t);
   if (has("warning", "error")) deriveSerious(t);
   // With the background changed, a panel the person did not colour follows it (a little lifted on a dark page).
   if (has("background") && !has("cards")) {
-    const lifted = isDark(t["--bg"]) ? blend(t["--bg"], t["--ink"], 0.06) : t["--bg"];
-    t["--surface-float"] = lifted;
+    t["--surface-float"] = isDark(t["--bg"]) ? blend(t["--bg"], t["--ink"], 0.06) : t["--bg"];
     t["--surface-1"] = t["--bg"];
   }
-  // What a person set in Advanced wins over everything worked out.
-  for (const { token } of ADVANCED) {
-    if (colors[token] !== undefined) t[token] = colors[token];
-  }
-  return t;
 }

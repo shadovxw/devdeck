@@ -76,15 +76,7 @@ func Register(e *echo.Echo, d Deps) {
 	})
 	registerPlugins(v1, d.Plugins)
 	registerUIState(v1)
-	if d.Claude != nil {
-		registerClaude(v1, d.Claude)
-	}
-	if d.Themes != nil {
-		registerThemes(v1, d.Themes)
-	}
-	if d.FolderPicker != nil {
-		registerSystem(v1, d.FolderPicker)
-	}
+	registerStandalone(v1, d)
 	if d.Workspaces != nil {
 		registerWorkspaces(v1, d.Workspaces, d.Supervisor)
 		registerDoctor(v1, d.Workspaces, d.Plugins, d.Supervisor)
@@ -110,6 +102,20 @@ func Register(e *echo.Echo, d Deps) {
 	if d.UI != nil {
 		// GET and HEAD only: the app is read, never posted to.
 		e.GET("/*", echo.WrapHandler(d.UI))
+	}
+}
+
+// registerStandalone mounts the routes that need nothing but their own dependency: the Claude access page, the
+// Appearance page and the folder picker.
+func registerStandalone(v1 *echo.Group, d Deps) {
+	if d.Claude != nil {
+		registerClaude(v1, d.Claude)
+	}
+	if d.Themes != nil {
+		registerThemes(v1, d.Themes)
+	}
+	if d.FolderPicker != nil {
+		registerSystem(v1, d.FolderPicker)
 	}
 }
 

@@ -106,7 +106,7 @@ export type ThemeState = {
 
 /** The theme in use as a theme: the draft while there is one. */
 export function activeTheme(s: Pick<ThemeState, "custom" | "activeId" | "draft">): ThemeData {
-  if (s.draft && s.draft.id === s.activeId) return s.draft;
+  if (s.draft?.id === s.activeId) return s.draft;
   return themeById(s.activeId, s.custom) ?? builtInTheme("paper");
 }
 
@@ -125,7 +125,11 @@ export function resolveId(s: Pick<ThemeState, "mode" | "lightId" | "darkId" | "o
 function uniqueId(name: string, taken: string[]): string {
   const slug = slugOf(name);
   let id = slug;
-  for (let n = 2; taken.includes(id) || id in BUILT_INS; n++) id = `${slug.slice(0, 36)}-${n}`;
+  let n = 2;
+  while (taken.includes(id) || id in BUILT_INS) {
+    id = `${slug.slice(0, 36)}-${n}`;
+    n++;
+  }
   return id;
 }
 
@@ -164,7 +168,7 @@ export const useTheme = create<ThemeState>((set, get) => {
   const update = (patch: Partial<ThemeState>) => {
     const next = { ...get(), ...patch };
     const activeId = resolveId(next);
-    set({ ...patch, activeId, draft: next.draft && next.draft.id === activeId ? next.draft : null });
+    set({ ...patch, activeId, draft: next.draft?.id === activeId ? next.draft : null });
   };
   const current = () => {
     const s = get();
@@ -328,7 +332,7 @@ function adopt(custom: ThemeData[], slots: Slots, draft: ThemeData | null): void
   try {
     const osDark = useTheme.getState().osDark;
     const activeId = resolveId({ ...slots, osDark });
-    useTheme.setState({ custom, ...slots, activeId, draft: draft && draft.id === activeId && custom.some((t) => t.id === draft.id) ? draft : null });
+    useTheme.setState({ custom, ...slots, activeId, draft: draft?.id === activeId && custom.some((t) => t.id === draft.id) ? draft : null });
   } finally {
     adopting = false;
   }
