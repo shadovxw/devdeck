@@ -129,3 +129,14 @@ export function vscodeLink(file: string, line: number): string {
   const path = file.replace(/\\/g, "/");
   return `vscode://file${path.startsWith("/") ? "" : "/"}${encodeURI(path)}:${line}`;
 }
+
+/** A saved filter's id from its name: lowercase letters, digits and dashes, starting with a letter. */
+export function filterId(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!slug) return "filter";
+  const id = /^[a-z]/.test(slug) ? slug : `f-${slug}`;
+  return id.slice(0, 40).replace(/-+$/, "");
+}

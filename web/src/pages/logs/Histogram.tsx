@@ -53,7 +53,7 @@ function span(seconds: number): string {
  * every level; each has a shape and a word, so the colours are never the only thing
  * telling them apart.
  */
-export function Histogram({ data, onBrush, levels = [], onToggleLevel, onClearLevels }: Props) {
+export function Histogram({ data, onBrush, levels = [], onToggleLevel, onClearLevels }: Readonly<Props>) {
   const svg = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<{ from: number; to: number; x0: number } | null>(null);
 

@@ -1,38 +1,40 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Bookmark, ChevronDown, ChevronRight, Eraser, List, Pause, Play, ScrollText, Trash2, X, ZoomOut } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { ScrollText } from "lucide-react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
 import { navByPath } from "../app/nav";
-import { primaryButton, quietButton } from "../design/buttons";
 import { EmptyState } from "../design/EmptyState";
 import { levelOrder } from "../design/LevelMark";
-import { Menu, type MenuItem } from "../design/Menu";
+import type { MenuItem } from "../design/Menu";
 import { PageHeader } from "../design/PageHeader";
 import { StatusDot } from "../design/StatusDot";
 import { stagger } from "../lib/motion";
-import { useClearLogs, useDeleteFilter, useLogGroups, useLogHistogram, useLogTrends, useSavedFilters, useSaveFilter } from "../lib/log-api";
-import { messageOf, queryOfFilter, type LogQuery, type SavedLogFilter } from "../lib/log-query";
+import { useLogGroups, useLogHistogram, useLogTrends, useSavedFilters } from "../lib/log-api";
+import { messageOf, type LogQuery } from "../lib/log-query";
 import { serviceStats, servicesWithErrors } from "../lib/log-services";
 import { isMutedText, muteOfText, useMutes } from "../lib/log-mutes";
 import { useLogStream } from "../lib/log-stream";
 import { useCaptures } from "../lib/logs";
 import { useRuns, useWorkspace, useWorkspaces } from "../lib/queries";
 import { useTopicHandler } from "../lib/socket";
-import type { LogBatch, LogEntry, LogLevel } from "../lib/types";
+import type { CaptureInfo, LogBatch, LogEntry, LogLevel } from "../lib/types";
 import { useNow } from "../lib/use-now";
-import { ErrorGroups } from "./logs/ErrorGroups";
+import { ClearConfirm } from "./logs/ClearConfirm";
+import { ErrorsSection } from "./logs/ErrorsSection";
 import { SinceSelect } from "./logs/FilterBar";
 import { Histogram } from "./logs/Histogram";
 import { LogDetail } from "./logs/LogDetail";
 import { LogList } from "./logs/LogList";
-import { QueryBar } from "./logs/QueryBar";
 import { MutedNoise } from "./logs/MutedNoise";
+import { QueryBar } from "./logs/QueryBar";
+import { SaveFilterForm } from "./logs/SaveFilterForm";
+import { SavedFilters } from "./logs/SavedFilters";
 import { ServiceFacet } from "./logs/ServiceFacet";
+import { liveLabel, linesInLastMinute, statusLine } from "./logs/status";
+import { ViewToolbar } from "./logs/ViewToolbar";
 
 const select = "h-[34px] max-w-[16rem] bg-fill px-3 text-[13px] text-ink outline-none hover:bg-fill-hover";
-const small = `${quietButton} disabled:cursor-not-allowed disabled:opacity-45`;
-const primary = primaryButton;
 
 /** The filters in the address, so a view can be bookmarked and shared. */
 export function queryOfParams(p: URLSearchParams): LogQuery {
@@ -63,16 +65,7 @@ export function paramsOfQuery(keep: { workspace?: string; stack?: string }, q: L
   return p;
 }
 
-/** A saved filter's id from its name: lowercase letters, digits and dashes, starting with a letter. */
-export function filterId(name: string): string {
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  if (!slug) return "filter";
-  const id = /^[a-z]/.test(slug) ? slug : `f-${slug}`;
-  return id.slice(0, 40).replace(/-+$/, "");
-}
+export { filterId } from "../lib/log-query";
 
 /**
  * A stretch three times as long around the same middle. When that reaches the present the
@@ -105,8 +98,28 @@ type ViewProps = {
   group: string;
 };
 
+/** A new kind of error shows in the Errors panel at once, not at the next poll: at most one refresh a second, however many error lines a burst brings. */
+function useGroupRefresh(workspace: string, stack: string, following: boolean) {
+  const qc = useQueryClient();
+  const refreshedAt = useRef(0);
+  useTopicHandler<LogBatch>(`logs.${workspace}.${stack}`, (batch) => {
+    if (!following || !batch.entries.some((e) => e.fingerprint)) return;
+    if (Date.now() - refreshedAt.current < 1000) return;
+    refreshedAt.current = Date.now();
+    void qc.invalidateQueries({ queryKey: ["log-groups", workspace, stack] });
+  });
+}
+
+/** Every service that has lines, a capture rule or a filter on it, by name. */
+function serviceNamesOf(captured: CaptureInfo[] | undefined, entries: LogEntry[], picked: string[] | undefined): string[] {
+  const set = new Set<string>(captured?.map((c) => c.service) ?? []);
+  for (const e of entries) set.add(e.service);
+  for (const s of picked ?? []) set.add(s);
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
 /** The page for one stack: filters, the level histogram, the errors, the stream and the selected line. */
-function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, group }: ViewProps) {
+function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, group }: Readonly<ViewProps>) {
   const live = !query.until;
   // The muted patterns are the reader's own and are kept in this browser; they go with every request.
   const { mutes, add: addMute, toggle: toggleMute, remove: removeMute } = useMutes(workspace, stack);
@@ -119,80 +132,23 @@ function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, 
   const histogram = useLogHistogram(workspace, stack, shown, true, following);
   const trends = useLogTrends(workspace, stack, shown, true, following);
   const saved = useSavedFilters(workspace);
-  const save = useSaveFilter(workspace);
-  const del = useDeleteFilter(workspace);
-  const clear = useClearLogs(workspace, stack);
   const now = useNow(true);
-
-  // A new kind of error shows in the Errors panel at once, not at the next poll. At most one
-  // refresh a second, however many error lines a burst brings.
-  const qc = useQueryClient();
-  const refreshedAt = useRef(0);
-  useTopicHandler<LogBatch>(`logs.${workspace}.${stack}`, (batch) => {
-    if (!following || !batch.entries.some((e) => e.fingerprint)) return;
-    if (Date.now() - refreshedAt.current < 1000) return;
-    refreshedAt.current = Date.now();
-    void qc.invalidateQueries({ queryKey: ["log-groups", workspace, stack] });
-  });
+  useGroupRefresh(workspace, stack, following);
 
   const [selected, setSelected] = useState<number | undefined>();
   const [clearing, setClearing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [name, setName] = useState("");
-  const [deleting, setDeleting] = useState<string | undefined>();
   const [showErrors, setShowErrors] = useState(true);
 
-  const names = useMemo(() => {
-    const set = new Set<string>(captures.data?.map((c) => c.service) ?? []);
-    for (const e of stream.entries) set.add(e.service);
-    for (const s of query.services ?? []) set.add(s);
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [captures.data, stream.entries, query.services]);
-
-  const mine = (saved.data ?? []).filter((f) => !f.stack || f.stack === stack);
+  const names = useMemo(() => serviceNamesOf(captures.data, stream.entries, query.services), [captures.data, stream.entries, query.services]);
+  const mine = useMemo(() => (saved.data ?? []).filter((f) => !f.stack || f.stack === stack), [saved.data, stack]);
   const target = (query.services ?? []).length === 1 ? query.services?.[0] : undefined;
   // A kind of error whose message matches an applied mute is hidden here too (the server lists every kind).
   const errorGroups = (groups.data ?? []).filter((g) => !isMutedText(mutePatterns, g.message));
   const groupSeries = useMemo(() => new Map((trends.data?.groups ?? []).map((sr) => [sr.key, sr])), [trends.data]);
 
-  function submitSave(e: FormEvent) {
-    e.preventDefault();
-    const f: SavedLogFilter = {
-      id: filterId(name),
-      name: name.trim(),
-      stack,
-      services: query.services?.length ? query.services : undefined,
-      levels: query.levels?.length ? query.levels : undefined,
-      regex: query.regex,
-      fields: query.fields?.length ? query.fields : undefined,
-      // Only a relative range can be reused; a dragged-out stretch is not saved.
-      since: query.since && /^\d+[smhd]$/.test(query.since) ? query.since : undefined,
-    };
-    save.mutate(f, {
-      onSuccess: () => {
-        setSaving(false);
-        setName("");
-      },
-    });
-  }
-
-  // Alt+1 to Alt+3 apply the first three saved views. (Not Ctrl+digit: a browser keeps that for its tabs.)
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      const typing = target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-      const n = /^Digit([1-3])$/.exec(e.code)?.[1];
-      if (!n || !e.altKey || e.ctrlKey || e.metaKey || typing) return;
-      const view = mine[Number(n) - 1];
-      if (!view) return;
-      e.preventDefault();
-      onQuery(queryOfFilter(view));
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [mine, onQuery]);
-
   const choose = useCallback((fingerprint: string | undefined) => onQuery({ ...query, group: fingerprint }), [onQuery, query]);
+  const filterBy = (raw: string) => onQuery({ ...query, fields: [...(query.fields ?? []).filter((f) => f !== raw), raw] });
 
   const rowActions = (e: LogEntry): MenuItem[] => [
     { label: "Show only this service", onSelect: () => onQuery({ ...query, services: [e.service] }) },
@@ -207,16 +163,8 @@ function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, 
     { label: "Copy a link to this view", onSelect: () => void navigator.clipboard?.writeText(window.location.href) },
   ];
 
-  const status =
-    stream.state === "loading"
-      ? "Loading…"
-      : stream.state === "error"
-        ? stream.error || "Could not load the logs."
-        : `${stream.entries.length.toLocaleString()} line${stream.entries.length === 1 ? "" : "s"}${histogram.data?.muted ? ` · ${histogram.data.muted.toLocaleString()} muted` : ""}${stream.paused ? " · paused" : ""}${live ? "" : " · a past stretch"}`;
-
-  // What is on screen now: following, paused, or a past stretch. The rate counts the lines loaded in the last minute.
-  const following_ = live && !stream.paused;
-  const perMinute = stream.entries.filter((e) => now - Date.parse(e.time) < 60_000).length;
+  const status = statusLine({ state: stream.state, error: stream.error, count: stream.entries.length, muted: histogram.data?.muted, paused: stream.paused, live });
+  const perMinute = linesInLastMinute(stream.entries, now);
 
   return (
     <>
@@ -231,150 +179,42 @@ function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, 
         }
         summary={
           <span className="inline-flex items-center gap-2">
-            <StatusDot tone={following_ ? "good" : "neutral"} className={following_ ? "pulse-mark" : ""} />
-            {!live ? "Past stretch" : stream.paused ? "Paused" : "Live"}
-            {following_ && perMinute > 0 ? ` · ${perMinute.toLocaleString()} lines/min` : ""}
+            <StatusDot tone={following ? "good" : "neutral"} className={following ? "pulse-mark" : ""} />
+            {liveLabel(live, stream.paused)}
+            {following && perMinute > 0 ? ` · ${perMinute.toLocaleString()} lines/min` : ""}
           </span>
         }
       />
       <div className="mt-8 flex flex-col gap-6">
         <QueryBar value={query} onChange={onQuery} />
-
-        <div className="flex flex-wrap items-center gap-2">
-          {live ? (
-            <button type="button" onClick={() => stream.pause(!stream.paused)} aria-pressed={stream.paused} className={primary}>
-              {stream.paused ? <Play size={15} aria-hidden /> : <Pause size={15} aria-hidden />}
-              {stream.paused ? "Resume" : "Pause"}
-            </button>
-          ) : (
-            <>
-              <button type="button" onClick={() => onQuery({ ...query, until: undefined, since: undefined })} className={primary}>
-                <Play size={15} aria-hidden />
-                Back to live
-              </button>
-              <button type="button" onClick={() => onQuery(zoomedOut(query))} className={small}>
-                <ZoomOut size={15} aria-hidden />
-                Zoom out
-              </button>
-            </>
-          )}
-          <button type="button" onClick={() => setSaving((v) => !v)} aria-expanded={saving} disabled={sample} title={sample ? "Sample workspaces can’t be changed" : "Keep these filters with the workspace"} className={small}>
-            <Bookmark size={15} aria-hidden />
-            Save filter
-          </button>
-          <button type="button" onClick={() => setClearing(true)} disabled={sample} title={sample ? "Sample workspaces have no stored logs" : "Delete the stored lines"} className={small}>
-            <Eraser size={15} aria-hidden />
-            Clear
-          </button>
-          <span className="ms-auto inline-flex items-center gap-2 text-[14px] tabular-nums text-ink-2">
-            <List size={15} aria-hidden />
-            <span role="status">{status}</span>
-          </span>
-          <Menu label="More actions" items={pageActions} />
-        </div>
-
-        {saving && (
-          <form onSubmit={submitSave} className="flex flex-wrap items-center gap-2">
-            <label className="sr-only" htmlFor="filter-name">
-              Name of the filter
-            </label>
-            <input
-              id="filter-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Name, e.g. API errors"
-              maxLength={60}
-              autoComplete="off"
-              className="h-[34px] w-64 max-w-full bg-fill px-3 text-[13px] text-ink outline-none placeholder:text-ink-3 hover:bg-fill-hover"
-            />
-            <button type="submit" disabled={!name.trim() || save.isPending} className={small}>
-              Save
-            </button>
-            <button type="button" onClick={() => setSaving(false)} className={small}>
-              Cancel
-            </button>
-            {save.error && (
-              <span role="alert" className="text-[13px] text-critical">
-                {save.error.message}
-              </span>
-            )}
-          </form>
-        )}
-
+        <ViewToolbar
+          live={live}
+          paused={stream.paused}
+          onPause={stream.pause}
+          onBackToLive={() => onQuery({ ...query, until: undefined, since: undefined })}
+          onZoomOut={() => onQuery(zoomedOut(query))}
+          sample={sample}
+          saving={saving}
+          onToggleSave={() => setSaving((v) => !v)}
+          onClear={() => setClearing(true)}
+          status={status}
+          menu={pageActions}
+        />
+        {saving && <SaveFilterForm workspace={workspace} stack={stack} query={query} onDone={() => setSaving(false)} />}
         {clearing && (
-          <div role="alertdialog" aria-labelledby="clear-title" className="flex flex-wrap items-center gap-3 bg-inset px-3.5 py-3">
-            <p id="clear-title" className="m-0 text-[14px] text-ink">
-              Delete the stored logs of {target ? <span className="font-mono">{target}</span> : "every service of this stack"}? This removes the files, not only this view, and can’t be undone.
-            </p>
-            <span className="ms-auto flex gap-2">
-              <button
-                type="button"
-                disabled={clear.isPending}
-                onClick={() =>
-                  clear.mutate(target, {
-                    onSuccess: () => {
-                      setClearing(false);
-                      setSelected(undefined);
-                      stream.reload();
-                    },
-                  })
-                }
-                className="inline-flex h-[34px] items-center gap-2 bg-critical px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-critical/90 disabled:opacity-45"
-              >
-                <Trash2 size={14} aria-hidden />
-                Delete
-              </button>
-              <button type="button" onClick={() => setClearing(false)} className={small}>
-                Cancel
-              </button>
-            </span>
-            {clear.error && (
-              <p role="alert" className="m-0 w-full text-[13px] text-critical">
-                {clear.error.message}
-              </p>
-            )}
-          </div>
+          <ClearConfirm
+            workspace={workspace}
+            stack={stack}
+            target={target}
+            onCancel={() => setClearing(false)}
+            onCleared={() => {
+              setClearing(false);
+              setSelected(undefined);
+              stream.reload();
+            }}
+          />
         )}
-
-        {mine.length > 0 && (
-          <ul aria-label="Saved filters" className="m-0 flex list-none flex-wrap gap-2 p-0">
-            {mine.map((f, n) => (
-              <li key={f.id} className="inline-flex items-center bg-fill text-[13px] text-ink-2">
-                {deleting === f.id ? (
-                  <span className="flex items-center gap-2 ps-3 pe-1">
-                    Delete “{f.name}”?
-                    <button
-                      type="button"
-                      onClick={() => del.mutate(f.id, { onSuccess: () => setDeleting(undefined) })}
-                      className="h-8 px-2 text-critical hover:bg-fill-hover"
-                    >
-                      Delete
-                    </button>
-                    <button type="button" onClick={() => setDeleting(undefined)} className="h-8 px-2 hover:bg-fill-hover">
-                      Keep
-                    </button>
-                  </span>
-                ) : (
-                  <>
-                    <button type="button" onClick={() => onQuery(queryOfFilter(f))} aria-keyshortcuts={n < 3 ? `Alt+${n + 1}` : undefined} className="inline-flex h-8 items-center gap-2 ps-3 pe-2 hover:bg-fill-hover">
-                      {f.name}
-                      {n < 3 && (
-                        <kbd aria-hidden className="bg-bg px-1 font-mono text-[10.5px] text-ink-3">
-                          Alt {n + 1}
-                        </kbd>
-                      )}
-                    </button>
-                    {!sample && (
-                      <button type="button" aria-label={`Delete the saved filter ${f.name}`} onClick={() => setDeleting(f.id)} className="inline-flex h-8 w-8 items-center justify-center hover:bg-fill-hover">
-                        <X size={13} aria-hidden />
-                      </button>
-                    )}
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        <SavedFilters workspace={workspace} filters={mine} sample={sample} onApply={onQuery} />
 
         <Histogram
           data={histogram.data}
@@ -396,21 +236,16 @@ function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, 
             <MutedNoise mutes={mutes} onAdd={addMute} onToggle={toggleMute} onRemove={removeMute} muted={histogram.data?.muted} />
           </div>
           <div className="flex min-w-0 flex-col gap-6">
-            {errorGroups.length > 0 && (
-              <section aria-label="Errors" className="flex min-w-0 flex-col gap-2">
-                <button
-                  type="button"
-                  aria-expanded={showErrors}
-                  onClick={() => setShowErrors((v) => !v)}
-                  className="inline-flex items-center gap-2 self-start px-1 text-[14px] font-semibold text-ink"
-                >
-                  {showErrors ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
-                  Errors ({errorGroups.length})
-                </button>
-                {showErrors && <ErrorGroups groups={errorGroups} selected={query.group} onSelect={choose} now={now} series={groupSeries} rangeSeconds={trends.data ? Math.max(1, (Date.parse(trends.data.to) - Date.parse(trends.data.from)) / 1000) : undefined} />}
-              </section>
-            )}
-
+            <ErrorsSection
+              groups={errorGroups}
+              open={showErrors}
+              onToggle={() => setShowErrors((v) => !v)}
+              selected={query.group}
+              onSelect={choose}
+              now={now}
+              series={groupSeries}
+              trends={trends.data}
+            />
             <LogList
               entries={stream.entries}
               label={`Logs of ${stack}`}
@@ -422,15 +257,7 @@ function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, 
               empty={stream.state === "ready" ? "No stored lines match these filters." : "Loading…"}
               rowActions={rowActions}
               renderDetail={(e) => (
-                <LogDetail
-                  workspace={workspace}
-                  stack={stack}
-                  entry={e}
-                  onClose={() => setSelected(undefined)}
-                  onGroup={choose}
-                  onFilter={(raw) => onQuery({ ...query, fields: [...(query.fields ?? []).filter((f) => f !== raw), raw] })}
-                  onMute={() => addMute(muteOfText(messageOf(e)))}
-                />
+                <LogDetail workspace={workspace} stack={stack} entry={e} onClose={() => setSelected(undefined)} onGroup={choose} onFilter={filterBy} onMute={() => addMute(muteOfText(messageOf(e)))} />
               )}
             />
           </div>

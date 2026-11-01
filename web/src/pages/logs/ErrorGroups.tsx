@@ -24,7 +24,7 @@ type Props = {
 };
 
 /** The kinds of error seen, most recent first: pick one to see only its lines. */
-export function ErrorGroups({ groups, selected, onSelect, now, series, rangeSeconds }: Props) {
+export function ErrorGroups({ groups, selected, onSelect, now, series, rangeSeconds }: Readonly<Props>) {
   if (groups.length === 0) {
     return <p className="m-0 text-[13px] text-ink-3">No errors so far.</p>;
   }

@@ -13,7 +13,11 @@ type Props = {
 };
 
 /** 1,284 as "1.3k", so the count fits its column. */
-const compact = (n: number | undefined) => (n === undefined ? "" : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
+function compact(n: number | undefined): string {
+  if (n === undefined) return "";
+  if (n < 1000) return String(n);
+  return `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k`;
+}
 
 const label = "font-mono text-[11px] uppercase leading-[14px] tracking-[0.06em] text-ink-3";
 const link = "text-[12px] normal-case tracking-normal text-ink-3 hover:text-ink hover:underline";
@@ -22,12 +26,12 @@ const link = "text-[12px] normal-case tracking-normal text-ink-3 hover:text-ink 
  * The services of a stack as a column: a check box, a dot for the worst level seen, the name and how
  * many lines are loaded. With none checked every service is shown; checking some shows only those.
  */
-export function ServiceFacet({ stats, picked, onToggle, onClear, onOnlyErrors }: Props) {
+export function ServiceFacet({ stats, picked, onToggle, onClear, onOnlyErrors }: Readonly<Props>) {
   const anyError = stats.some((s) => s.tone === "critical");
   return (
     <section aria-label="Services" className="flex min-w-0 flex-col gap-2">
       <h2 className={`${label} m-0 flex items-baseline gap-3 font-normal`}>
-        Services
+        <span>Services</span>
         <span className="ms-auto flex gap-3">
           {anyError && (
             <button type="button" onClick={onOnlyErrors} className={link}>

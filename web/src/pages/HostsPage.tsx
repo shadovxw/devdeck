@@ -460,7 +460,7 @@ function parseDeploy(raw: string | null): Deploy | null {
   if (i < 1) return null;
   const repository = raw.slice(0, i);
   const tag = raw.slice(i + 1);
-  if (!/^[a-z0-9]+([._-][a-z0-9]+)*(\/[a-z0-9]+([._-][a-z0-9]+)*)+$/.test(repository) || !/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(tag)) return null;
+  if (!/^[a-z0-9]+([._-][a-z0-9]+)*(\/[a-z0-9]+([._-][a-z0-9]+)*)+$/.test(repository) || !/^\w[\w.-]{0,127}$/.test(tag)) return null;
   return { repository, tag };
 }
 
@@ -511,9 +511,9 @@ export function HostsPage() {
     <>
       {header}
       {deploy && (
-        <p role="status" className="enter mt-4 rounded-ctl bg-fill p-3 text-[13px] text-ink-2" style={stagger(1)}>
+        <output className="enter mt-4 block rounded-ctl bg-fill p-3 text-[13px] text-ink-2" style={stagger(1)}>
           Deploying <span className="font-mono text-ink">{deploy.repository}:{deploy.tag}</span>: connect the host it should go to, then open Versions on its stack.
-        </p>
+        </output>
       )}
       <div className="enter mt-4 flex flex-col gap-4" style={stagger(1)}>
         {hosts.data.map((h) => (

@@ -1,6 +1,5 @@
-import { RotateCcw, Square, Terminal } from "lucide-react";
+import { Layers, RotateCcw, Square, Terminal } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Layers } from "lucide-react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,7 @@ import type { RunStatus, ServiceStatus } from "../lib/types";
 import { useNow } from "../lib/use-now";
 
 /** A big number under a small mono label (dev-plans/02-frontend-design-system.md, the `metric` style). */
-function Metric({ label, children }: { label: string; children: React.ReactNode }) {
+function Metric({ label, children }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <dt className="font-mono text-[11px] uppercase leading-[14px] tracking-[0.06em] text-ink-3">{label}</dt>
@@ -29,7 +28,7 @@ function Metric({ label, children }: { label: string; children: React.ReactNode 
 const unit = "text-[13px] font-normal tracking-normal text-ink-3";
 
 /** A service that needs attention, pinned above the others with its one action. */
-function ProblemRow({ run, service, busy, onRestart }: { run: RunStatus; service: ServiceStatus; busy: boolean; onRestart: () => void }) {
+function ProblemRow({ run, service, busy, onRestart }: Readonly<{ run: RunStatus; service: ServiceStatus; busy: boolean; onRestart: () => void }>) {
   const name = serviceLabel(service.id);
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 bg-inset px-3.5 py-3">
@@ -46,33 +45,42 @@ function ProblemRow({ run, service, busy, onRestart }: { run: RunStatus; service
   );
 }
 
+/** The port of a service: a link while it is ready, plain text before that, nothing without one. */
+function Port({ service }: Readonly<{ service: ServiceStatus }>) {
+  if (!service.port) return null;
+  if (service.state !== "ready") return <span className="font-mono text-[11px] tabular-nums text-ink-3">:{service.port}</span>;
+  return (
+    <a
+      href={`http://127.0.0.1:${service.port}`}
+      target="_blank"
+      rel="noreferrer"
+      title={`Open http://127.0.0.1:${service.port}`}
+      className="font-mono text-[11px] tabular-nums text-link hover:underline"
+    >
+      :{service.port}
+    </a>
+  );
+}
+
+/** How long a ready service has been up, or "stopped"; empty otherwise. */
+function uptimeOf(service: ServiceStatus, now: number): string {
+  if (service.state === "ready" && service.ready_at) return formatUptime(now - Date.parse(service.ready_at));
+  return service.state === "stopped" ? "stopped" : "";
+}
+
 /** One healthy or idle service: dot, name, port and how long it has been up. */
-function ServiceRow({ service, now }: { service: ServiceStatus; now: number }) {
+function ServiceRow({ service, now }: Readonly<{ service: ServiceStatus; now: number }>) {
   return (
     <li className="flex items-center gap-4 px-3.5 py-1.5">
       <ServiceStateMark state={service.state} label={false} />
       <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink">{serviceLabel(service.id)}</span>
-      {service.port && service.state === "ready" ? (
-        <a
-          href={`http://127.0.0.1:${service.port}`}
-          target="_blank"
-          rel="noreferrer"
-          title={`Open http://127.0.0.1:${service.port}`}
-          className="font-mono text-[11px] tabular-nums text-link hover:underline"
-        >
-          :{service.port}
-        </a>
-      ) : service.port ? (
-        <span className="font-mono text-[11px] tabular-nums text-ink-3">:{service.port}</span>
-      ) : null}
-      <span className="w-16 text-end font-mono text-[11px] tabular-nums text-ink-3">
-        {service.state === "ready" && service.ready_at ? formatUptime(now - Date.parse(service.ready_at)) : service.state === "stopped" ? "stopped" : ""}
-      </span>
+      <Port service={service} />
+      <span className="w-16 text-end font-mono text-[11px] tabular-nums text-ink-3">{uptimeOf(service, now)}</span>
     </li>
   );
 }
 
-function RunServices({ run, now, restarting, onRestart }: { run: RunStatus; now: number; restarting?: string; onRestart: (service: string) => void }) {
+function RunServices({ run, now, restarting, onRestart }: Readonly<{ run: RunStatus; now: number; restarting?: string; onRestart: (service: string) => void }>) {
   // Problems first, as their own rows; the rest keep the order the stack starts them.
   const problems = run.services.filter(isProblem);
   const rest = run.services.filter((s) => !isProblem(s));
@@ -101,7 +109,7 @@ function RunServices({ run, now, restarting, onRestart }: { run: RunStatus; now:
 }
 
 /** Stops every running stack. The first click asks; a second one within 3 seconds does it. */
-function StopAll({ runs }: { runs: RunStatus[] }) {
+function StopAll({ runs }: Readonly<{ runs: RunStatus[] }>) {
   const stop = useStopStack();
   const [sure, setSure] = useState(false);
   useEffect(() => {

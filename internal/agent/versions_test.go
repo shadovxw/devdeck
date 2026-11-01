@@ -278,6 +278,16 @@ func (e *stackEnv) history(t *testing.T) []VersionEvent {
 
 // ----- reading -----
 
+// noteHas says whether an entry's note holds every one of the parts.
+func noteHas(e VersionEntry, parts ...string) bool {
+	for _, p := range parts {
+		if !strings.Contains(e.Note, p) {
+			return false
+		}
+	}
+	return true
+}
+
 func TestReadVersions(t *testing.T) {
 	e := newStack(t)
 	rec := send(e.h, http.MethodGet, "/v1/stacks/apps/versions", "", testToken)
@@ -298,24 +308,32 @@ func TestReadVersions(t *testing.T) {
 		t.Errorf("services = %v: want them sorted", names)
 	}
 
-	api := by["api"]
-	if api.Variable != "API_IMAGE" || api.Repository != "acme/api" || api.FileTag != "1.0.4" || api.RunningTag != "1.0.3" || !api.Differs || !api.Editable || api.State != "running" || api.Health != "healthy" {
-		t.Errorf("api = %+v: the file says 1.0.4, 1.0.3 runs", api)
+	// what each service shows; a field left empty is not checked
+	type want struct {
+		editable, differs               bool
+		variable, repo, fileTag, runTag string
+		note                            []string
 	}
-	if web := by["web"]; web.FileTag != "2.0.0" || web.RunningTag != "2.0.0" || web.Differs || !web.Editable {
-		t.Errorf("web = %+v: a quoted value is read, and nothing differs", web)
+	for name, w := range map[string]want{
+		"api":    {editable: true, differs: true, variable: "API_IMAGE", repo: "acme/api", fileTag: "1.0.4", runTag: "1.0.3"}, // the file says 1.0.4, 1.0.3 runs
+		"web":    {editable: true, fileTag: "2.0.0", runTag: "2.0.0"},                                                         // a quoted value is read, and nothing differs
+		"worker": {note: []string{"WORKER_IMAGE isn't set in versions.env", ".env"}},                                          // its variable isn't in the file
+		"pinned": {note: []string{"pinned by digest"}},
+		"nats":   {repo: "nats", fileTag: "2.10", note: []string{"written in the compose file"}},
+		"job":    {note: []string{"built from source"}},
+	} {
+		got := by[name]
+		if got.Editable != w.editable || got.Differs != w.differs || !noteHas(got, w.note...) ||
+			(w.variable != "" && got.Variable != w.variable) || (w.repo != "" && got.Repository != w.repo) ||
+			(w.fileTag != "" && got.FileTag != w.fileTag) || (w.runTag != "" && got.RunningTag != w.runTag) {
+			t.Errorf("%s = %+v, want %+v", name, got, w)
+		}
 	}
-	if w := by["worker"]; w.Editable || !strings.Contains(w.Note, "WORKER_IMAGE isn't set in versions.env") || !strings.Contains(w.Note, ".env") {
-		t.Errorf("worker = %+v: its variable isn't in the file", w)
+	if api := by["api"]; api.State != "running" || api.Health != "healthy" {
+		t.Errorf("api = %+v: it runs and is healthy", api)
 	}
-	if p := by["pinned"]; p.Editable || !strings.Contains(p.Note, "pinned by digest") {
-		t.Errorf("pinned = %+v", p)
-	}
-	if n := by["nats"]; n.Editable || n.Variable != "" || n.Repository != "nats" || n.FileTag != "2.10" || !strings.Contains(n.Note, "written in the compose file") || n.Differs {
-		t.Errorf("nats = %+v", n)
-	}
-	if j := by["job"]; j.Editable || !strings.Contains(j.Note, "built from source") {
-		t.Errorf("job = %+v", j)
+	if by["nats"].Variable != "" {
+		t.Errorf("nats has no variable: %+v", by["nats"])
 	}
 }
 
@@ -450,11 +468,7 @@ func TestChangeAppliesAndWaitsForTheServicesToBeHealthy(t *testing.T) {
 	if len(calls) != 2 || !strings.HasSuffix(strings.Join(calls[0], " "), "pull api") || !strings.HasSuffix(strings.Join(calls[1], " "), "up -d --no-deps api") {
 		t.Errorf("docker ran %v: want pull api, then up -d --no-deps api", calls)
 	}
-	for _, c := range calls {
-		if slices.Contains(c, "down") || slices.Contains(c, "-v") || slices.Contains(c, "--volumes") {
-			t.Errorf("a version change must never remove anything: %v", c)
-		}
-	}
+	noRemoval(t, calls)
 	if e.file(t, "versions.env") == versionsText || !strings.Contains(e.file(t, "versions.env"), "API_IMAGE=acme/api:1.0.5") {
 		t.Error("the file wasn't changed")
 	}
@@ -462,13 +476,29 @@ func TestChangeAppliesAndWaitsForTheServicesToBeHealthy(t *testing.T) {
 	if len(h) != 1 || !h[0].Applied || !h[0].OK || h[0].Old != "1.0.4" || h[0].New != "1.0.5" {
 		t.Errorf("history = %+v", h)
 	}
-	text := ""
-	for _, l := range lines {
-		text += l.Line + "\n"
+	outputHas(t, lines, "saving versions.env", "pulling api", "recreating api", "waiting for api to run")
+}
+
+// noRemoval fails when a docker call could remove a container or a volume.
+func noRemoval(t *testing.T, calls [][]string) {
+	t.Helper()
+	for _, c := range calls {
+		if slices.ContainsFunc(c, func(a string) bool { return a == "down" || a == "-v" || a == "--volumes" }) {
+			t.Errorf("a version change must never remove anything: %v", c)
+		}
 	}
-	for _, want := range []string{"saving versions.env", "pulling api", "recreating api", "waiting for api to run"} {
-		if !strings.Contains(text, want) {
-			t.Errorf("the output is missing %q:\n%s", want, text)
+}
+
+// outputHas fails for each of the texts the streamed output does not contain.
+func outputHas(t *testing.T, lines []ActionLine, wants ...string) {
+	t.Helper()
+	var text strings.Builder
+	for _, l := range lines {
+		text.WriteString(l.Line + "\n")
+	}
+	for _, want := range wants {
+		if !strings.Contains(text.String(), want) {
+			t.Errorf("the output is missing %q:\n%s", want, text.String())
 		}
 	}
 }

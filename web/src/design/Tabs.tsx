@@ -20,11 +20,18 @@ type Props<T extends string> = {
   className?: string;
 };
 
+/** Where the arrow keys, Home and End go from the tab at `at`, wrapping at the ends. */
+function nextIndex(key: string, at: number, count: number): number {
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  return (at + (key === "ArrowRight" ? 1 : count - 1)) % count;
+}
+
 /**
  * Text tabs with a black underline on the selected one: List / Map, All / Errors / Warnings.
  * One tab is in the tab order; the arrow keys, Home and End move between them.
  */
-export function Tabs<T extends string>({ label, items, value, onChange, className }: Props<T>) {
+export function Tabs<T extends string>({ label, items, value, onChange, className }: Readonly<Props<T>>) {
   const list = useRef<HTMLDivElement>(null);
 
   function onKey(e: KeyboardEvent) {
@@ -32,13 +39,13 @@ export function Tabs<T extends string>({ label, items, value, onChange, classNam
     if (!keys.includes(e.key)) return;
     e.preventDefault();
     const at = items.findIndex((i) => i.value === value);
-    const next = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : (at + (e.key === "ArrowRight" ? 1 : items.length - 1)) % items.length;
+    const next = nextIndex(e.key, at, items.length);
     onChange(items[next].value);
     list.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
   }
 
   return (
-    <div ref={list} role="tablist" aria-label={label} onKeyDown={onKey} className={cn("inline-flex gap-5", className)}>
+    <div ref={list} role="tablist" tabIndex={-1} aria-label={label} onKeyDown={onKey} className={cn("inline-flex gap-5", className)}>
       {items.map((item) => {
         const selected = item.value === value;
         return (

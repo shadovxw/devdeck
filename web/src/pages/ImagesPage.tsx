@@ -192,7 +192,7 @@ function ImageCard({ row }: Readonly<{ row: ImageRow }>) {
       )}
       {state.result?.ok && state.tag && (hosts.data?.length ?? 0) > 0 && (
         <p className="m-0 text-[13px] text-ink-2">
-          <Link to={`/hosts?deploy=${encodeURIComponent(`${row.repository}:${state.tag}`)}`} className="underline">
+          <Link to={"/hosts?" + new URLSearchParams({ deploy: [row.repository, state.tag].join(":") }).toString()} className="underline">
             Deploy {state.tag} to a host
           </Link>{" "}
           to change the tag on a remote stack and recreate its container.

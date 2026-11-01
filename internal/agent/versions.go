@@ -249,36 +249,11 @@ func (a *Agent) readVersions(ctx context.Context, s Stack) (Versions, string, er
 	if err != nil {
 		return Versions{}, "", err
 	}
-	running := map[string]compose.Container{}
-	for _, c := range compose.ParsePS(psOut) {
-		if prev, ok := running[c.Service]; !ok || (prev.State != "running" && c.State == "running") {
-			running[c.Service] = c
-		}
-	}
+	running := runningByService(psOut)
 
 	v := Versions{File: s.VersionsFile, Services: []VersionEntry{}}
 	for _, sv := range view.Services {
-		e := VersionEntry{Service: sv.Name}
-		switch name := variableOf(sv.Image); {
-		case sv.Image == "":
-			e.Note = "built from source: there is no image to change"
-		case name == "":
-			e.Repository, e.FileTag, _ = splitImage(sv.Image)
-			e.Note = "the image is written in the compose file (" + sv.Image + "), not in " + s.VersionsFile
-		default:
-			e.Variable = name
-			value, found := lookupEnv(text, name)
-			repo, tag, pinned := splitImage(value)
-			switch {
-			case !found:
-				e.Note = name + " isn't set in " + s.VersionsFile + " (it may be set in .env, which the agent never opens)"
-			case pinned:
-				e.Repository = value
-				e.Note = name + " is pinned by digest: change it by hand"
-			default:
-				e.Repository, e.FileTag, e.Editable = repo, tag, true
-			}
-		}
+		e := entryOf(sv, text, s.VersionsFile)
 		if ct, ok := running[sv.Name]; ok {
 			rrepo, rtag, _ := splitImage(ct.Image)
 			e.RunningImage, e.RunningTag, e.State, e.Health = ct.Image, rtag, ct.State, ct.Health
@@ -288,6 +263,45 @@ func (a *Agent) readVersions(ctx context.Context, s Stack) (Versions, string, er
 	}
 	sort.Slice(v.Services, func(i, j int) bool { return v.Services[i].Service < v.Services[j].Service })
 	return v, text, nil
+}
+
+// runningByService picks one container for each compose service from `compose ps`, preferring a running one.
+func runningByService(psOut string) map[string]compose.Container {
+	running := map[string]compose.Container{}
+	for _, c := range compose.ParsePS(psOut) {
+		if prev, ok := running[c.Service]; !ok || (prev.State != "running" && c.State == "running") {
+			running[c.Service] = c
+		}
+	}
+	return running
+}
+
+// entryOf is what the versions file says about one compose service: its variable, repository and tag,
+// whether it can be changed here, and if not why.
+func entryOf(sv compose.ServiceView, text, file string) VersionEntry {
+	e := VersionEntry{Service: sv.Name}
+	name := variableOf(sv.Image)
+	switch {
+	case sv.Image == "":
+		e.Note = "built from source: there is no image to change"
+	case name == "":
+		e.Repository, e.FileTag, _ = splitImage(sv.Image)
+		e.Note = "the image is written in the compose file (" + sv.Image + "), not in " + file
+	default:
+		e.Variable = name
+		value, found := lookupEnv(text, name)
+		repo, tag, pinned := splitImage(value)
+		switch {
+		case !found:
+			e.Note = name + " isn't set in " + file + " (it may be set in .env, which the agent never opens)"
+		case pinned:
+			e.Repository = value
+			e.Note = name + " is pinned by digest: change it by hand"
+		default:
+			e.Repository, e.FileTag, e.Editable = repo, tag, true
+		}
+	}
+	return e
 }
 
 func (a *Agent) versions(w http.ResponseWriter, r *http.Request) {
@@ -575,32 +589,8 @@ func (a *Agent) waitHealthy(ctx context.Context, s Stack, changes []VersionChang
 	deadline := time.Now().Add(a.healthWait)
 	p := s.Project()
 	for {
-		out, err := a.run.Output(ctx, s.Dir, p.Args("ps", "--all", "--format", "json"))
-		if err == nil {
-			byService := map[string]compose.Container{}
-			for _, ct := range compose.ParsePS(out) {
-				byService[ct.Service] = ct
-			}
-			for i, c := range changes {
-				if done[i] {
-					continue
-				}
-				ct, ok := byService[c.Service]
-				if !ok {
-					continue
-				}
-				results[i].State, results[i].Health = ct.State, ct.Health
-				switch {
-				case ct.State == "running" && (ct.Health == "" || ct.Health == "healthy"):
-					results[i].OK, results[i].Detail, done[i] = true, "", true
-				case ct.State == "exited" || ct.State == "dead":
-					results[i].Detail, done[i] = "the container stopped ("+ct.Status+")", true
-				case ct.Health == "unhealthy":
-					results[i].Detail, done[i] = "the health check fails", true
-				default:
-					results[i].Detail = "still " + orState(ct)
-				}
-			}
+		if out, err := a.run.Output(ctx, s.Dir, p.Args("ps", "--all", "--format", "json")); err == nil {
+			observe(changes, results, done, out)
 		}
 		if !slices.Contains(done, false) || time.Now().After(deadline) || ctx.Err() != nil {
 			break
@@ -620,6 +610,37 @@ func (a *Agent) waitHealthy(ctx context.Context, s Stack, changes []VersionChang
 		results[i].Logs = a.failureLogs(ctx, s, results[i].Service)
 	}
 	return results
+}
+
+// observe records how each changed service's container is doing, from `compose ps` output, and marks
+// the ones that have settled (up, or failed) as done.
+func observe(changes []VersionChange, results []VersionResult, done []bool, psOut string) {
+	byService := map[string]compose.Container{}
+	for _, ct := range compose.ParsePS(psOut) {
+		byService[ct.Service] = ct
+	}
+	for i, c := range changes {
+		ct, ok := byService[c.Service]
+		if done[i] || !ok {
+			continue
+		}
+		results[i].State, results[i].Health = ct.State, ct.Health
+		results[i].OK, results[i].Detail, done[i] = verdictOf(ct)
+	}
+}
+
+// verdictOf judges one container: ok when it runs (and is healthy, if it has a check); done when it has
+// settled, either way; otherwise the detail says what it is still doing.
+func verdictOf(ct compose.Container) (ok bool, detail string, done bool) {
+	switch {
+	case ct.State == "running" && (ct.Health == "" || ct.Health == "healthy"):
+		return true, "", true
+	case ct.State == "exited" || ct.State == "dead":
+		return false, "the container stopped (" + ct.Status + ")", true
+	case ct.Health == "unhealthy":
+		return false, "the health check fails", true
+	}
+	return false, "still " + orState(ct), false
 }
 
 func orState(ct compose.Container) string {

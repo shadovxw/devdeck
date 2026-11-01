@@ -15,11 +15,12 @@ type Props = {
  * Enter to add it (`service:api`, `-user.id:42`, `/time(out|d out)/`, or plain text); Backspace
  * on an empty box takes the last token off; "/" anywhere on the page jumps here.
  */
-export function QueryBar({ value, onChange }: Props) {
+export function QueryBar({ value, onChange }: Readonly<Props>) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
   const tokens = tokensOf(value);
+  const lastToken = tokens.at(-1);
 
   useEffect(() => {
     function onKey(e: globalThis.KeyboardEvent) {
@@ -42,8 +43,8 @@ export function QueryBar({ value, onChange }: Props) {
       setError(undefined);
       if (text.trim()) onChange(applied.query);
       setText("");
-    } else if (e.key === "Backspace" && text === "" && tokens.length > 0) {
-      onChange(withoutToken(value, tokens[tokens.length - 1]));
+    } else if (e.key === "Backspace" && text === "" && lastToken) {
+      onChange(withoutToken(value, lastToken));
     } else if (e.key === "Escape") {
       setText("");
       setError(undefined);

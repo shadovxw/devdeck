@@ -34,6 +34,12 @@ function fieldHint(e: LogEntry): string {
   return keys.map((k) => `${k}=${typeof e.fields?.[k] === "object" ? "…" : String(e.fields?.[k])}`).join(" ");
 }
 
+/** What a row says: the stored line (all of it when wrapped, else its first line) or the parsed message. */
+function lineText(e: LogEntry, view: "parsed" | "raw", wrap: boolean): string {
+  if (view === "parsed") return messageOf(e);
+  return wrap ? e.text : firstLine(e.text);
+}
+
 const firstLine = (text: string) => {
   const nl = text.indexOf("\n");
   return nl < 0 ? text : text.slice(0, nl);
@@ -66,7 +72,7 @@ const check = "inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-
  * Above the list: Parsed or Raw lines, Wrap (two lines per row) and UTC times; below it:
  * copy or download the lines that are loaded.
  */
-export function LogList({ entries, label, selected, onSelect, follow, hasOlder, onLoadOlder, empty, rowActions, renderDetail }: Props) {
+export function LogList({ entries, label, selected, onSelect, follow, hasOlder, onLoadOlder, empty, rowActions, renderDetail }: Readonly<Props>) {
   const box = useRef<HTMLDivElement>(null);
   const detail = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
@@ -138,6 +144,8 @@ export function LogList({ entries, label, selected, onSelect, follow, hasOlder, 
   }
 
   function onKey(e: KeyboardEvent) {
+    // Keys typed inside the open detail belong to it, not to the list's arrow-key movement.
+    if ((e.target as HTMLElement).closest("[data-log-detail]")) return;
     const page = Math.max(1, Math.floor(height / rowHeight) - 1);
     const keys: Record<string, number> = {
       ArrowDown: index + 1,
@@ -181,15 +189,15 @@ export function LogList({ entries, label, selected, onSelect, follow, hasOlder, 
         <Tabs label="Line view" value={view} onChange={setView} items={[{ value: "parsed", label: "Parsed" }, { value: "raw", label: "Raw" }]} />
         <label className={check} title="Two lines for each row">
           <input type="checkbox" checked={wrap} onChange={(e) => setWrap(e.target.checked)} className="size-3 cursor-pointer" />
-          Wrap
+          <span>Wrap</span>
         </label>
         <label className={check} title="Show times in UTC instead of your own time zone">
           <input type="checkbox" checked={utc} onChange={(e) => setUtc(e.target.checked)} className="size-3 cursor-pointer" />
-          UTC
+          <span>UTC</span>
         </label>
         <label className={check} title="Show a run of the same line once, with how many times it came">
           <input type="checkbox" checked={collapse} onChange={(e) => setCollapse(e.target.checked)} className="size-3 cursor-pointer" />
-          Collapse repeats
+          <span>Collapse repeats</span>
         </label>
       </div>
       {hasOlder && (
@@ -252,7 +260,7 @@ export function LogList({ entries, label, selected, onSelect, follow, hasOlder, 
                   <LevelMark level={e.level} />
                   <span className="flex min-w-0 items-start gap-3 text-ink">
                     <span className={`min-w-0 flex-1 ${wrap ? "line-clamp-2 whitespace-pre-wrap break-words" : "truncate whitespace-pre"}`}>
-                      {view === "raw" ? (wrap ? e.text : firstLine(e.text)) : messageOf(e)}
+                      {lineText(e, view, wrap)}
                       {view === "parsed" && e.fields && <span className="ms-3 text-ink-3">{fieldHint(e)}</span>}
                     </span>
                     {repeat > 1 && (
@@ -266,14 +274,7 @@ export function LogList({ entries, label, selected, onSelect, follow, hasOlder, 
               );
             })}
             {open && detailVisible && (
-              // Keys typed inside the detail belong to it, not to the list's arrow-key movement.
-              <div
-                ref={detail}
-                role="group"
-                onKeyDown={(e) => e.stopPropagation()}
-                style={{ position: "absolute", top: (index + 1) * rowHeight, left: 0, right: 0 }}
-                className="font-sans"
-              >
+              <div ref={detail} data-log-detail style={{ position: "absolute", top: (index + 1) * rowHeight, left: 0, right: 0 }} className="font-sans">
                 {renderDetail?.(open)}
               </div>
             )}

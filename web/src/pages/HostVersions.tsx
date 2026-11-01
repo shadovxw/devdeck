@@ -18,7 +18,7 @@ import { useNow } from "../lib/use-now";
 
 const th = "px-3 py-2 text-start text-[13px] font-medium text-ink-3";
 const td = "px-3 py-2 align-top";
-const tagPattern = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
+const tagPattern = /^\w[\w.-]{0,127}$/;
 
 /** What a build left to deploy: its Docker Hub repository and the tag that was pushed. */
 export type Deploy = { repository: string; tag: string };
@@ -36,6 +36,22 @@ function Mark({ shape, color, children, title }: Readonly<{ shape: "dot" | "ring
       {children}
     </span>
   );
+}
+
+/** How a change in the history ended: only saved, deployed, or failed. */
+function Outcome({ event }: Readonly<{ event: VersionEvent }>) {
+  if (!event.applied) return <span className="text-[13px] text-ink-2">Saved only</span>;
+  if (event.ok) return <Mark shape="dot" color="var(--good)">Deployed</Mark>;
+  return <Mark shape="triangle" color="var(--critical)">Failed</Mark>;
+}
+
+/** What the page says about the tag a build left: which services use its repository, or that none does. */
+function deployNote(deploy: { repository: string; tag: string }, matching: VersionEntry[]): string {
+  const from = `From your build: ${deploy.repository}:${deploy.tag}.`;
+  if (matching.length === 0) return `${from} No service of this stack uses ${deploy.repository}.`;
+  const one = matching.length === 1;
+  const names = matching.map((m) => m.service).join(", ");
+  return `${from} ${names} use${one ? "s" : ""} ${deploy.repository}, so ${one ? "its tag is" : "their tags are"} filled in below. Check, then deploy.`;
 }
 
 function stateMark(e: VersionEntry) {
@@ -159,7 +175,7 @@ function History({ events, writable, busy, onRollback }: Readonly<{ events: Vers
               </td>
               <td className={`${td} text-[13px] text-ink-2`}>{e.by || "—"}</td>
               <td className={td} title={e.detail}>
-                {!e.applied ? <span className="text-[13px] text-ink-2">Saved only</span> : e.ok ? <Mark shape="dot" color="var(--good)">Deployed</Mark> : <Mark shape="triangle" color="var(--critical)">Failed</Mark>}
+                <Outcome event={e} />
               </td>
               <td className={`${td} text-end`}>
                 {writable && e.old !== e.new && (
@@ -229,11 +245,7 @@ export function HostVersions({ host, stack, deploy }: Readonly<{ host: HostView;
   return (
     <div className="flex flex-col gap-3">
       {deploy && (
-        <p role="status" className="m-0 rounded-ctl bg-fill p-3 text-[13px] text-ink-2">
-          {matching.length > 0
-            ? `From your build: ${deploy.repository}:${deploy.tag}. ${matching.map((m) => m.service).join(", ")} use${matching.length === 1 ? "s" : ""} ${deploy.repository}, so ${matching.length === 1 ? "its tag is" : "their tags are"} filled in below. Check, then deploy.`
-            : `From your build: ${deploy.repository}:${deploy.tag}. No service of this stack uses ${deploy.repository}.`}
-        </p>
+        <output className="m-0 block rounded-ctl bg-fill p-3 text-[13px] text-ink-2">{deployNote(deploy, matching)}</output>
       )}
 
       <div className="overflow-x-auto">

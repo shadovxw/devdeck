@@ -401,6 +401,28 @@ type VersionsEnd = ActionEnd & { line?: string; error?: string; versions?: Versi
  * output as newline-delimited JSON; the last line says how it ended and how each service came up.
  * The agent finishes a change even if this page goes away, so leaving only stops the reading.
  */
+/** Reads the streamed answer of a change: calls `onLine` for each output line and `onEnd` for the closing one. True when it did end. */
+async function readVersionsStream(body: ReadableStream<Uint8Array>, onLine: (line: string) => void, onEnd: (end: VersionsEnd) => void): Promise<boolean> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let ended = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return ended;
+    const { lines, rest } = splitLines(buf + decoder.decode(value, { stream: true }));
+    buf = rest;
+    for (const l of lines as unknown as VersionsEnd[]) {
+      if (l.done) {
+        ended = true;
+        onEnd(l);
+      } else if (l.line !== undefined) {
+        onLine(l.line);
+      }
+    }
+  }
+}
+
 export function useVersionsChange(ws: string, host: string, stack: string) {
   const qc = useQueryClient();
   const [state, setState] = useState<VersionsRunState>(versionsIdle);
@@ -430,24 +452,11 @@ export function useVersionsChange(ws: string, host: string, stack: string) {
           finish({ ok: false, error: await refusal(res) });
           return;
         }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = "";
-        let ended = false;
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const { lines, rest } = splitLines(buf + decoder.decode(value, { stream: true }));
-          buf = rest;
-          for (const l of lines as unknown as VersionsEnd[]) {
-            if (l.done) {
-              ended = true;
-              finish({ ok: l.ok === true, error: l.error }, l.versions ?? []);
-            } else if (l.line !== undefined) {
-              setState((s) => ({ ...s, lines: [...s.lines, l.line ?? ""].slice(-maxActionLines) }));
-            }
-          }
-        }
+        const ended = await readVersionsStream(
+          res.body,
+          (line) => setState((s) => ({ ...s, lines: [...s.lines, line].slice(-maxActionLines) })),
+          (end) => finish({ ok: end.ok === true, error: end.error }, end.versions ?? []),
+        );
         if (!ended) finish({ ok: false, error: "the connection ended before the change did; it may still be running on the host" });
       } catch (e) {
         if (!mine.signal.aborted) finish({ ok: false, error: e instanceof Error ? e.message : "the change stopped" });

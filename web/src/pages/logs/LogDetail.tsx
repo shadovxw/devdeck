@@ -5,6 +5,9 @@ import { useWhere } from "../../lib/log-api";
 import { vscodeLink } from "../../lib/log-query";
 import type { LogEntry } from "../../lib/types";
 
+/** A field value as text: a string as it is, anything else (numbers, booleans, objects) as JSON. */
+const fieldText = (v: unknown): string => (typeof v === "string" ? v : JSON.stringify(v));
+
 const small =
   "inline-flex h-8 items-center gap-2 px-3 text-[13px] text-ink-2 transition-colors hover:bg-fill-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-45";
 
@@ -22,7 +25,7 @@ type Props = {
 };
 
 /** One line in full: its text, level, fields, where it came from, and what to do with it. */
-export function LogDetail({ workspace, stack, entry, onClose, onGroup, onFilter, onMute }: Props) {
+export function LogDetail({ workspace, stack, entry, onClose, onGroup, onFilter, onMute }: Readonly<Props>) {
   const where = useWhere(workspace, stack, entry.service, entry.caller);
   const fields = Object.entries(entry.fields ?? {});
   const time = new Date(entry.time);
@@ -50,12 +53,12 @@ export function LogDetail({ workspace, stack, entry, onClose, onGroup, onFilter,
             <div key={k} className="group contents">
               <dt className="text-ink-3">{k}</dt>
               <dd className="m-0 flex min-w-0 items-baseline gap-3 break-words text-ink-2">
-                {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                {fieldText(v)}
                 {typeof v !== "object" && (
                   <button
                     type="button"
-                    aria-label={`Filter on ${k}=${String(v)}`}
-                    onClick={() => onFilter(`${k}=${String(v)}`)}
+                    aria-label={`Filter on ${k}=${fieldText(v)}`}
+                    onClick={() => onFilter(`${k}=${fieldText(v)}`)}
                     className="font-sans text-[11px] text-link opacity-0 hover:underline focus-visible:opacity-100 group-hover:opacity-100"
                   >
                     + filter

@@ -10,6 +10,12 @@ export type ServiceStat = {
   counts?: number[];
 };
 
+/** A service's dot: failing when the server counted errors, a warning when a loaded line warns, otherwise fine. */
+function toneOf(errors: number, worst: ServiceStat["tone"] | undefined): ServiceStat["tone"] {
+  if (errors > 0) return "critical";
+  return worst === "warning" ? "warning" : "good";
+}
+
 /**
  * What the service column shows: each service with its lines and the worst level among them.
  * With the server's counts (`series`) the numbers are over the whole range and every service has
@@ -30,8 +36,7 @@ export function serviceStats(entries: LogEntry[], names: string[], picked: strin
   const stats: ServiceStat[] = [...all].map((name) => {
     const sr = counted.get(name);
     if (sr) {
-      const tone = (sr.errors ?? 0) > 0 ? "critical" : seen.get(name)?.worst === "warning" ? "warning" : "good";
-      return { name, count: sr.total, tone, counts: sr.counts };
+      return { name, count: sr.total, tone: toneOf(sr.errors ?? 0, seen.get(name)?.worst), counts: sr.counts };
     }
     const s = seen.get(name);
     const outside = picked.length > 0 && !picked.includes(name);

@@ -20,7 +20,7 @@ type Props = {
 };
 
 /** Breadcrumb and the page title: all a page needs at the top. */
-export function PageHeader({ title, group, parent, parentTo, actions, description, summary }: Props) {
+export function PageHeader({ title, group, parent, parentTo, actions, description, summary }: Readonly<Props>) {
   return (
     <header className="enter" style={stagger(0)}>
       <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3">

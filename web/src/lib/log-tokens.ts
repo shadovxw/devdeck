@@ -18,7 +18,7 @@ const specials = /[.*+?^${}()|[\]\\]/g;
 const escaped = /\\([.*+?^${}()|[\]\\])/g;
 
 /** Plain text as a case-insensitive pattern that matches it literally. */
-export const patternOfText = (text: string) => `(?i)${text.replace(specials, "\\$&")}`;
+export const patternOfText = (text: string) => `(?i)${text.replace(specials, String.raw`\$&`)}`;
 
 /** The text a pattern was made from by `patternOfText`, or undefined when it is a real pattern. */
 function textOfPattern(pattern: string): string | undefined {

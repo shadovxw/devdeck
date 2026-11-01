@@ -59,15 +59,7 @@ func bucketFor(span time.Duration) time.Duration {
 func (s *Store) defaultStart(workspace, stack string, services []string, to time.Time) time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := s.stack(workspace, stack)
-	if len(services) > 0 {
-		for _, svc := range services {
-			s.service(svcKey{workspace, stack, svc})
-		}
-	} else if !st.discovered {
-		st.discovered = true
-		s.discover(workspace, stack)
-	}
+	s.prepare(workspace, stack, services)
 	var oldest time.Time
 	for k, sv := range s.svcs {
 		if k.workspace != workspace || k.stack != stack || (len(services) > 0 && !slices.Contains(services, k.service)) || sv.ring.len() == 0 {
@@ -163,17 +155,25 @@ func (p plan) bucket(t time.Time) int {
 // service's memory, and the day files of a service whose memory doesn't reach back to the
 // start of the range. f may be called from several goroutines at once.
 func (s *Store) scan(workspace, stack string, p plan, f func(*Entry)) {
+	jobs := s.scanMemory(workspace, stack, p, f)
+	var wg sync.WaitGroup
+	for _, j := range jobs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			j.each(p.mt, f)
+		}()
+	}
+	wg.Wait()
+}
+
+// scanMemory calls f for the entries each service holds in memory and returns the day files that
+// also need reading: those of a service whose full memory starts after the range does.
+func (s *Store) scanMemory(workspace, stack string, p plan, f func(*Entry)) []scanJob {
 	var jobs []scanJob
 	s.mu.Lock()
-	st := s.stack(workspace, stack)
-	if len(p.services) > 0 {
-		for _, svc := range p.services {
-			s.service(svcKey{workspace, stack, svc})
-		}
-	} else if !st.discovered {
-		st.discovered = true
-		s.discover(workspace, stack)
-	}
+	defer s.mu.Unlock()
+	s.prepare(workspace, stack, p.services)
 	for k, sv := range s.svcs {
 		if k.workspace != workspace || k.stack != stack || (len(p.services) > 0 && !slices.Contains(p.services, k.service)) {
 			continue
@@ -192,17 +192,21 @@ func (s *Store) scan(workspace, stack string, p plan, f func(*Entry)) {
 			jobs = append(jobs, scanJob{root: s.o.Dir, dir: s.serviceDir(k), maxSeq: sv.ring.at(0).Seq})
 		}
 	}
-	s.mu.Unlock()
+	return jobs
+}
 
-	var wg sync.WaitGroup
-	for _, j := range jobs {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			j.each(p.mt, f)
-		}()
+// prepare makes sure the services to read are known: the ones asked for, or, for all of them, every
+// folder the stack has on disk (read once). The caller holds s.mu.
+func (s *Store) prepare(workspace, stack string, services []string) {
+	st := s.stack(workspace, stack)
+	if len(services) > 0 {
+		for _, svc := range services {
+			s.service(svcKey{workspace, stack, svc})
+		}
+	} else if !st.discovered {
+		st.discovered = true
+		s.discover(workspace, stack)
 	}
-	wg.Wait()
 }
 
 // Histogram counts the entries of a stack that pass the query's filters (service,

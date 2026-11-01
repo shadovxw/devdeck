@@ -19,7 +19,7 @@ export type LogRow = { entry: LogEntry; repeat: number };
 export function collapseRepeats(entries: LogEntry[]): LogRow[] {
   const rows: LogRow[] = [];
   for (const entry of entries) {
-    const last = rows[rows.length - 1];
+    const last = rows.at(-1);
     if (last && sameLine(last.entry, entry)) {
       last.repeat++;
     } else {

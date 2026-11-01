@@ -20,13 +20,13 @@ export const levelLook: Record<LogLevel, { word: string; label: string; color: s
 export const levelOrder: LogLevel[] = ["trace", "debug", "info", "warn", "error", "fatal"];
 
 /** The dot of a level alone, for a legend or a filter. */
-export function LevelShape({ level, size = 8 }: { level: LogLevel; size?: number }) {
+export function LevelShape({ level, size = 8 }: Readonly<{ level: LogLevel; size?: number }>) {
   const { tone, ring } = tones[level];
   return <StatusDot tone={tone} ring={ring} size={size} />;
 }
 
 /** A level as its dot and its word; screen readers get the whole word. */
-export function LevelMark({ level = "info" }: { level?: LogLevel }) {
+export function LevelMark({ level = "info" }: Readonly<{ level?: LogLevel }>) {
   const { word, label } = tones[level];
   return (
     <span className="inline-flex w-[4.5rem] shrink-0 items-center gap-1.5 text-ink-2" data-level={level}>

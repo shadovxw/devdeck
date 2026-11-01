@@ -20,7 +20,7 @@ type Props = {
 };
 
 /** The time range: a relative stretch, or "A chosen stretch" after dragging across the histogram. */
-export function SinceSelect({ value, onChange }: Props) {
+export function SinceSelect({ value, onChange }: Readonly<Props>) {
   const known = sinceChoices.some((c) => c.value === (value.since ?? ""));
   return (
     <span className="relative inline-flex">
