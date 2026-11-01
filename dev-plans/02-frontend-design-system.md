@@ -2,7 +2,7 @@
 
 > 2026-10-31 · owner: Vrishank Warrier · expands §7 of [`00-implementation-plan.md`](00-implementation-plan.md)
 > Replaces the 2026-10-17 "Quiet Instrument" system. Reference mockup: board **F · Black and white** on the design canvas (Home page).
-> Scope: **light theme only**. The dark theme will be rebuilt from these rules later (§12).
+> Scope: Paper is the light theme and the default. **Paper Dark** and custom themes are built from the same rules (§12); themes are data, not stylesheets.
 
 ---
 
@@ -300,9 +300,15 @@ All components use only the tokens above. shadcn components are re-skinned to ra
 
 ---
 
-## 12. Dark theme (later)
+## 12. Dark theme and custom themes (built 2026-11-01)
 
-Not designed yet. When it is, it should keep the same rules: one surface, no borders, square corners, greyscale UI, status dots as the only health colours and one blue for action (lighter, around `#7aa7ff`, for contrast on dark). Until then, the app ships light only and the theme switch in Settings stays disabled.
+Paper (§2) is the one set of tokens in `web/src/design/tokens.css`. Everything else is a **theme**: ten colours (background, menus and panels, buttons and fields, text, selected, primary, and the four status colours) from which the other tokens are worked out (`web/src/theme/derive.ts`), plus an Advanced list to set any worked-out colour by hand.
+
+- **Paper Dark** is a built-in theme made with the same rules: one surface, no borders, square corners, greyscale UI, status dots as the only health colours, and one blue for action (lighter, `#7aa7ff`, for contrast on dark). It is worked out from its own ten colours, with light logo marks and a heavier floating shadow.
+- **Custom themes** start from Paper or Paper Dark and change only colours; radius, shadows, type and motion are the same in every theme. Each colour is graded against what it needs (AAA from 7:1, AA when it meets 4.5:1 for text or 3:1 for dots and the focus ring, LOW otherwise), and a theme that fails still saves.
+- **Mode** is Light, Dark or System, with one theme for light and one for dark. System follows the OS.
+- **Components must not hard-code colours.** Use the tokens (`bg-fill`, `text-ink-3`, `var(--primary)`), so every theme reaches every screen. A test keeps Paper in `theme/builtins.ts` equal to `tokens.css`.
+- The settings page, file format, storage and safety rules are in [`docs/appearance.md`](../docs/appearance.md); the plan and what was built are in [`2026-11-01-custom-themes/`](2026-11-01-custom-themes/plan.md).
 
 ---
 
@@ -382,4 +388,4 @@ Not designed yet. When it is, it should keep the same rules: one surface, no bor
 
 1. Is the problem-row background (`--inset`, `#fafafa`) worth keeping, or should problem rows be pure white with only the dot and button?
 2. Should a "Search Ctrl K" item appear at the top of the sidebar, or should it stay keyboard-only?
-3. When will the dark theme be designed, before or after the Home rebuild?
+3. ~~When will the dark theme be designed?~~ Built as Paper Dark (§12).

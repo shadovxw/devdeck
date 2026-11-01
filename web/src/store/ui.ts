@@ -1,9 +1,7 @@
 import { create } from "zustand";
 
-export type Theme = "system" | "dark" | "light";
-
-const THEME_KEY = "devdeck.theme";
 const SIDEBAR_KEY = "devdeck.sidebar";
+const MOTION_KEY = "devdeck.reduce-motion";
 const GROUPS_KEY = "devdeck.sidebar.groups";
 
 function read(key: string): string | null {
@@ -23,11 +21,6 @@ function write(key: string, value: string | null): void {
   }
 }
 
-function readTheme(): Theme {
-  const v = read(THEME_KEY);
-  return v === "dark" || v === "light" ? v : "system";
-}
-
 /** The sidebar starts collapsed (icons only) until the user expands it. */
 function readSidebarOpen(): boolean {
   return read(SIDEBAR_KEY) === "expanded";
@@ -42,31 +35,17 @@ function readClosedGroups(): string[] {
   }
 }
 
-/** The page background per theme: keep in step with --bg in design/tokens.css. */
-const THEME_COLOR = { dark: "#0c1012", light: "#f3f6f6" } as const;
-
-/** Tells the browser the page colour, so its own frame (phone address bar, window titlebar) matches. */
-export function syncThemeColor(theme: Theme): void {
-  const light = theme === "light" || (theme === "system" && window.matchMedia("(prefers-color-scheme: light)").matches);
-  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  if (!meta) {
-    meta = document.createElement("meta");
-    meta.name = "theme-color";
-    document.head.append(meta);
-  }
-  meta.content = THEME_COLOR[light ? "light" : "dark"];
-}
-
-/** Sets or clears data-theme; with no attribute the OS preference decides. */
-function applyTheme(theme: Theme): void {
-  if (theme === "system") delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = theme;
-  syncThemeColor(theme);
+/** Sets or clears data-motion on the page: with "reduced" every loop stops and every move is a cut (design/motion.css). */
+function applyMotion(reduced: boolean): void {
+  if (typeof document === "undefined") return;
+  if (reduced) document.documentElement.dataset.motion = "reduced";
+  else delete document.documentElement.dataset.motion;
 }
 
 type UiState = {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  /** Reduce motion: on stops loops and turns moves into cuts. Remembered between visits, in this browser. */
+  reduceMotion: boolean;
+  setReduceMotion: (on: boolean) => void;
   /** Sidebar expanded (labels) or collapsed (icons). Remembered between visits. */
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -76,11 +55,11 @@ type UiState = {
 };
 
 export const useUi = create<UiState>((set, get) => ({
-  theme: readTheme(),
-  setTheme: (theme) => {
-    write(THEME_KEY, theme === "system" ? null : theme);
-    applyTheme(theme);
-    set({ theme });
+  reduceMotion: read(MOTION_KEY) === "1",
+  setReduceMotion: (reduceMotion) => {
+    write(MOTION_KEY, reduceMotion ? "1" : null);
+    applyMotion(reduceMotion);
+    set({ reduceMotion });
   },
 
   sidebarOpen: readSidebarOpen(),
@@ -98,6 +77,4 @@ export const useUi = create<UiState>((set, get) => ({
   },
 }));
 
-// Keep the browser frame colour right at start-up and when the OS theme changes.
-syncThemeColor(useUi.getState().theme);
-window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => syncThemeColor(useUi.getState().theme));
+applyMotion(useUi.getState().reduceMotion);

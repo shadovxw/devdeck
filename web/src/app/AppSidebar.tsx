@@ -168,9 +168,10 @@ function Group({ group }: { group: NavGroup }) {
 
 export function AppSidebar() {
   const { setOpenMobile } = useSidebar();
+  const reduceMotion = useUi((s) => s.reduceMotion);
   return (
     <LazyMotion features={loadMotionFeatures} strict>
-      <MotionConfig reducedMotion="user">
+      <MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>
         <Sidebar collapsible="icon">
           <SidebarHeader className="h-14 flex-row items-center gap-3 px-3 group-data-[collapsible=icon]:justify-center">
             <NavLink

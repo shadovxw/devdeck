@@ -128,6 +128,8 @@ func (s *Server) build(version string) error {
 		Hosts:        &remote.Hosts{Workspaces: workspaces, Secrets: secrets.NewKeyring(), Tunnels: s.tunnels},
 		// What Claude Code's connector may read is switched on and off on the Claude access page.
 		Claude: api.NewClaude(s.db.DB, filepath.Join(cfg.DataDir, "claude-access.yaml")),
+		// The themes a person made on the Appearance page.
+		Themes: api.NewThemes(s.db.DB),
 		UI:     webui.HandlerWithHead(s.uiHead),
 	})
 	return nil
