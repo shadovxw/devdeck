@@ -1,39 +1,16 @@
-import { ChevronDown, Layers, Monitor, Moon, SunMoon, Sun } from "lucide-react";
+import { ChevronDown, Layers } from "lucide-react";
 import { useLayoutEffect } from "react";
 import { Link, Outlet } from "react-router";
 
 import { cn } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useDesktopWindow } from "../lib/desktop";
-import { useHealth } from "../lib/queries";
-import { useSocketStatus } from "../lib/socket";
 import { useReportUiState } from "../lib/ui-state";
-import { useUi, type Theme } from "../store/ui";
+import { useUi } from "../store/ui";
 import { AppSidebar } from "./AppSidebar";
 import { WindowControls } from "./WindowControls";
 
-const themeNext: Record<Theme, Theme> = { system: "dark", dark: "light", light: "system" };
-const themeIcon = { system: SunMoon, dark: Moon, light: Sun } as const;
-
-function Connection() {
-  const health = useHealth();
-  const socket = useSocketStatus();
-  const apiOk = health.data?.status === "ok" && !health.isError;
-  const live = socket === "open";
-  const color = !apiOk ? "var(--critical)" : live ? "var(--good)" : "var(--warning)";
-  const text = !apiOk ? "Server not reachable" : live ? "Server connected, live updates on" : `Server connected, live updates ${socket}`;
-  return (
-    <span className="relative grid size-9 place-items-center text-ink-2" title={health.data ? `${text} · ${health.data.version}` : text}>
-      <Monitor size={20} strokeWidth={1.7} aria-hidden />
-      <span className="absolute bottom-1 right-0.5 size-2.5 rounded-full ring-2 ring-surface-1" style={{ background: color }} aria-hidden />
-      <span className="sr-only">{text}</span>
-    </span>
-  );
-}
-
 function TopBar() {
-  const { theme, setTheme } = useUi();
-  const ThemeIcon = themeIcon[theme];
   const win = useDesktopWindow();
   const desktop = win !== null;
   const toggleMaximise = () => win?.toggleMaximise();
@@ -48,23 +25,13 @@ function TopBar() {
         to="/workspaces"
         viewTransition
         title="No workspace yet"
-        className="inline-flex h-9 items-center gap-2.5 rounded-ctl bg-bg px-3 text-[14px] font-semibold text-ink transition hover:bg-fill active:scale-[.98] sm:w-60"
+        className="inline-flex h-9 items-center gap-2.5 px-3 text-[13px] font-medium text-ink transition-colors hover:bg-fill sm:w-60"
       >
         <Layers size={17} className="text-ink-3" aria-hidden />
         <span className="hidden flex-1 text-start sm:inline">No workspace</span>
         <ChevronDown size={15} className="text-ink-3" aria-hidden />
       </Link>
       <span className="flex-1" />
-      <Connection />
-      <button
-        type="button"
-        onClick={() => setTheme(themeNext[theme])}
-        title={`Theme: ${theme}. Click to switch.`}
-        aria-label={`Theme: ${theme}`}
-        className="grid size-9 place-items-center rounded-ctl text-ink-2 transition hover:bg-accent-soft hover:text-ink active:scale-95"
-      >
-        <ThemeIcon size={19} strokeWidth={1.7} />
-      </button>
       <WindowControls />
     </header>
   );
@@ -79,7 +46,7 @@ function SkipLink() {
         e.preventDefault();
         document.getElementById("main")?.focus();
       }}
-      className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-ctl focus:bg-accent focus:px-3 focus:py-2 focus:text-[14px] focus:font-medium focus:text-on-accent"
+      className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:bg-primary focus:px-3 focus:py-2 focus:text-[13px] focus:font-medium focus:text-primary-foreground"
     >
       Skip to content
     </a>

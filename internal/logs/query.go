@@ -27,6 +27,7 @@ func badQuery(format string, a ...any) error { return &QueryError{Msg: fmt.Sprin
 const (
 	maxQueryServices = 50
 	maxQueryFields   = 20
+	maxQueryMutes    = 20
 )
 
 // FieldFilter keeps entries whose structured field has a value ("user.id=42") or,
@@ -136,6 +137,9 @@ type Query struct {
 	Since, Until time.Time
 	// Group keeps the entries of one error group (its fingerprint).
 	Group string
+	// Mutes leave out entries whose text matches any of these patterns (Go RE2, at most 500
+	// characters each, at most 20): noise the reader has chosen not to see. Nothing is deleted.
+	Mutes []string
 
 	// Before returns the entries just older than this number; After the ones newer.
 	// With neither, the newest entries are returned.
@@ -158,31 +162,32 @@ type matcher struct {
 	fields       []FieldFilter
 	since, until time.Time
 	group        string
+	mutes        []*regexp.Regexp
+	// keepMuted lets muted entries pass `ok`, for a count that wants to tell them apart.
+	keepMuted bool
 }
 
 func (q Query) matcher() (*matcher, error) {
 	m := &matcher{fields: q.Fields, since: q.Since, until: q.Until, group: q.Group}
-	if len(q.Levels) > 0 {
-		m.levels = map[string]bool{}
-		for _, l := range q.Levels {
-			if normLevel(l) == "" {
-				return nil, badQuery("level must be one of trace, debug, info, warn, error, fatal, not %q", l)
-			}
-			m.levels[normLevel(l)] = true
-		}
+	var err error
+	if m.levels, err = levelSet(q.Levels); err != nil {
+		return nil, err
 	}
-	if q.Regex != "" {
-		if len(q.Regex) > maxMatch {
-			return nil, badQuery("the pattern is too long (the limit is %d characters)", maxMatch)
-		}
-		re, err := regexp.Compile(q.Regex)
-		if err != nil {
-			return nil, badQuery("the pattern isn't valid: %v", err)
-		}
-		m.re = re
+	if m.re, err = compileFilter(q.Regex, "the pattern"); err != nil {
+		return nil, err
 	}
 	if len(q.Fields) > maxQueryFields {
 		return nil, badQuery("at most %d field filters", maxQueryFields)
+	}
+	if len(q.Mutes) > maxQueryMutes {
+		return nil, badQuery("at most %d muted patterns", maxQueryMutes)
+	}
+	for _, pat := range q.Mutes {
+		re, err := compileFilter(pat, "a muted pattern")
+		if err != nil {
+			return nil, err
+		}
+		m.mutes = append(m.mutes, re)
 	}
 	if !q.Since.IsZero() && !q.Until.IsZero() && q.Until.Before(q.Since) {
 		return nil, badQuery("until is before since")
@@ -190,21 +195,54 @@ func (q Query) matcher() (*matcher, error) {
 	return m, nil
 }
 
-// ok says whether an entry passes every filter. Cheap checks come first.
+// levelSet is the levels a query asks for, or nil for any level.
+func levelSet(levels []string) (map[string]bool, error) {
+	if len(levels) == 0 {
+		return nil, nil
+	}
+	set := map[string]bool{}
+	for _, l := range levels {
+		if normLevel(l) == "" {
+			return nil, badQuery("level must be one of trace, debug, info, warn, error, fatal, not %q", l)
+		}
+		set[normLevel(l)] = true
+	}
+	return set, nil
+}
+
+// compileFilter compiles a pattern of a query (nil for none); what names it in a refusal.
+func compileFilter(pattern, what string) (*regexp.Regexp, error) {
+	if pattern == "" {
+		return nil, nil
+	}
+	if len(pattern) > maxMatch {
+		return nil, badQuery("%s is too long (the limit is %d characters)", what, maxMatch)
+	}
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, badQuery("%s isn't valid: %v", what, err)
+	}
+	return re, nil
+}
+
+// ok says whether an entry passes every filter and is not muted.
 func (m *matcher) ok(e *Entry) bool {
-	if m.levels != nil {
-		l := e.Level
-		if l == "" {
-			l = LevelInfo
-		}
-		if !m.levels[l] {
-			return false
+	return m.okBase(e) && (m.keepMuted || !m.isMuted(e))
+}
+
+// isMuted says whether the text of an entry matches a muted pattern.
+func (m *matcher) isMuted(e *Entry) bool {
+	for _, re := range m.mutes {
+		if re.MatchString(e.Text) {
+			return true
 		}
 	}
-	if !m.since.IsZero() && e.Time.Before(m.since) {
-		return false
-	}
-	if !m.until.IsZero() && e.Time.After(m.until) {
+	return false
+}
+
+// okBase says whether an entry passes every filter except the muted patterns. Cheap checks come first.
+func (m *matcher) okBase(e *Entry) bool {
+	if !m.levelOK(e) || !m.timeOK(e) {
 		return false
 	}
 	if m.group != "" && e.Fingerprint != m.group {
@@ -213,6 +251,25 @@ func (m *matcher) ok(e *Entry) bool {
 	if m.re != nil && !m.re.MatchString(e.Text) {
 		return false
 	}
+	return m.fieldsOK(e)
+}
+
+func (m *matcher) levelOK(e *Entry) bool {
+	if m.levels == nil {
+		return true
+	}
+	l := e.Level
+	if l == "" {
+		l = LevelInfo
+	}
+	return m.levels[l]
+}
+
+func (m *matcher) timeOK(e *Entry) bool {
+	return (m.since.IsZero() || !e.Time.Before(m.since)) && (m.until.IsZero() || !e.Time.After(m.until))
+}
+
+func (m *matcher) fieldsOK(e *Entry) bool {
 	for _, f := range m.fields {
 		if !f.matches(e.Fields) {
 			return false

@@ -60,7 +60,7 @@ export function Menu({ label, items, className = "" }: Props) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={toggle}
-        className={`inline-grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-accent-soft hover:text-ink ${className}`}
+        className={`inline-grid size-7 place-items-center text-ink-3 transition-colors hover:bg-fill hover:text-ink ${className}`}
       >
         <EllipsisVertical size={16} aria-hidden />
       </button>
@@ -72,7 +72,7 @@ export function Menu({ label, items, className = "" }: Props) {
           onKeyDown={onKey}
           onClick={(e) => e.stopPropagation()}
           style={{ position: "fixed", top: at.top, right: at.right }}
-          className="z-50 flex min-w-48 flex-col rounded-ctl bg-fill p-1 shadow-none ring-1 ring-line-strong"
+          className="z-50 flex min-w-48 flex-col bg-surface-float p-1 shadow-[var(--shadow-float)]"
         >
           {items.map((item) => (
             <button
@@ -84,7 +84,7 @@ export function Menu({ label, items, className = "" }: Props) {
                 setAt(null);
                 item.onSelect();
               }}
-              className="rounded-ctl px-3 py-2 text-start text-[13px] text-ink-2 transition hover:bg-accent-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-45"
+              className="px-3 py-2 text-start text-[13px] text-ink-2 transition-colors hover:bg-fill hover:text-ink disabled:cursor-not-allowed disabled:opacity-45"
             >
               {item.label}
             </button>

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -24,9 +25,19 @@ const DefaultListen = "127.0.0.1:7071"
 
 // Config is /etc/devdeck/agent.yaml. It names folders and files, never a secret.
 type Config struct {
-	Listen    string  `yaml:"listen"`
-	TokenFile string  `yaml:"token_file"`
-	Stacks    []Stack `yaml:"stacks"`
+	Listen string `yaml:"listen"`
+	// TokenFile is one token shared by everyone who uses the agent (named "shared" in the audit log).
+	TokenFile string `yaml:"token_file"`
+	// Tokens are one token per person, each in its own file, so the audit log says who did what
+	// and one person can be cut off by removing a line. TokenFile may be used with them or not at all.
+	Tokens []TokenFile `yaml:"tokens"`
+	Stacks []Stack     `yaml:"stacks"`
+}
+
+// TokenFile is one person's token: a name for the audit log and the file that holds it.
+type TokenFile struct {
+	Name string `yaml:"name"`
+	File string `yaml:"file"`
 }
 
 // Stack is one compose project on the host.
@@ -86,8 +97,23 @@ func (c Config) Validate() error {
 	if err := loopbackOnly(c.Listen); err != nil {
 		errs = append(errs, err)
 	}
-	if c.TokenFile == "" {
-		errs = append(errs, errors.New("token_file is required"))
+	if c.TokenFile == "" && len(c.Tokens) == 0 {
+		errs = append(errs, errors.New("token_file or tokens is required"))
+	}
+	names := map[string]bool{}
+	for i, t := range c.Tokens {
+		switch {
+		case !idPattern.MatchString(t.Name):
+			errs = append(errs, fmt.Errorf("token %d: the name must be lowercase letters, digits and dashes, starting with a letter", i+1))
+		case t.Name == SharedToken:
+			errs = append(errs, fmt.Errorf("token %d: %q is the name of token_file; pick another", i+1, SharedToken))
+		case names[t.Name]:
+			errs = append(errs, fmt.Errorf("token %q: the name is used twice", t.Name))
+		}
+		names[t.Name] = true
+		if t.File == "" {
+			errs = append(errs, fmt.Errorf("token %q: file is required", t.Name))
+		}
 	}
 	if len(c.Stacks) == 0 {
 		errs = append(errs, errors.New("no stack is listed"))
@@ -115,6 +141,9 @@ func (c Config) Validate() error {
 			if f != "" && !insideName(f) {
 				errs = append(errs, fmt.Errorf("%s: %q must be a path inside dir", at, f))
 			}
+		}
+		if s.VersionsFile != "" && !slices.Contains(s.EnvFiles, s.VersionsFile) {
+			errs = append(errs, fmt.Errorf("%s: versions_file %q must also be listed in env_files, or compose would never read the tags the agent writes", at, s.VersionsFile))
 		}
 	}
 	for _, s := range c.Stacks {

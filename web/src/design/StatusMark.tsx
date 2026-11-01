@@ -1,24 +1,19 @@
+import { StatusDot, type Tone } from "./StatusDot";
+
 export type Level = "ok" | "warn" | "fail";
 
-const look: Record<Level, { label: string; color: string }> = {
-  ok: { label: "Passed", color: "var(--good)" },
-  warn: { label: "Warning", color: "var(--warning)" },
-  fail: { label: "Failed", color: "var(--critical)" },
+const look: Record<Level, { label: string; tone: Tone }> = {
+  ok: { label: "Passed", tone: "good" },
+  warn: { label: "Warning", tone: "warning" },
+  fail: { label: "Failed", tone: "critical" },
 };
 
-/**
- * Same shapes as the status pills, so colour is never the only signal:
- * ok is a dot, a warning a triangle, a failure a square.
- */
+/** A round dot in the status colour; the word follows it, or is for screen readers only. */
 export function StatusMark({ level, label = false }: { level: Level; label?: boolean }) {
-  const { color, label: text } = look[level];
+  const { tone, label: text } = look[level];
   return (
     <>
-      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden fill={color} className="shrink-0">
-        {level === "ok" && <circle cx="6" cy="6" r="4.5" />}
-        {level === "warn" && <path d="M6 1.2 11 10.2H1Z" />}
-        {level === "fail" && <rect x="1.8" y="1.8" width="8.4" height="8.4" />}
-      </svg>
+      <StatusDot tone={tone} />
       {label ? text : <span className="sr-only">{text}</span>}
     </>
   );

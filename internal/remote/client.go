@@ -4,6 +4,7 @@ package remote
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,15 +61,27 @@ func (c *Client) do(ctx context.Context, path string, q url.Values) (*http.Respo
 }
 
 func (c *Client) send(ctx context.Context, method, path string, q url.Values) (*http.Response, error) {
+	return c.sendBody(ctx, method, path, q, nil)
+}
+
+// sendBody is send with a JSON body (nil for none).
+func (c *Client) sendBody(ctx context.Context, method, path string, q url.Values, body []byte) (*http.Response, error) {
 	u := strings.TrimRight(c.Base, "/") + path
 	if len(q) > 0 {
 		u += "?" + q.Encode()
 	}
-	req, err := http.NewRequestWithContext(ctx, method, u, nil)
+	var rd io.Reader
+	if body != nil {
+		rd = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u, rd)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.Token)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	res, err := c.http().Do(req)
 	var tunnel *TunnelError
 	switch {
@@ -168,6 +182,14 @@ func (c *Client) Act(ctx context.Context, a Action) (*ActionRun, error) {
 // write worked, an *ActionError when it failed, and another error when the connection
 // broke first, in which case the write may still be running on the host.
 func (r *ActionRun) Each(fn func(line string)) error {
+	_, err := r.EachResult(fn)
+	return err
+}
+
+// EachResult is Each that also returns how each service of a tag change ended up (nil for
+// any other write). The results come with a failure too, so the page can show which
+// service didn't come up.
+func (r *ActionRun) EachResult(fn func(line string)) ([]agent.VersionResult, error) {
 	defer func() { _ = r.res.Body.Close() }()
 	sc := bufio.NewScanner(r.res.Body)
 	sc.Buffer(make([]byte, 64<<10), 1<<20)
@@ -178,16 +200,52 @@ func (r *ActionRun) Each(fn func(line string)) error {
 		}
 		if l.Done {
 			if l.OK {
-				return nil
+				return l.Versions, nil
 			}
-			return &ActionError{Message: l.Error}
+			return l.Versions, &ActionError{Message: l.Error}
 		}
 		fn(l.Line)
 	}
 	if err := sc.Err(); err != nil {
-		return fmt.Errorf("the connection to the agent broke; the action may still be running on the host: %w", err)
+		return nil, fmt.Errorf("the connection to the agent broke; the action may still be running on the host: %w", err)
 	}
-	return errors.New("the connection to the agent ended before the action did; it may still be running on the host")
+	return nil, errors.New("the connection to the agent ended before the action did; it may still be running on the host")
+}
+
+// oldAgent says a 404 on a route a newer agent has means this agent is too old for it.
+func oldAgent(err error, what string) error {
+	var refusal *Error
+	if errors.As(err, &refusal) && (refusal.Status == http.StatusNotFound || refusal.Status == http.StatusMethodNotAllowed) && !strings.HasPrefix(refusal.Message, "no such") {
+		return fmt.Errorf("%w: it can't %s yet", ErrOldAgent, what)
+	}
+	return err
+}
+
+// Versions is the image tags of a stack: where each comes from, what the file says and what runs.
+func (c *Client) Versions(ctx context.Context, stack string) (agent.Versions, error) {
+	v, err := getJSON[agent.Versions](ctx, c, "/v1/stacks/"+url.PathEscape(stack)+"/versions")
+	return v, oldAgent(err, "report versions")
+}
+
+// VersionHistory lists the tag changes of a stack, newest first.
+func (c *Client) VersionHistory(ctx context.Context, stack string, limit int) ([]agent.VersionEvent, error) {
+	h, err := getJSON[[]agent.VersionEvent](ctx, c, "/v1/stacks/"+url.PathEscape(stack)+"/versions/history?limit="+strconv.Itoa(limit))
+	return h, oldAgent(err, "report versions")
+}
+
+// SetVersions asks the agent to change tags, and to apply them when req.Apply is set. A
+// refusal (writes off, busy, a bad tag, an image that can't be changed) is an *Error before
+// any output; read the answer with EachResult.
+func (c *Client) SetVersions(ctx context.Context, stack string, req agent.VersionsRequest) (*ActionRun, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.sendBody(ctx, http.MethodPut, "/v1/stacks/"+url.PathEscape(stack)+"/versions", nil, body)
+	if err != nil {
+		return nil, oldAgent(err, "change versions")
+	}
+	return &ActionRun{res: res}, nil
 }
 
 // LogQuery says which lines to follow: a service ("" for the whole stack), and from

@@ -21,6 +21,8 @@ func queryFromRequest(c echo.Context, now time.Time) (logs.Query, error) {
 		Levels:   listParam(p["level"]),
 		Regex:    c.QueryParam("regex"),
 		Group:    c.QueryParam("group"),
+		// not split on commas: a pattern may have one
+		Mutes: p["mute"],
 	}
 	for _, raw := range p["field"] {
 		f, err := logs.ParseField(raw)

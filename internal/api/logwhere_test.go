@@ -172,6 +172,34 @@ func TestClearAndHistogramRoutes(t *testing.T) {
 		}
 	}
 
+	// the trends: every service, whatever service is asked for, in the same buckets
+	tr := decode[logs.Trends](t, do(e, http.MethodGet, base+"/trends?since=1h&service=web").Body.Bytes())
+	if len(tr.Services) != 2 || tr.Services[0].Key != "api" || tr.Services[0].Total != 3 || tr.Services[0].Errors != 2 || tr.BucketSeconds != 60 {
+		t.Errorf("trends = %+v", tr)
+	}
+	for u, want := range map[string]int{
+		base + "/trends?regex=%28":                        http.StatusBadRequest,
+		base + "/trends?since=1h&until=2h":                http.StatusBadRequest,
+		"/api/v1/workspaces/DEMO/stacks/full/logs/trends": http.StatusNotFound,
+	} {
+		if rec := do(e, http.MethodGet, u); rec.Code != want {
+			t.Errorf("%s = %d, want %d", u, rec.Code, want)
+		}
+	}
+
+	// muted patterns leave lines out and are counted apart; a pattern may hold a comma
+	h = decode[logs.Histogram](t, do(e, http.MethodGet, base+"/histogram?since=1h&mute=x%2C").Body.Bytes())
+	if h.Total != 4 || h.Muted != 0 {
+		t.Errorf("a pattern that matches nothing: total %d, muted %d", h.Total, h.Muted)
+	}
+	h = decode[logs.Histogram](t, do(e, http.MethodGet, base+"/histogram?since=1h&mute=y").Body.Bytes())
+	if h.Total != 3 || h.Muted != 1 {
+		t.Errorf("muting the web line: total %d, muted %d", h.Total, h.Muted)
+	}
+	if rec := do(e, http.MethodGet, base+"/histogram?since=1h&mute=%28"); rec.Code != http.StatusBadRequest {
+		t.Errorf("a bad muted pattern = %d", rec.Code)
+	}
+
 	// clear one service, then the rest
 	if rec := do(e, http.MethodDelete, base+"?service=api"); rec.Code != http.StatusOK {
 		t.Fatalf("clear api = %d %s", rec.Code, rec.Body)

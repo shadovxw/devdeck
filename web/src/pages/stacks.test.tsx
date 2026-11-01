@@ -326,6 +326,9 @@ describe("home page", () => {
     expect(services.queryByRole("link", { name: ":5173" })).toBeNull(); // not ready: nothing to open yet
     expect(services.getByText(/exited with code 1: boom/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "full" }).getAttribute("href")).toBe("/stacks?workspace=demo");
-    expect(screen.getByRole("link", { name: /Check this machine/ }).getAttribute("href")).toBe("/doctor");
+    // problems come first, as their own rows with the one action
+    expect(within(screen.getByRole("region", { name: "Services in full" })).getByRole("button", { name: /Restart web/ })).toBeTruthy();
+    expect(screen.getByText("1 need attention")).toBeTruthy();
+    expect(screen.getByText("2 of 3 running")).toBeTruthy();
   });
 });

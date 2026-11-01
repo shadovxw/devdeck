@@ -76,6 +76,28 @@ func registerLogs(g *echo.Group, store *logs.Store, m *workspace.Manager) {
 		return c.JSON(http.StatusOK, h)
 	})
 
+	// GET .../trends counts the entries by service and by kind of error over the same
+	// buckets as the histogram, for the sparklines of the service column and the error list.
+	// The service and group filters are ignored: the column shows every service.
+	lg.GET("/trends", func(c echo.Context) error {
+		q, err := queryFromRequest(c, time.Now())
+		if err != nil {
+			return queryRefusal(err)
+		}
+		tr, err := store.Trends(c.Param("id"), c.Param("stack"), q, time.Now())
+		if errors.Is(err, logs.ErrBadName) {
+			return echo.NewHTTPError(http.StatusNotFound, "no such stack or service")
+		}
+		if refusal := queryRefusal(err); refusal != err {
+			return refusal
+		}
+		if err != nil {
+			c.Logger().Error(oneLine(err))
+			return echo.NewHTTPError(http.StatusInternalServerError, "the logs couldn't be counted")
+		}
+		return c.JSON(http.StatusOK, tr)
+	})
+
 	// DELETE deletes what is stored of the stack (or of one service, with ?service=):
 	// the lines, the files and the error groups. Capture rules are kept. The page
 	// asks the person to confirm first.

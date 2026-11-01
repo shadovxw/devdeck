@@ -13,6 +13,8 @@ export type LogQuery = {
   until?: string;
   /** An error group's fingerprint. */
   group?: string;
+  /** Patterns of lines to leave out; each is a Go (RE2) pattern. Kept in the browser, not in the address. */
+  mutes?: string[];
   before?: number;
   after?: number;
   limit?: number;
@@ -41,6 +43,7 @@ export function logQueryString(q: LogQuery): string {
   if (q.since) p.set("since", q.since);
   if (q.until) p.set("until", q.until);
   if (q.group) p.set("group", q.group);
+  for (const m of q.mutes ?? []) p.append("mute", m);
   if (q.before) p.set("before", String(q.before));
   if (q.after) p.set("after", String(q.after));
   if (q.limit) p.set("limit", String(q.limit));
@@ -104,6 +107,7 @@ export function entryMatches(e: LogEntry, q: LogQuery, re: RegExp | undefined = 
   if (q.levels?.length && !q.levels.includes(e.level ?? "info")) return false;
   if (q.group && e.fingerprint !== q.group) return false;
   if (re && !re.test(e.text)) return false;
+  if (q.mutes?.some((m) => compilePattern(m)?.test(e.text))) return false;
   for (const raw of q.fields ?? []) {
     const f = parseFieldFilter(raw);
     if (!f) continue;
@@ -124,4 +128,15 @@ export function messageOf(e: LogEntry): string {
 export function vscodeLink(file: string, line: number): string {
   const path = file.replace(/\\/g, "/");
   return `vscode://file${path.startsWith("/") ? "" : "/"}${encodeURI(path)}:${line}`;
+}
+
+/** A saved filter's id from its name: lowercase letters, digits and dashes, starting with a letter. */
+export function filterId(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!slug) return "filter";
+  const id = /^[a-z]/.test(slug) ? slug : `f-${slug}`;
+  return id.slice(0, 40).replace(/-+$/, "");
 }

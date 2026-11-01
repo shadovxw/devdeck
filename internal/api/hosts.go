@@ -68,21 +68,7 @@ func registerHosts(g *echo.Group, h *remote.Hosts) {
 	})
 
 	// PUT .../token saves the agent's token in the OS keychain. It is never sent back.
-	one.PUT("/token", func(c echo.Context) error {
-		var body struct {
-			Token string `json:"token"`
-		}
-		if err := c.Bind(&body); err != nil {
-			return bindError(err)
-		}
-		if err := h.SetToken(c.Param("ws"), c.Param("host"), body.Token); err != nil {
-			if errors.Is(err, remote.ErrNoHost) {
-				return hostError(err)
-			}
-			return echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error())
-		}
-		return c.NoContent(http.StatusNoContent)
-	})
+	one.PUT("/token", hostSetToken(h))
 	one.DELETE("/token", func(c echo.Context) error {
 		if err := h.DeleteToken(c.Param("ws"), c.Param("host")); err != nil {
 			return hostError(err)
@@ -137,10 +123,79 @@ func registerHosts(g *echo.Group, h *remote.Hosts) {
 
 	one.GET("/stacks/:stack/logs", hostLogs(h))
 
+	// Versions: the image tags of a stack (what the file says, what runs), the changes made, and
+	// changing them. Writing follows the same rules as the other writes: the agent decides.
+	one.GET("/stacks/:stack/versions", func(c echo.Context) error {
+		cl, err := client(c)
+		if err != nil {
+			return err
+		}
+		v, err := cl.Versions(c.Request().Context(), c.Param("stack"))
+		if err != nil {
+			return hostError(err)
+		}
+		return c.JSON(http.StatusOK, v)
+	})
+	one.GET("/stacks/:stack/versions/history", hostVersionHistory(h))
+	one.PUT("/stacks/:stack/versions", hostVersions(h))
+
 	// Writes: start, stop or restart a service; up, down, pull or the up script for a stack.
 	// The agent decides what is allowed (allow_write, one at a time); the page confirms first.
 	one.POST("/stacks/:stack/services/:svc/:action", hostAct(h))
 	one.POST("/stacks/:stack/:action", hostAct(h))
+}
+
+// hostSetToken is PUT .../token: the agent's token goes to the OS keychain and is never read back.
+func hostSetToken(h *remote.Hosts) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var body struct {
+			Token string `json:"token"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return bindError(err)
+		}
+		if err := h.SetToken(c.Param("ws"), c.Param("host"), body.Token); err != nil {
+			if errors.Is(err, remote.ErrNoHost) {
+				return hostError(err)
+			}
+			return echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error())
+		}
+		return c.NoContent(http.StatusNoContent)
+	}
+}
+
+// hostVersionHistory is GET .../stacks/:stack/versions/history?limit=: the changes made to the image tags.
+func hostVersionHistory(h *remote.Hosts) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		cl, err := h.Client(c.Param("ws"), c.Param("host"))
+		if err != nil {
+			return hostError(err)
+		}
+		limit := 30
+		if v := c.QueryParam("limit"); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 1 || n > 500 {
+				return echo.NewHTTPError(http.StatusBadRequest, "limit must be a number from 1 to 500")
+			}
+			limit = n
+		}
+		list, err := cl.VersionHistory(c.Request().Context(), c.Param("stack"), limit)
+		if err != nil {
+			return hostError(err)
+		}
+		return c.JSON(http.StatusOK, list)
+	}
+}
+
+// beginNDJSON starts a streamed answer of newline-delimited JSON: the headers, the status and a first
+// flush, so the page sees it open. The writer flushes after every line.
+func beginNDJSON(c echo.Context) (*echo.Response, *json.Encoder) {
+	w := c.Response()
+	w.Header().Set(echo.HeaderContentType, "application/x-ndjson")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	w.Flush()
+	return w, json.NewEncoder(w)
 }
 
 // hostAct is POST .../stacks/:stack[/services/:svc]/:action[?mode=down]. A refusal is an
@@ -158,12 +213,7 @@ func hostAct(h *remote.Hosts) echo.HandlerFunc {
 		if err != nil {
 			return hostError(err)
 		}
-		w := c.Response()
-		w.Header().Set(echo.HeaderContentType, "application/x-ndjson")
-		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(http.StatusOK)
-		w.Flush()
-		enc := json.NewEncoder(w)
+		w, enc := beginNDJSON(c)
 		err = run.Each(func(line string) {
 			_ = enc.Encode(agent.ActionLine{Line: line})
 			w.Flush()
@@ -175,6 +225,42 @@ func hostAct(h *remote.Hosts) echo.HandlerFunc {
 			_ = enc.Encode(agent.ActionLine{Done: true, Error: err.Error()})
 		default:
 			_ = enc.Encode(agent.ActionLine{Done: true, OK: true})
+		}
+		w.Flush()
+		return nil
+	}
+}
+
+// hostVersions is PUT .../stacks/:stack/versions with {"changes": [{"service","tag"}], "apply": bool}.
+// A refusal is an error status; once the agent accepts, the output streams back like any write,
+// and the last line carries how each changed service ended up ("versions"), also on a failure.
+func hostVersions(h *remote.Hosts) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var req agent.VersionsRequest
+		if err := c.Bind(&req); err != nil {
+			return bindError(err)
+		}
+		cl, err := h.Client(c.Param("ws"), c.Param("host"))
+		if err != nil {
+			return hostError(err)
+		}
+		ctx := c.Request().Context()
+		run, err := cl.SetVersions(ctx, c.Param("stack"), req)
+		if err != nil {
+			return hostError(err)
+		}
+		w, enc := beginNDJSON(c)
+		results, err := run.EachResult(func(line string) {
+			_ = enc.Encode(agent.ActionLine{Line: line})
+			w.Flush()
+		})
+		switch {
+		case ctx.Err() != nil:
+			// the page left; the agent finishes the change on its own
+		case err != nil:
+			_ = enc.Encode(agent.ActionLine{Done: true, Error: err.Error(), Versions: results})
+		default:
+			_ = enc.Encode(agent.ActionLine{Done: true, OK: true, Versions: results})
 		}
 		w.Flush()
 		return nil
@@ -205,12 +291,7 @@ func hostLogs(h *remote.Hosts) echo.HandlerFunc {
 		if _, err := cl.Info(ctx); err != nil {
 			return hostError(err)
 		}
-		w := c.Response()
-		w.Header().Set(echo.HeaderContentType, "application/x-ndjson")
-		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(http.StatusOK)
-		w.Flush()
-		enc := json.NewEncoder(w)
+		w, enc := beginNDJSON(c)
 		err = cl.Follow(ctx, q, func(l agent.LogLine) {
 			_ = enc.Encode(l)
 			w.Flush()

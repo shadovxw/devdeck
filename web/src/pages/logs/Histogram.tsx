@@ -18,6 +18,10 @@ type Props = {
   data: LogHistogram | undefined;
   /** Called with the start and end (RFC 3339) of the stretch the reader dragged over. */
   onBrush: (from: string, to: string) => void;
+  /** The levels that are picked; none means every level. The legend rows are their toggles. */
+  levels?: LogLevel[];
+  onToggleLevel?: (level: LogLevel) => void;
+  onClearLevels?: () => void;
 };
 
 /** About eight evenly spaced time labels under the bars, as a percentage across and their text. */
@@ -49,7 +53,7 @@ function span(seconds: number): string {
  * every level; each has a shape and a word, so the colours are never the only thing
  * telling them apart.
  */
-export function Histogram({ data, onBrush }: Props) {
+export function Histogram({ data, onBrush, levels = [], onToggleLevel, onClearLevels }: Readonly<Props>) {
   const svg = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<{ from: number; to: number; x0: number } | null>(null);
 
@@ -86,7 +90,7 @@ export function Histogram({ data, onBrush }: Props) {
   const brush = drag ? { a: Math.min(drag.from, drag.to), b: Math.max(drag.from, drag.to) } : null;
 
   return (
-    <figure className="m-0 flex flex-wrap gap-x-6 gap-y-3 rounded-ctl bg-inset p-3 sm:flex-nowrap">
+    <figure className="m-0 flex flex-wrap gap-x-6 gap-y-3 sm:flex-nowrap">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <svg
           ref={svg}
@@ -130,15 +134,31 @@ export function Histogram({ data, onBrush }: Props) {
         {data.total === 0 && <p className="sr-only">No lines in this stretch.</p>}
       </div>
       <figcaption className="w-36 shrink-0 text-[13px]">
-        <ul aria-label="Lines by level" className="m-0 flex list-none flex-col gap-1 p-0">
-          {byLevel.map(({ level, total }) => (
-            <li key={level} className="flex items-center gap-2 text-ink-2">
-              <LevelShape level={level} />
-              <span>{levelLook[level].label}</span>
-              <span className="ms-auto tabular-nums text-ink">{total.toLocaleString()}</span>
-            </li>
-          ))}
+        <ul aria-label="Lines by level" className="m-0 flex list-none flex-col gap-px p-0">
+          {byLevel.map(({ level, total }) => {
+            const picked = levels.includes(level);
+            const dim = levels.length > 0 && !picked;
+            return (
+              <li key={level}>
+                <button
+                  type="button"
+                  aria-pressed={picked}
+                  onClick={() => onToggleLevel?.(level)}
+                  className={`grid w-full grid-cols-[10px_1fr_auto] items-center gap-2 px-2 py-0.5 text-start transition-colors ${picked ? "bg-fill-hover" : "hover:bg-fill"} ${dim ? "text-ink-3" : "text-ink"}`}
+                >
+                  <LevelShape level={level} />
+                  <span>{levelLook[level].label}</span>
+                  <span className="font-mono text-[11.5px] tabular-nums">{total.toLocaleString()}</span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
+        {levels.length > 0 && (
+          <button type="button" onClick={onClearLevels} className="mt-1 px-2 text-[12px] text-ink-3 hover:text-ink hover:underline">
+            All levels
+          </button>
+        )}
       </figcaption>
     </figure>
   );

@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { routes } from "../app/routes";
 import type { SavedLogFilter } from "../lib/log-query";
 import { SocketProvider } from "../lib/socket";
-import type { CaptureInfo, LogEntry, LogGroup, LogHistogram, WorkspaceSummary } from "../lib/types";
+import type { CaptureInfo, LogEntry, LogGroup, LogHistogram, WorkspaceSummary, LogTrends } from "../lib/types";
 import { TopicSocket, type WebSocketLike } from "../lib/ws";
 import { useUi } from "../store/ui";
 import { filterId, paramsOfQuery, queryOfParams, zoomedOut } from "./LogsPage";
@@ -31,12 +31,25 @@ const histogram: LogHistogram = {
   to: new Date(t0 + 4 * 60_000).toISOString(),
   bucket_seconds: 60,
   total: 7,
+  muted: 2,
   buckets: [
     { t: new Date(t0).toISOString(), counts: { info: 3 } },
     { t: new Date(t0 + 60_000).toISOString(), counts: { info: 1, error: 2 } },
     { t: new Date(t0 + 120_000).toISOString(), counts: { warn: 1 } },
     { t: new Date(t0 + 180_000).toISOString(), counts: {} },
   ],
+};
+
+const trends: LogTrends = {
+  from: histogram.from,
+  to: histogram.to,
+  bucket_seconds: 60,
+  services: [
+    { key: "api", total: 1200, errors: 3, counts: [1, 400, 400, 399, 0] },
+    { key: "web", total: 40, counts: [10, 10, 10, 10, 0] },
+    { key: "db", total: 5, counts: [1, 1, 1, 1, 1] },
+  ],
+  groups: [{ key: "8a129441c02fb0d1", total: 120, errors: 120, counts: [0, 60, 60, 0, 0] }],
 };
 
 const group: LogGroup = {
@@ -116,6 +129,7 @@ function mockServer(opts: Server = {}) {
       }
       if (u.pathname.endsWith("/logs/groups")) return json(opts.groups ?? [group]);
       if (u.pathname.endsWith("/logs/histogram")) return json(histogram);
+      if (u.pathname.endsWith("/logs/trends")) return json(trends);
       if (u.pathname.endsWith("/logs/where")) return opts.where ? json(opts.where) : json({ message: "no such file" }, 404);
       if (u.pathname.endsWith("/logs") && method === "DELETE") return json({ removed_files: 2 });
       if (u.pathname.endsWith("/logs")) {
@@ -200,7 +214,6 @@ describe("the Logs page", () => {
     mockServer();
     renderLogs();
     await list();
-    expect(screen.getByText("View and filter logs from your local services in real time.")).toBeTruthy();
     const legend = within(await screen.findByRole("list", { name: "Lines by level" }));
     for (const [level, n] of [["trace", "0"], ["debug", "0"], ["info", "4"], ["warning", "1"], ["error", "2"], ["fatal", "0"]]) {
       const row = legend.getByText(level).closest("li") as HTMLElement;
@@ -208,16 +221,86 @@ describe("the Logs page", () => {
     }
   });
 
-  it("has an All segment that is pressed while no level is picked, and clears the levels", async () => {
+  it("shows the picked levels in the legend, and All levels clears them", async () => {
     mockServer();
     renderLogs("?level=error&level=fatal");
     await waitFor(async () => expect(options(await list())).toHaveLength(1));
-    const levels = within(screen.getByRole("group", { name: "Levels" }));
-    const all = levels.getByRole("button", { name: "All" });
-    expect(all.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(all);
+    const legend = within(await screen.findByRole("list", { name: "Lines by level" }));
+    expect(legend.getByRole("button", { name: /error/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(legend.getByRole("button", { name: /info/ }).getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "All levels" }));
     await waitFor(() => expect(lastGet("/logs?")).not.toContain("level="));
-    expect(levels.getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByRole("button", { name: "All levels" })).toBeNull();
+  });
+
+  it("shows the server's counts and a line of counts for each service, and how often each error happens", async () => {
+    mockServer();
+    renderLogs();
+    await waitFor(async () => expect(options(await list())).toHaveLength(3));
+
+    const services = within(screen.getByRole("region", { name: "Services" }));
+    // the whole range, not only the loaded lines; 1,200 is shown as 1.2k
+    await waitFor(() => expect(services.getByText("1.2k")).toBeTruthy());
+    expect(services.getByText("db")).toBeTruthy(); // a service the loaded lines do not have
+    expect(services.getAllByRole("listitem")[0].querySelector("svg path")).toBeTruthy();
+    expect(lastGet("/trends")).not.toContain("service="); // the column shows every service
+
+    const errors = within(await screen.findByRole("list", { name: "Errors" }));
+    // 120 errors over the 4 minutes of the range: one every 2 seconds
+    expect(errors.getByText(/every 2s/)).toBeTruthy();
+  });
+
+  it("mutes noise: adds a pattern, sends it with the request, turns it off, and says how many lines it hid", async () => {
+    mockServer();
+    renderLogs();
+    await waitFor(async () => expect(options(await list())).toHaveLength(3));
+    const noise = within(screen.getByRole("region", { name: "Muted noise" }));
+    expect(noise.getByText("Nothing muted.")).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("2 muted"));
+
+    fireEvent.click(noise.getByRole("button", { name: "+ add" }));
+    const box = noise.getByLabelText("Text or /pattern/ to hide");
+    fireEvent.change(box, { target: { value: "/(/" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(await noise.findByRole("alert")).toBeTruthy();
+
+    fireEvent.change(box, { target: { value: "slow render" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(lastGet("/logs?")).toContain(new URLSearchParams({ mute: "(?i)slow render" }).toString()));
+    await waitFor(() => expect(lastGet("/histogram")).toContain("mute="));
+    expect((noise.getByRole("checkbox", { name: "slow render" }) as HTMLInputElement).checked).toBe(true);
+    expect(localStorage.getItem("devdeck.log-mutes.demo.full")).toContain("slow render");
+
+    fireEvent.click(noise.getByRole("checkbox", { name: "slow render" }));
+    await waitFor(() => expect(lastGet("/logs?")).not.toContain("mute="));
+
+    fireEvent.click(noise.getByRole("button", { name: "Remove the muted pattern slow render" }));
+    expect(noise.getByText("Nothing muted.")).toBeTruthy();
+  });
+
+  it("mutes lines like the one in a row's menu", async () => {
+    mockServer();
+    renderLogs();
+    const box = await list();
+    await waitFor(() => expect(options(box)).toHaveLength(3));
+
+    fireEvent.click(within(options(box)[2]).getByRole("button", { name: /More for the line/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Mute lines like this" }));
+    await waitFor(() => expect(lastGet("/logs?")).toContain(new URLSearchParams({ mute: "(?i)slow render 812ms" }).toString()));
+  });
+
+  it("filters by service from the service column, and lists what has errors", async () => {
+    mockServer();
+    renderLogs();
+    await waitFor(async () => expect(options(await list())).toHaveLength(3));
+    const services = within(screen.getByRole("region", { name: "Services" }));
+
+    fireEvent.click(services.getByRole("checkbox", { name: /api/ }));
+    await waitFor(() => expect(lastGet("/logs?")).toContain("service=api"));
+    expect((services.getByRole("checkbox", { name: /api/ }) as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(services.getByRole("button", { name: "all" }));
+    await waitFor(() => expect(lastGet("/logs?")).not.toContain("service="));
   });
 
   it("offers what to do with a line in its own menu", async () => {
@@ -273,7 +356,7 @@ describe("the Logs page", () => {
     const box = await list();
     await waitFor(() => expect(options(box)).toHaveLength(3));
 
-    const levels = within(screen.getByRole("group", { name: "Levels" }));
+    const levels = within(await screen.findByRole("list", { name: "Lines by level" }));
     fireEvent.click(levels.getByRole("button", { name: /error/i }));
     await waitFor(() => expect(lastGet("/logs?")).toContain("level=error"));
     await waitFor(() => expect(options(box)).toHaveLength(1));
@@ -287,24 +370,38 @@ describe("the Logs page", () => {
     await waitFor(() => expect(options(box)).toHaveLength(3));
   });
 
-  it("sends a pattern once typing pauses, and does not send one that isn't valid", async () => {
+  it("sends a pattern when it is entered, and does not send one that isn't valid", async () => {
     mockServer();
     renderLogs();
     await waitFor(async () => expect(options(await list())).toHaveLength(3));
 
-    const pattern = screen.getByLabelText("Pattern");
-    fireEvent.change(pattern, { target: { value: "(?i)timeout|refused" } });
+    const search = screen.getByLabelText("Search");
+    fireEvent.change(search, { target: { value: "/(?i)timeout|refused/" } });
+    fireEvent.keyDown(search, { key: "Enter" });
     await waitFor(() => expect(lastGet("/logs?")).toContain("regex=%28%3Fi%29timeout%7Crefused"));
 
     const before = gets("/logs?").length;
-    fireEvent.change(pattern, { target: { value: "(" } });
+    fireEvent.change(search, { target: { value: "/(/" } });
+    fireEvent.keyDown(search, { key: "Enter" });
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByRole("alert").textContent).toContain("valid pattern");
     await new Promise((r) => setTimeout(r, 450));
     expect(gets("/logs?").length).toBe(before);
 
-    fireEvent.change(pattern, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Remove the search text" }));
     await waitFor(() => expect(lastGet("/logs?")).not.toContain("regex="));
+  });
+
+  it("searches plain text as it is, ignoring case", async () => {
+    mockServer();
+    renderLogs();
+    await waitFor(async () => expect(options(await list())).toHaveLength(3));
+
+    const search = screen.getByLabelText("Search");
+    fireEvent.change(search, { target: { value: "db (timeout)" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    await waitFor(() => expect(lastGet("/logs?")).toContain(new URLSearchParams({ regex: "(?i)db \\(timeout\\)" }).toString()));
+    expect(within(screen.getByRole("list", { name: "Active filters" })).getByText("db (timeout)")).toBeTruthy();
   });
 
   it("adds and removes field filters", async () => {
@@ -312,17 +409,21 @@ describe("the Logs page", () => {
     renderLogs();
     await waitFor(async () => expect(options(await list())).toHaveLength(3));
 
-    const field = screen.getByLabelText("Field filter");
-    const add = screen.getByRole("button", { name: "Add the field filter" }) as HTMLButtonElement;
-    fireEvent.change(field, { target: { value: "nonsense" } });
-    expect(add.disabled).toBe(true);
-    fireEvent.change(field, { target: { value: "user.id=42" } });
-    fireEvent.click(add);
+    const search = screen.getByLabelText("Search");
+    fireEvent.change(search, { target: { value: "-user.id:42" } });
+    fireEvent.keyDown(search, { key: "Enter" });
 
-    await waitFor(() => expect(lastGet("/logs?")).toContain("field=user.id%3D42"));
+    await waitFor(() => expect(lastGet("/logs?")).toContain("field=user.id%21%3D42"));
     const active = within(screen.getByRole("list", { name: "Active filters" }));
-    fireEvent.click(active.getByRole("button", { name: "Remove the filter user.id=42" }));
+    fireEvent.click(active.getByRole("button", { name: "Remove the filter user.id!=42" }));
     await waitFor(() => expect(lastGet("/logs?")).not.toContain("field="));
+
+    // Backspace in an empty box takes the last filter off
+    fireEvent.change(search, { target: { value: "service:api" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    await waitFor(() => expect(lastGet("/logs?")).toContain("service=api"));
+    fireEvent.keyDown(search, { key: "Backspace" });
+    await waitFor(() => expect(lastGet("/logs?")).not.toContain("service="));
   });
 
   it("keeps lines that arrive live only when they match the filters", async () => {
@@ -386,6 +487,51 @@ describe("the Logs page", () => {
 
     fireEvent.click(detail.getByRole("button", { name: "Close the selected line" }));
     expect(screen.queryByRole("region", { name: "Selected line" })).toBeNull();
+  });
+
+  it("opens the detail inside the list, right under its line, and adds a field filter from it", async () => {
+    mockServer();
+    renderLogs();
+    const box = await list();
+    await waitFor(() => expect(options(box)).toHaveLength(3));
+
+    fireEvent.click(options(box)[1]);
+    const region = await screen.findByRole("region", { name: "Selected line" });
+    expect(box.contains(region)).toBe(true);
+    // the line below it moved down to make room, so it does not sit under the detail
+    expect(Number.parseInt(options(box)[2].style.top)).toBeGreaterThan(Number.parseInt(options(box)[1].style.top) + 28);
+
+    fireEvent.click(within(region).getByRole("button", { name: "Filter on attempt=3" }));
+    await waitFor(() => expect(lastGet("/logs?")).toContain("field=attempt%3D3"));
+  });
+
+  it("shows the lines raw, wrapped, and with times in UTC when asked", async () => {
+    mockServer();
+    renderLogs();
+    const box = await list();
+    await waitFor(() => expect(options(box)).toHaveLength(3));
+
+    expect(messages(box)[1]).toContain("db timeout"); // parsed: the message, then a hint of the fields
+    fireEvent.click(screen.getByRole("tab", { name: "Raw" }));
+    expect(messages(box)[1]).toContain("db timeout after 30s");
+
+    expect(options(box)[0].style.height).toBe("28px");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Wrap" }));
+    expect(options(box)[0].style.height).toBe("44px");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "UTC" }));
+    expect(options(box)[0].textContent).toContain("12:00:00.123");
+  });
+
+  it("copies the loaded lines", async () => {
+    mockServer();
+    const writeText = vi.fn();
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    renderLogs();
+    await waitFor(async () => expect(options(await list())).toHaveLength(3));
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy the loaded lines" }));
+    expect(writeText).toHaveBeenCalledWith("listening on :8080\ndb timeout after 30s\nslow render 812ms");
   });
 
   it("shows the caller as plain text when the file isn't in the repo", async () => {
@@ -499,6 +645,26 @@ describe("the Logs page", () => {
     const after = new URLSearchParams(router.state.location.search);
     const span = (p: URLSearchParams) => Date.parse(p.get("until") ?? "") - Date.parse(p.get("since") ?? "");
     expect(span(after)).toBe(span(before) * 3);
+  });
+
+  it("applies the first saved views with Alt+1 to Alt+3, but not while typing", async () => {
+    mockServer({ filters: [{ id: "slow", name: "Slow pages", levels: ["warn"], regex: "slow" }, { id: "errs", name: "Only errors", levels: ["error"] }] });
+    const { router } = renderLogs();
+    await waitFor(async () => expect(options(await list())).toHaveLength(3));
+    const saved = within(await screen.findByRole("list", { name: "Saved filters" }));
+    expect(saved.getByRole("button", { name: "Slow pages" }).getAttribute("aria-keyshortcuts")).toBe("Alt+1");
+
+    fireEvent.keyDown(document.body, { code: "Digit2", altKey: true });
+    await waitFor(() => expect(router.state.location.search).toContain("level=error"));
+    fireEvent.keyDown(document.body, { code: "Digit1", altKey: true });
+    await waitFor(() => expect(router.state.location.search).toContain("level=warn"));
+    expect(new URLSearchParams(router.state.location.search).get("q")).toBe("slow");
+
+    // a key typed in the search box is the box's, and a missing third view does nothing
+    const before = router.state.location.search;
+    fireEvent.keyDown(screen.getByLabelText("Search"), { code: "Digit2", altKey: true });
+    fireEvent.keyDown(document.body, { code: "Digit3", altKey: true });
+    expect(router.state.location.search).toBe(before);
   });
 
   it("saves the filters under a name, lists them, applies one and deletes one", async () => {

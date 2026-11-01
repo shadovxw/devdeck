@@ -94,6 +94,7 @@ Writes (start, stop or restart a service; change an image tag; deploy) as `propo
 | C6 | `get_ui_state` and the web app's snapshot | "What am I looking at?" is answered from the real page |
 | C7 | Installer task, Doctor check, prompts, docs and the SOP section | A fresh install connects with one tick or one command |
 | later | `propose_action` (§7); desktop window screenshot | |
+| later | `get_flow_trace` (read) and `propose_trace` (through the §7 queue), so Claude can read and suggest a Flow trace that devdeck draws with its own components: [`../04-flow-trace.md`](../04-flow-trace.md) §10 | |
 
 **Where it fits with the other plan:** C1 and C2 are worth doing straight after PR 3B merges, because they help debug everything else (4C, 4D and the Docker work) with Claude reading the real logs. Suggested order: 3B, C1, C2, C3, then 4C, 4D, T1, T2, C4 to C7, then the Docker PRs. T2 (the CLI `workspace check` and `schema`) shares code with C4: write it once in `internal/workspace`.
 

@@ -22,11 +22,13 @@ type HistogramBucket struct {
 
 // Histogram is how many entries of each level matched a query over time.
 type Histogram struct {
-	From          time.Time         `json:"from"`
-	To            time.Time         `json:"to"`
-	BucketSeconds int               `json:"bucket_seconds"`
-	Total         int               `json:"total"`
-	Buckets       []HistogramBucket `json:"buckets"`
+	From          time.Time `json:"from"`
+	To            time.Time `json:"to"`
+	BucketSeconds int       `json:"bucket_seconds"`
+	Total         int       `json:"total"`
+	// Muted is how many more entries would have matched but for the muted patterns.
+	Muted   int               `json:"muted,omitempty"`
+	Buckets []HistogramBucket `json:"buckets"`
 }
 
 // bucketWidths are the widths a bucket may have, narrowest first.
@@ -57,15 +59,7 @@ func bucketFor(span time.Duration) time.Duration {
 func (s *Store) defaultStart(workspace, stack string, services []string, to time.Time) time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := s.stack(workspace, stack)
-	if len(services) > 0 {
-		for _, svc := range services {
-			s.service(svcKey{workspace, stack, svc})
-		}
-	} else if !st.discovered {
-		st.discovered = true
-		s.discover(workspace, stack)
-	}
+	s.prepare(workspace, stack, services)
 	var oldest time.Time
 	for k, sv := range s.svcs {
 		if k.workspace != workspace || k.stack != stack || (len(services) > 0 && !slices.Contains(services, k.service)) || sv.ring.len() == 0 {
@@ -95,25 +89,32 @@ func maxTime(a, b time.Time) time.Time {
 	return b
 }
 
-// Histogram counts the entries of a stack that pass the query's filters (service,
-// level, pattern, fields, group) by level and time. The range is Since to Until,
-// which default to the last hour up to now; paging and limit do not apply. It
-// reads each service's memory, and the day files of a service whose memory doesn't
-// reach back to the start of the range.
-func (s *Store) Histogram(workspace, stack string, q Query, now time.Time) (Histogram, error) {
+// plan is a validated time range cut into buckets, with the filters that pick the entries
+// and the services to read. Histogram and Trends share it.
+type plan struct {
+	from, to, start time.Time
+	width           time.Duration
+	n               int
+	services        []string
+	mt              *matcher
+}
+
+// planRange checks a query and works out its range and bucket grid. The range is Since to
+// Until, which default to the oldest line held up to now; paging and limit do not apply.
+func (s *Store) planRange(workspace, stack string, q Query, now time.Time) (plan, error) {
 	if !validNames(workspace, stack, "") {
-		return Histogram{}, ErrBadName
+		return plan{}, ErrBadName
 	}
 	services := slices.Clone(q.Services)
 	if q.Service != "" {
 		services = append(services, q.Service)
 	}
 	if len(services) > maxQueryServices {
-		return Histogram{}, badQuery("at most %d services", maxQueryServices)
+		return plan{}, badQuery("at most %d services", maxQueryServices)
 	}
 	for _, svc := range services {
 		if !validNames(workspace, stack, svc) {
-			return Histogram{}, ErrBadName
+			return plan{}, ErrBadName
 		}
 	}
 	to := q.Until
@@ -125,12 +126,12 @@ func (s *Store) Histogram(workspace, stack string, q Query, now time.Time) (Hist
 		from = s.defaultStart(workspace, stack, services, to)
 	}
 	if !to.After(from) {
-		return Histogram{}, badQuery("until must be after since")
+		return plan{}, badQuery("until must be after since")
 	}
 	q.Since, q.Until, q.Before, q.After = from, to, 0, 0
 	mt, err := q.matcher()
 	if err != nil {
-		return Histogram{}, err
+		return plan{}, err
 	}
 
 	width := bucketFor(to.Sub(from))
@@ -138,29 +139,65 @@ func (s *Store) Histogram(workspace, stack string, q Query, now time.Time) (Hist
 		width *= 2
 	}
 	start := from.UTC().Truncate(width)
-	n := int(to.Sub(start)/width) + 1
-	h := Histogram{From: from, To: to, BucketSeconds: int(width / time.Second), Buckets: make([]HistogramBucket, n)}
-	for i := range h.Buckets {
-		h.Buckets[i] = HistogramBucket{Time: start.Add(time.Duration(i) * width), Counts: map[string]int{}}
-	}
-	var mu sync.Mutex
-	count := func(e *Entry) {
-		i := int(e.Time.Sub(start) / width)
-		if i < 0 || i >= n {
-			return
-		}
-		level := e.Level
-		if level == "" {
-			level = LevelInfo
-		}
-		mu.Lock()
-		h.Buckets[i].Counts[level]++
-		h.Total++
-		mu.Unlock()
-	}
+	return plan{from: from, to: to, start: start, width: width, n: int(to.Sub(start)/width) + 1, services: services, mt: mt}, nil
+}
 
+// bucket is the index of the bucket an entry time falls in, or -1 when it is outside the range.
+func (p plan) bucket(t time.Time) int {
+	i := int(t.Sub(p.start) / p.width)
+	if i < 0 || i >= p.n {
+		return -1
+	}
+	return i
+}
+
+// scan calls f for every entry of the stack that passes the plan's filters. It reads each
+// service's memory, and the day files of a service whose memory doesn't reach back to the
+// start of the range. f may be called from several goroutines at once.
+func (s *Store) scan(workspace, stack string, p plan, f func(*Entry)) {
+	jobs := s.scanMemory(workspace, stack, p, f)
+	var wg sync.WaitGroup
+	for _, j := range jobs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			j.each(p.mt, f)
+		}()
+	}
+	wg.Wait()
+}
+
+// scanMemory calls f for the entries each service holds in memory and returns the day files that
+// also need reading: those of a service whose full memory starts after the range does.
+func (s *Store) scanMemory(workspace, stack string, p plan, f func(*Entry)) []scanJob {
 	var jobs []scanJob
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.prepare(workspace, stack, p.services)
+	for k, sv := range s.svcs {
+		if k.workspace != workspace || k.stack != stack || (len(p.services) > 0 && !slices.Contains(p.services, k.service)) {
+			continue
+		}
+		for i := 0; i < sv.ring.len(); i++ {
+			if e := sv.ring.ptr(i); p.mt.ok(e) {
+				f(e)
+			}
+		}
+		// A full memory, whose oldest line is newer than the start of the range, may
+		// have let go of lines that belong in it.
+		if sv.ring.len() >= s.o.Capacity && sv.ring.at(0).Time.After(p.from) {
+			if sv.file != nil {
+				_ = sv.file.flush()
+			}
+			jobs = append(jobs, scanJob{root: s.o.Dir, dir: s.serviceDir(k), maxSeq: sv.ring.at(0).Seq})
+		}
+	}
+	return jobs
+}
+
+// prepare makes sure the services to read are known: the ones asked for, or, for all of them, every
+// folder the stack has on disk (read once). The caller holds s.mu.
+func (s *Store) prepare(workspace, stack string, services []string) {
 	st := s.stack(workspace, stack)
 	if len(services) > 0 {
 		for _, svc := range services {
@@ -170,35 +207,41 @@ func (s *Store) Histogram(workspace, stack string, q Query, now time.Time) (Hist
 		st.discovered = true
 		s.discover(workspace, stack)
 	}
-	for k, sv := range s.svcs {
-		if k.workspace != workspace || k.stack != stack || (len(services) > 0 && !slices.Contains(services, k.service)) {
-			continue
-		}
-		for i := 0; i < sv.ring.len(); i++ {
-			if e := sv.ring.ptr(i); mt.ok(e) {
-				count(e)
-			}
-		}
-		// A full memory, whose oldest line is newer than the start of the range, may
-		// have let go of lines that belong in it.
-		if sv.ring.len() >= s.o.Capacity && sv.ring.at(0).Time.After(from) {
-			if sv.file != nil {
-				_ = sv.file.flush()
-			}
-			jobs = append(jobs, scanJob{root: s.o.Dir, dir: s.serviceDir(k), maxSeq: sv.ring.at(0).Seq})
-		}
-	}
-	s.mu.Unlock()
+}
 
-	var wg sync.WaitGroup
-	for _, j := range jobs {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			j.each(mt, count)
-		}()
+// Histogram counts the entries of a stack that pass the query's filters (service,
+// level, pattern, fields, group) by level and time. The range is Since to Until,
+// which default to the oldest line held up to now; paging and limit do not apply.
+func (s *Store) Histogram(workspace, stack string, q Query, now time.Time) (Histogram, error) {
+	p, err := s.planRange(workspace, stack, q, now)
+	if err != nil {
+		return Histogram{}, err
 	}
-	wg.Wait()
+	p.mt.keepMuted = true // muted entries are counted apart, not dropped
+	h := Histogram{From: p.from, To: p.to, BucketSeconds: int(p.width / time.Second), Buckets: make([]HistogramBucket, p.n)}
+	for i := range h.Buckets {
+		h.Buckets[i] = HistogramBucket{Time: p.start.Add(time.Duration(i) * p.width), Counts: map[string]int{}}
+	}
+	var mu sync.Mutex
+	s.scan(workspace, stack, p, func(e *Entry) {
+		i := p.bucket(e.Time)
+		if i < 0 {
+			return
+		}
+		level := e.Level
+		if level == "" {
+			level = LevelInfo
+		}
+		mu.Lock()
+		if p.mt.isMuted(e) {
+			h.Muted++
+			mu.Unlock()
+			return
+		}
+		h.Buckets[i].Counts[level]++
+		h.Total++
+		mu.Unlock()
+	})
 	return h, nil
 }
 

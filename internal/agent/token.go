@@ -44,6 +44,46 @@ func NewToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// SharedToken is the name the audit log gives the token in token_file.
+const SharedToken = "shared"
+
+// Token is a token and whose it is.
+type Token struct {
+	Name  string
+	Value []byte
+}
+
+// ReadTokens reads every token the configuration lists: token_file (as "shared") and each
+// named one. All must be long enough, private to their owner, and different from each other,
+// or the audit log couldn't tell two people apart.
+func ReadTokens(cfg Config) ([]Token, error) {
+	var out []Token
+	add := func(name, file string) error {
+		v, err := ReadToken(file)
+		if err != nil {
+			return fmt.Errorf("token %q: %w", name, err)
+		}
+		for _, o := range out {
+			if subtle.ConstantTimeCompare(o.Value, v) == 1 {
+				return fmt.Errorf("token %q is the same token as %q: give each person their own", name, o.Name)
+			}
+		}
+		out = append(out, Token{Name: name, Value: v})
+		return nil
+	}
+	if cfg.TokenFile != "" {
+		if err := add(SharedToken, cfg.TokenFile); err != nil {
+			return nil, err
+		}
+	}
+	for _, t := range cfg.Tokens {
+		if err := add(t.Name, t.File); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
 // tokenOK compares a presented token with the agent's in constant time.
 func tokenOK(got string, want []byte) bool {
 	return len(want) > 0 && subtle.ConstantTimeCompare([]byte(got), want) == 1

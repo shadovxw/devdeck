@@ -106,3 +106,39 @@ Versions (PR C/D), Up all / Down all, and showing whether a stack has an up scri
 
 - Part A is merged (#29) and runs on the first host. Part B is committed on `feat/host-writes-ui` (`d1fe40e`) and was tried in the app against that host; it is not pushed yet.
 - Done by hand on the first host for the next PRs: `.env` split into `.env` and `versions.env`, `agent.yaml` pointed at both (believed done; the image check passed). **Not done:** editing the stack's up script to read both env files, and checking whether the up script's extra compose file must be in the agent's `files`. Both are in [plan.md §12](plan.md#12-where-we-are-and-what-is-next-read-this-first), with the next PRs (4C agent versions, 4D devdeck Versions panel).
+
+## PR 4C and 4D, with named agent tokens: versions, Deploy, Roll back
+
+Built as one PR at the owner's request (the plan had 4C agent, 4D devdeck, named tokens and the test clean-up as separate PRs). Guide: [`docs/remote-versions.md`](../../docs/remote-versions.md); setting up a teammate: [`docs/teammate-setup.md`](../../docs/teammate-setup.md).
+
+### The agent (4C)
+
+- **`GET /v1/stacks/{stack}/versions`**: per compose service, where its image comes from. An image that is exactly a variable (`${AUTH_IMAGE}`, `${X:-default}`, `$X`) is editable when the variable is in the stack's `versions_file`; shown with the reason when the image is written in the compose file, pinned by digest, built from source, or its variable isn't in the versions file (it may be in `.env`, which the agent never opens). Each entry has the tag in the file, the tag the container runs, its state and health, and **differs** when they aren't the same. The compose view is read with `--no-interpolate`, so no value from an env file is filled in.
+- **`PUT /v1/stacks/{stack}/versions`** `{changes: [{service, tag}], apply}`: refused before anything runs when the stack is read-only (403), there is no versions file (400), a tag isn't `^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`, a service is listed twice, there are none or more than 50, a field is unknown, or a service doesn't exist (404) or can't be changed (400). Then, under the stack's lock (one write at a time, a second gets 409 busy) and as a stream like the other writes: it changes **only the tag after the last colon of that variable's last line** (quotes, `export`, spacing, comments, CRLF and every other line are kept byte for byte), keeps the old file as `versions.env.prev`, writes the new one in one step with **the old file's mode and owner** (the agent may run as root while the team edits the file by hand), and with `apply` runs `compose pull <services>` then `compose up -d --no-deps <services>`, then polls up to 2 minutes (3 s apart) for each service to run and, if it has a health check, be healthy. **A failed pull puts the file back** and nothing is restarted; **a failed recreate or a service that doesn't come up keeps the new tag** and is reported, with its last 50 log lines masked, so it can be rolled back. The last line carries `versions: [{service, tag, state, health, ok, detail, logs}]`. `apply: false` only saves. The same tag again is a redeploy (pull and recreate).
+- **`GET /v1/stacks/{stack}/versions/history`**: `versions.env.changes.log` next to the file (JSON lines: when, stack, service, variable, old, new, by, applied, ok, detail), newest first, `limit` 1 to 500. Roll back is the same PUT with the old tags.
+- **`Validate`**: a `versions_file` must also be listed in `env_files`, or compose would never read the tags the agent writes.
+- **Streaming**: `act` is now `streamWrite`, which any write can use with its own body; the done line may carry `versions`.
+
+### Named tokens (the audit gap from the Docker plan)
+
+- `agent.yaml` may list `tokens: [{name, file}]`, with or without `token_file` (named `shared` in the log). Names are lowercase ids, unique, `shared` is reserved; every token must be long enough, private to its owner (mode 600) and **different** from the others. A request is matched against every token in constant time. **The audit line of every request, and of every write, says `by`: the token's name**, never the token. `agent check` lists the token names. Nothing changes for a host that keeps one `token_file`.
+
+### devdeck (4D)
+
+- `remote.Client`: `Versions`, `VersionHistory`, `SetVersions` (with a JSON body) and `ActionRun.EachResult`; an agent from before versions answers 404 or 405 and devdeck says so (`ErrOldAgent`: "it can't report versions yet") instead of "Not Found". The API version stays 1: the routes are additive.
+- API: `GET`/`PUT /hosts/:ws/:host/stacks/:stack/versions` and `.../versions/history`, with the same refusals and the same streamed answer as the other writes.
+- **Remote hosts, stack, Versions tab**: the table (service, image, in the file, running with a **differs** mark, state as a word, a tag field, Redeploy), **Deploy** and **Save only** behind a confirmation that lists `api: 1.0.4 → 1.0.5` and says what will happen, the streamed output, each service's result (running and healthy, or didn't come up, with the reason and its log lines), and **Changes** with **Roll back** (asks first). A read-only stack shows the table with the fields disabled and no buttons. A stack with no versions file says how to enable it.
+- **Deploy after a build**: the Images page offers **Deploy to a host** after a successful push (when a host exists); it opens `/hosts?deploy=<repository>:<tag>`, where the stack's Versions tab fills in the tag for the services that use that repository, to check and deploy. A malformed `deploy` is ignored. The host still has to be connected by hand.
+- The old tests use neutral names (`acme`) instead of the real product's.
+
+### Checked
+
+- Agent: the image and env-file parsing and the tag edit (quotes, comments, CRLF, last line wins, digest, missing), the listing (editable, differs, the five reasons a service can't be changed), every refusal, save only (file, `.prev`, log, mode, no docker), apply (the exact pull and `up -d --no-deps` calls, polling until healthy, never `down` or `-v`), a failed pull (file restored, nothing logged), a failed recreate, an unhealthy service with masked logs, a crash and a service that never comes up, redeploy, one at a time per stack, history (order, limit, damaged line), config checks, named tokens (config, reading, every token signs in, the audit line says who, no token in the log, a write says who, no token lets nobody in, `agent check`). Cross-built for Linux (`owner_unix.go`).
+- devdeck: the client against a real agent handler, the old agent answers, the API through the fake tunnel (versions, a change, history, refusals, no token). Web: the Versions tab (fifteen cases including deploy-from-build and read-only), the Images deploy link, nav.
+
+### Not done or not tried
+
+- **Nothing was run on the real host**: it needs a new agent build (`agent-dev-3`) put there by hand as in §12, and the up script edit from §12 still stands. Try a Save only, then a Deploy of one service, then Roll back, in that order.
+- `chown` of the new file is best effort (it only works when the agent runs as root); a non-root agent writes as itself.
+- The MCP connector doesn't offer `host_versions` yet (Claude can read `host_compose` and `host_services`).
+- PR 5 (`bootstrap.sh`, release builds, `split-env`) is still not started: the env split in `docs/remote-versions.md` is the by-hand version.

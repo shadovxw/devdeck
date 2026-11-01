@@ -73,18 +73,18 @@ function mockServer(opts: Server = {}) {
       if (path === `${b}/info`) {
         if (opts.info) return json({ message: opts.info.error }, 502);
         hosts = hosts.map((h) => ({ ...h, tunnel: { open: true, port: 50123, users: 1 } }));
-        return json({ version: "1.0.0", api: 1, stacks: [{ id: "infrabot", name: "InfraBOT dev", allow_write: opts.writable === true, after: [] }] });
+        return json({ version: "1.0.0", api: 1, stacks: [{ id: "acme", name: "Acme apps", allow_write: opts.writable === true, after: [] }] });
       }
-      if (method === "POST" && path.startsWith(`${b}/stacks/infrabot/`)) {
-        const rest = path.slice(`${b}/stacks/infrabot/`.length);
+      if (method === "POST" && path.startsWith(`${b}/stacks/acme/`)) {
+        const rest = path.slice(`${b}/stacks/acme/`.length);
         if (rest === "services/api/restart") return ndjson([{ line: "Container acme-api  Restarting" }, { line: "Container acme-api  Started" }, { done: true, ok: true }]);
         if (rest === "pull") return ndjson([{ line: "pulling acme/api" }, { done: true, error: "docker ended with code 1: no such image" }]);
         if (rest === "up") return json({ message: "busy: restart api is still running" }, 409);
         if (rest === "script") return ndjson([{ line: "starting" }]); // the connection ends before the agent says how
         return ndjson([{ done: true, ok: true }]);
       }
-      if (path === `${b}/stacks/infrabot/services`) return json(services);
-      if (path === `${b}/stacks/infrabot/compose`)
+      if (path === `${b}/stacks/acme/services`) return json(services);
+      if (path === `${b}/stacks/acme/compose`)
         return json({
           name: "acme",
           services: [
@@ -93,7 +93,7 @@ function mockServer(opts: Server = {}) {
             { name: "nats", build: false, ports: [], depends_on: [], volumes: [], env: [] },
           ],
         });
-      if (path === `${b}/stacks/infrabot/logs`) {
+      if (path === `${b}/stacks/acme/logs`) {
         const service = new URL(url, "http://x").searchParams.get("service");
         if (service === "gateway") return json({ message: "the agent refused the saved token: save the token again" }, 502);
         if (service === "worker") return ndjson([{ service: "worker", error: "docker compose logs ended with code 1: no container" }]);
@@ -144,7 +144,7 @@ describe("the Remote hosts page", () => {
 
     fireEvent.click(card.getByRole("button", { name: "Connect" }));
     expect(await card.findByText("Agent 1.0.0 · 1 stack")).toBeTruthy();
-    const stack = within(card.getByRole("region", { name: "Stack InfraBOT dev" }));
+    const stack = within(card.getByRole("region", { name: "Stack Acme apps" }));
     expect(stack.getByText("read-only")).toBeTruthy();
     expect(await stack.findByText("acme/api:1.2")).toBeTruthy();
     expect(stack.getByText("Healthy")).toBeTruthy();
@@ -162,7 +162,7 @@ describe("the Remote hosts page", () => {
   it("shows the compose view with variable names only", async () => {
     mockServer({ hosts: [host({ tunnel: { open: true, users: 0 } })] });
     renderHosts();
-    const stack = within(await screen.findByRole("region", { name: "Stack InfraBOT dev" }));
+    const stack = within(await screen.findByRole("region", { name: "Stack Acme apps" }));
     fireEvent.click(stack.getByRole("tab", { name: "Compose" }));
     expect(await stack.findByText("${API_IMAGE}")).toBeTruthy();
     expect(stack.getByText("postgres (healthy)")).toBeTruthy();
@@ -173,18 +173,18 @@ describe("the Remote hosts page", () => {
   it("follows the logs of all services, or of the one picked", async () => {
     mockServer({ hosts: [host({ tunnel: { open: true, users: 0 } })] });
     renderHosts();
-    const stack = within(await screen.findByRole("region", { name: "Stack InfraBOT dev" }));
+    const stack = within(await screen.findByRole("region", { name: "Stack Acme apps" }));
     fireEvent.click(stack.getByRole("tab", { name: "Logs" }));
     expect(await stack.findByText("api started")).toBeTruthy();
     expect(stack.getByText("gateway listening on :8081")).toBeTruthy();
-    expect(sent("GET", "/stacks/infrabot/logs")[0].url).toContain("tail=200");
+    expect(sent("GET", "/stacks/acme/logs")[0].url).toContain("tail=200");
 
     // the Logs button of a row opens the logs of that service
     fireEvent.click(stack.getByRole("tab", { name: "Services" }));
     fireEvent.click(await stack.findByRole("button", { name: "Logs of worker" }));
     expect(await stack.findByText(/no container/)).toBeTruthy();
     expect((stack.getByLabelText("Service") as HTMLSelectElement).value).toBe("worker");
-    expect(sent("GET", "/stacks/infrabot/logs").at(-1)?.url).toContain("service=worker");
+    expect(sent("GET", "/stacks/acme/logs").at(-1)?.url).toContain("service=worker");
   });
 
   it("says what to do when it can't connect", async () => {
@@ -233,7 +233,7 @@ describe("the Remote hosts page, the less common paths", () => {
   it("shows the compose details of every kind of service", async () => {
     mockServer({ hosts: [host({ tunnel: { open: true, users: 0 } })] });
     renderHosts();
-    const stack = within(await screen.findByRole("region", { name: "Stack InfraBOT dev" }));
+    const stack = within(await screen.findByRole("region", { name: "Stack Acme apps" }));
     fireEvent.click(stack.getByRole("tab", { name: "Compose" }));
     expect(await stack.findByText("postgres (done), nats")).toBeTruthy();
     expect(stack.getByText("(built)")).toBeTruthy();
@@ -243,7 +243,7 @@ describe("the Remote hosts page, the less common paths", () => {
   it("says why the logs of a service were refused", async () => {
     mockServer({ hosts: [host({ tunnel: { open: true, users: 0 } })] });
     renderHosts();
-    const stack = within(await screen.findByRole("region", { name: "Stack InfraBOT dev" }));
+    const stack = within(await screen.findByRole("region", { name: "Stack Acme apps" }));
     fireEvent.click(await stack.findByRole("button", { name: "Logs of gateway" }));
     expect((await stack.findByRole("alert")).textContent).toContain("save the token again");
   });
@@ -273,7 +273,7 @@ describe("the Remote hosts page, the less common paths", () => {
 async function openStack(opts: Server = {}) {
   mockServer({ hosts: [host({ tunnel: { open: true, users: 0 } })], ...opts });
   renderHosts();
-  const stack = within(await screen.findByRole("region", { name: "Stack InfraBOT dev" }));
+  const stack = within(await screen.findByRole("region", { name: "Stack Acme apps" }));
   await stack.findByText("acme/api:1.2");
   return stack;
 }
@@ -302,9 +302,9 @@ describe("the Remote hosts page, writes", () => {
     fireEvent.click(stack.getByRole("button", { name: "Restart api" }));
     fireEvent.click(within(stack.getByRole("alertdialog")).getByRole("button", { name: "Restart api" }));
     expect(await stack.findByText("Restart api: done")).toBeTruthy();
-    expect(sent("POST", "/stacks/infrabot/services/api/restart")).toHaveLength(1);
+    expect(sent("POST", "/stacks/acme/services/api/restart")).toHaveLength(1);
     expect(stack.getByLabelText("Output").textContent).toContain("Container acme-api  Started");
-    await waitFor(() => expect(sent("GET", "/stacks/infrabot/services").length).toBeGreaterThan(1)); // the table refreshes
+    await waitFor(() => expect(sent("GET", "/stacks/acme/services").length).toBeGreaterThan(1)); // the table refreshes
 
     fireEvent.click(stack.getByRole("button", { name: "Dismiss" }));
     expect(stack.queryByLabelText("Last action")).toBeNull();
@@ -336,10 +336,10 @@ describe("the Remote hosts page, writes", () => {
       await stack.findByText(`${open}: done`);
     };
     await confirm("Stop all");
-    expect(sent("POST", "/stacks/infrabot/down").at(-1)?.url).not.toContain("mode=");
+    expect(sent("POST", "/stacks/acme/down").at(-1)?.url).not.toContain("mode=");
     fireEvent.click(stack.getByRole("button", { name: "Dismiss" }));
     await confirm("Remove containers");
-    expect(sent("POST", "/stacks/infrabot/down").at(-1)?.url).toContain("mode=down");
+    expect(sent("POST", "/stacks/acme/down").at(-1)?.url).toContain("mode=down");
   });
 
   it("shows a refusal, such as a stack that is busy", async () => {

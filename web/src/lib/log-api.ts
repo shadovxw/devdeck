@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, ApiError } from "./api";
 import { logQueryString, type LogQuery, type SavedLogFilter } from "./log-query";
-import type { LogGroup, LogHistogram } from "./types";
+import type { LogGroup, LogHistogram, LogTrends } from "./types";
 
 const stackUrl = (workspace: string, stack: string) => `/workspaces/${encodeURIComponent(workspace)}/stacks/${encodeURIComponent(stack)}/logs`;
 const filtersUrl = (workspace: string) => `/workspaces/${encodeURIComponent(workspace)}/log-filters`;
@@ -26,6 +26,18 @@ export function useLogHistogram(workspace: string, stack: string, query: LogQuer
   return useQuery({
     queryKey: ["log-histogram", workspace, stack, qs],
     queryFn: ({ signal }) => api.get<LogHistogram>(`${stackUrl(workspace, stack)}/histogram?${qs}`, signal),
+    enabled,
+    refetchInterval: live ? refreshMs : false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+/** Counts by service and by kind of error over time, for the sparklines; the service and group filters don't apply. */
+export function useLogTrends(workspace: string, stack: string, query: LogQuery, enabled: boolean, live: boolean) {
+  const qs = logQueryString({ ...query, services: undefined, group: undefined, before: undefined, after: undefined, limit: undefined });
+  return useQuery({
+    queryKey: ["log-trends", workspace, stack, qs],
+    queryFn: ({ signal }) => api.get<LogTrends>(`${stackUrl(workspace, stack)}/trends?${qs}`, signal),
     enabled,
     refetchInterval: live ? refreshMs : false,
     placeholderData: (previous) => previous,

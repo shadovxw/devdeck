@@ -404,8 +404,8 @@ describe("making a connection id from an account name", () => {
 });
 
 const repo = (over: Partial<GitRepo>): GitRepo => ({
-  workspace: "infrabot",
-  workspace_name: "infrabot",
+  workspace: "acme",
+  workspace_name: "acme",
   repo: "api",
   path: "C:/code/api",
   remote: "https://github.com/acme/api.git",
@@ -443,7 +443,7 @@ describe("the Repositories page", () => {
     renderAt("/repos");
     fireEvent.click(await screen.findByRole("button", { name: "Set the identity of frontend" }));
     await waitFor(() => expect(sent("POST", "/git/repos/identity")).toHaveLength(1));
-    expect(sent("POST", "/git/repos/identity")[0].body).toEqual({ workspace: "infrabot", repo: "frontend" });
+    expect(sent("POST", "/git/repos/identity")[0].body).toEqual({ workspace: "acme", repo: "frontend" });
   });
 
   it("says when all repositories are fine, and when there are none", async () => {

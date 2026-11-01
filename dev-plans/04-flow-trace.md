@@ -189,3 +189,58 @@ From Home: a failed or stuck flow in Activity links straight here, and the 3D ma
 - §4 Data model: `Flow` (definition in YAML), `FlowRun` (cached reconstruction), `FlowVerdict`.
 - §6 API: `GET /flows/:def/runs?key=` · `GET /flows/:def/runs/:key` (merged timeline) · `POST /flows/:def/test`.
 - §8 Phases: Phase 6c Flow trace v1, plus v2 in Phase 7b and v3 in Phase 7.
+
+---
+
+## 10. The view as a component, and "Claude renders it" (added 2026-10-31, not started)
+
+The trace UI is built as components that take **one plain data shape** and nothing else. Where the data comes from is a separate question, so the same view serves every source in §3, sample data while the backend does not exist yet, and Claude.
+
+### 10.1 The data shape (`FlowTrace`)
+
+One flow, as the mockup's `FAIL` and `STUCK` objects already model it:
+
+| Field | Meaning |
+|---|---|
+| `id`, `workflow`, `status`, `duration` | header: key (`TCK-1204`), workflow name, one of the five status words, total seconds |
+| `verdict` | one line plus a tooltip text; the rule that fired (§5) and the evidence event ids |
+| `sources` | which of DB / NATS / LOG / SPAN / TEST contributed |
+| `nodes` | the workflow strip: name, status, time per node |
+| `events` | merged timeline: id, time offset, source tag, lane, status, one-line title, key/value fields, optional text block and actions |
+| `spans`, `messages`, `calls`, `waits` | what the swimlanes draw; each points at an event id |
+| `issue` | the culprit lane and time, for the highlight and the "failure" zoom |
+
+Fields hold **names and ids, never secret values** (project rule). The TypeScript type and a JSON Schema for it live together, so the Go side and Claude produce the same shape.
+
+### 10.2 Components (Paper theme, plan 02)
+
+| Component | Draws |
+|---|---|
+| `TraceHeader` | search, recent flows as chips, verdict (status dot + word), duration, source chips |
+| `WorkflowStrip` | the nodes with a status dot and time |
+| `Swimlanes` | one lane per service, spans as bars, NATS hops as arrows, hatched waiting gaps, zoom presets (all, start, failure) |
+| `TraceEvents` | the merged list, each row tagged by source, click to select |
+| `TraceDetail` | the selected event: fields, text block, `file:line`, actions |
+
+All greyscale except status dots and the blue actions. Every picture has its list twin (the events list), so nothing depends on the lanes alone.
+
+### 10.3 "Claude renders it" (generative UI, decided)
+
+- Claude never sends UI code. It sends a `FlowTrace`, or a short explanation attached to an event, and devdeck draws it with the fixed components above. Nothing Claude generates is run, injected or evaluated.
+- A read-only connector tool `get_flow_trace` (connector plan C-later) returns the same `FlowTrace` JSON that the page uses, so Claude reads exactly what the person sees.
+- A trace that **Claude** builds (for example from logs it read) goes through `propose_trace` in the "Claude proposes, you approve" queue (connector plan §7): devdeck validates it against the schema, rejects what does not fit, shows it labelled "from Claude", and keeps it in memory only until the person saves or dismisses it.
+- Text from Claude is shown as plain text, never as markup. Anything that looks like a secret value is dropped by the same redaction the logs use.
+- Explanations ("why is this stuck?") reuse the connector prompts (`why-is-this-stack-failing`) and show in `TraceDetail` as a clearly marked note.
+
+Rejected: Claude writing HTML or React that devdeck runs at run time. It would need a sandbox and gives nothing the fixed components cannot show.
+
+### 10.4 Build order (four small PRs, one at a time)
+
+| PR | What | Done when |
+|---|---|---|
+| T-1 | `FlowTrace` types, JSON Schema, scale helpers for the lanes, four sample flows from the mockup (failed, stuck, two healthy), tests | helpers and sample data pass table tests; no UI |
+| T-2 | `Swimlanes` and `WorkflowStrip` on the sample data | the failed sample shows the culprit lane highlighted and the failure zoom |
+| T-3 | `TraceHeader`, `TraceEvents`, `TraceDetail`, the verdict, and a `/trace` page on sample data. Needs the round status dot from the Paper component work | the page works by keyboard; selecting a lane bar selects its event |
+| T-4 | Real data: backend `GET /flows/:def/runs/:key` (§9) feeding the same component, then `get_flow_trace` in the connector | a real failed run shows the right verdict; Claude reads the same JSON |
+
+T-1 to T-3 need no backend and no infrabot changes. Open: where the sample flows live once real data exists (kept as test fixtures, not in the shipped bundle).

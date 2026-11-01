@@ -66,8 +66,8 @@ const cmds = (name: string) => ({
   push: `git -C "C:/code/${name}" push`,
 });
 const repo = (over: Partial<GitRepo>): GitRepo => ({
-  workspace: "infrabot",
-  workspace_name: "infrabot",
+  workspace: "acme",
+  workspace_name: "acme",
   repo: "api",
   path: "C:/code/api",
   remote: "https://github.com/acme/api.git",
@@ -116,7 +116,7 @@ describe("the Repositories page, one repository", () => {
     renderRepos();
     fireEvent.click(await screen.findByRole("button", { name: "Fetch api" }));
     await waitFor(() => expect(ops()).toHaveLength(1));
-    expect(ops()[0].body).toEqual({ workspace: "infrabot", repo: "api", op: "fetch", confirm: false });
+    expect(ops()[0].body).toEqual({ workspace: "acme", repo: "api", op: "fetch", confirm: false });
     expect(await screen.findByText("From origin")).toBeTruthy();
   });
 
@@ -139,7 +139,7 @@ describe("the Repositories page, one repository", () => {
     fireEvent.click(screen.getByRole("button", { name: "Pull api" }));
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Run" }));
     await waitFor(() => expect(ops()).toHaveLength(1));
-    expect(ops()[0].body).toEqual({ workspace: "infrabot", repo: "api", op: "pull", confirm: true });
+    expect(ops()[0].body).toEqual({ workspace: "acme", repo: "api", op: "pull", confirm: true });
     expect(await screen.findByText("Fast-forward")).toBeTruthy();
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
@@ -192,7 +192,7 @@ describe("the Repositories page, all repositories", () => {
     expect(ops()).toHaveLength(0);
     fireEvent.click(dialog.getByRole("button", { name: "Pull all" }));
     await waitFor(() => expect(screen.getByText("Pulled 1 of 1.")).toBeTruthy());
-    expect(ops().map((c) => c.body)).toEqual([{ workspace: "infrabot", repo: "behind", op: "pull", confirm: true }]);
+    expect(ops().map((c) => c.body)).toEqual([{ workspace: "acme", repo: "behind", op: "pull", confirm: true }]);
   });
 
   it("clones all the missing repositories, and the buttons are off when there is nothing to do", async () => {

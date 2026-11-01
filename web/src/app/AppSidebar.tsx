@@ -50,7 +50,7 @@ function ActivePill() {
       // an instant cut when it came from the keyboard.
       transition={keyboard ? { duration: 0 } : springSnappy}
       aria-hidden
-      className="absolute inset-0 -z-10 rounded-md bg-sidebar-accent"
+      className="absolute inset-0 -z-10 bg-sidebar-accent"
     />
   );
 }
@@ -144,7 +144,7 @@ function Group({ group }: { group: NavGroup }) {
       <SidebarGroup className="px-2 py-0.5 group-data-[collapsible=icon]:py-0">
         <SidebarGroupLabel
           asChild
-          className="h-6 cursor-pointer text-[12px] text-ink-3 hover:text-ink group-data-[collapsible=icon]:hidden"
+          className="h-6 cursor-pointer font-mono text-[11px] uppercase tracking-[0.06em] text-ink-3 hover:text-ink group-data-[collapsible=icon]:hidden"
         >
           <CollapsibleTrigger>
             {group.name}

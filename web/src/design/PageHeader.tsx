@@ -15,10 +15,12 @@ type Props = {
   actions?: ReactNode;
   /** One line under the title saying what the page is for. */
   description?: string;
+  /** A status line under the title: dots, words and a mono uptime. */
+  summary?: ReactNode;
 };
 
 /** Breadcrumb and the page title: all a page needs at the top. */
-export function PageHeader({ title, group, parent, parentTo, actions, description }: Props) {
+export function PageHeader({ title, group, parent, parentTo, actions, description, summary }: Readonly<Props>) {
   return (
     <header className="enter" style={stagger(0)}>
       <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3">
@@ -39,10 +41,11 @@ export function PageHeader({ title, group, parent, parentTo, actions, descriptio
         <span className="font-medium text-ink">{title}</span>
       </nav>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h1 className="m-0 text-[32px] font-bold leading-tight tracking-tight text-ink">{title}</h1>
+        <h1 className="m-0 text-[30px] font-semibold leading-[34px] tracking-[-0.025em] text-ink">{title}</h1>
         {actions}
       </div>
       {description && <p className="m-0 mt-1 text-[14px] text-ink-3">{description}</p>}
+      {summary && <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-ink-2">{summary}</div>}
     </header>
   );
 }

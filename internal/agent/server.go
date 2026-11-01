@@ -64,25 +64,40 @@ type Runner interface {
 // Agent is the server.
 type Agent struct {
 	cfg     Config
-	token   []byte
+	tokens  []Token
 	run     Runner
 	log     zerolog.Logger
 	version string
 	// heartbeat is how often an idle log or action stream sends a heartbeat.
 	heartbeat time.Duration
+	// pollEvery and healthWait are how often, and for how long, a tag change waits for the
+	// changed services to run and be healthy.
+	pollEvery, healthWait time.Duration
 
 	// running holds the write each stack is busy with, by stack id: one at a time per stack.
 	mu      sync.Mutex
 	running map[string]string
 }
 
-// New makes an agent. run nil means the real docker.
+// New makes an agent that accepts one token, named "shared" in the audit log (none when
+// token is nil: add some with AddTokens). run nil means the real docker.
 func New(cfg Config, token []byte, run Runner, log zerolog.Logger, version string) *Agent {
 	if run == nil {
 		run = DockerRunner{}
 	}
-	return &Agent{cfg: cfg, token: token, run: run, log: log, version: version, heartbeat: 25 * time.Second, running: map[string]string{}}
+	a := &Agent{
+		cfg: cfg, run: run, log: log, version: version,
+		heartbeat: 25 * time.Second, pollEvery: 3 * time.Second, healthWait: 2 * time.Minute,
+		running: map[string]string{},
+	}
+	if len(token) > 0 {
+		a.tokens = []Token{{Name: SharedToken, Value: token}}
+	}
+	return a
 }
+
+// AddTokens makes the agent accept more tokens, each under its own name.
+func (a *Agent) AddTokens(t ...Token) { a.tokens = append(a.tokens, t...) }
 
 // Handler is the agent's HTTP API, behind the host check, the token and the audit log.
 func (a *Agent) Handler() http.Handler {
@@ -91,6 +106,9 @@ func (a *Agent) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/stacks/{stack}/compose", a.composeView)
 	mux.HandleFunc("GET /v1/stacks/{stack}/services", a.services)
 	mux.HandleFunc("GET /v1/stacks/{stack}/logs", a.logs)
+	mux.HandleFunc("GET /v1/stacks/{stack}/versions", a.versions)
+	mux.HandleFunc("GET /v1/stacks/{stack}/versions/history", a.versionHistory)
+	mux.HandleFunc("PUT /v1/stacks/{stack}/versions", a.setVersions)
 	mux.HandleFunc("POST /v1/stacks/{stack}/services/{svc}/{action}", a.serviceAct)
 	mux.HandleFunc("POST /v1/stacks/{stack}/{action}", a.stackAct)
 	return a.audit(loopbackHost(a.auth(mux)))
@@ -126,13 +144,42 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 	writeJSON(w, code, map[string]string{"message": msg})
 }
 
-// auth wants "Authorization: Bearer <token>".
+// caller is whose token a request carried, filled in by auth for the audit line.
+type caller struct{ name string }
+
+type callerKey struct{}
+
+// callerName is the name of the token the request came with, "" before auth.
+func callerName(r *http.Request) string {
+	if c, ok := r.Context().Value(callerKey{}).(*caller); ok {
+		return c.name
+	}
+	return ""
+}
+
+// tokenName is the name of the token that matches got, and whether any does. Every token is
+// compared in constant time, whichever matches first.
+func (a *Agent) tokenName(got string) (string, bool) {
+	name, found := "", false
+	for _, t := range a.tokens {
+		if tokenOK(got, t.Value) && !found {
+			name, found = t.Name, true
+		}
+	}
+	return name, found
+}
+
+// auth wants "Authorization: Bearer <token>" and notes whose token it was.
 func (a *Agent) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !ok || !tokenOK(got, a.token) {
+		name, known := a.tokenName(got)
+		if !ok || !known {
 			writeError(w, http.StatusUnauthorized, "a valid token is needed")
 			return
+		}
+		if c, ok := r.Context().Value(callerKey{}).(*caller); ok {
+			c.name = name
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -177,8 +224,9 @@ func (a *Agent) audit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		began := time.Now()
 		sw := &statusWriter{ResponseWriter: w, code: http.StatusOK}
-		next.ServeHTTP(sw, r)
-		a.log.Info().Str("method", r.Method).Str("path", r.URL.Path).Int("status", sw.code).Dur("took", time.Since(began)).Msg("request")
+		who := &caller{}
+		next.ServeHTTP(sw, r.WithContext(context.WithValue(r.Context(), callerKey{}, who)))
+		a.log.Info().Str("method", r.Method).Str("path", r.URL.Path).Int("status", sw.code).Str("by", who.name).Dur("took", time.Since(began)).Msg("request")
 	})
 }
 

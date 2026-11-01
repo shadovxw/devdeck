@@ -1,148 +1,95 @@
-/* Quiet Instrument tokens (dev-plans/02-frontend-design-system.md). Dark is the
-   default theme; light is complete and equal. Components use these variables,
-   and Tailwind utilities read them through @theme below. */
+/* "Paper" tokens (dev-plans/02-frontend-design-system.md). Light theme only: a white
+   page, greyscale UI, status dots for health and one blue for action. The dark theme
+   is rebuilt from the same rules later (design doc section 12). Components use these
+   variables, and Tailwind utilities read them through @theme in theme.css. */
 :root {
-  --bg: #0c1012;
-  --surface-1: #151c20;
-  --surface-2: #1b2428;
-  --fill: #1f292d;
-  --fill-hover: #273338;
-  --surface-inset: #090c0e;
-  --line: rgba(170, 215, 225, 0.09);
-  --line-strong: rgba(170, 215, 225, 0.18);
-  --ink: #e6edef;
-  --ink-2: #a7b4b8;
-  --ink-3: #788890;
-  --accent: #53d3e6;
-  --accent-soft: rgba(83, 211, 230, 0.14);
-  --on-accent: #04252b;
-  --scrim: rgba(3, 6, 8, 0.45);
-  --good: #0ca30c;
-  --warning: #fab219;
-  --serious: #ec835a;
-  --critical: #d03b3b;
-  --neutral: #788890;
-  --mark-prompt: #4ee8b5;
-  --mark-under: #2aeab4;
+  /* Ground and controls. */
+  --bg: #ffffff;
+  --fill: #f3f3f3;
+  --fill-hover: #ebebeb;
+  --fill-press: #e2e2e2;
+  --inset: #fafafa; /* a problem row's background; nothing else */
+  --surface-float: #ffffff; /* floating layers only, always with --shadow-float */
+  --scrim: rgba(10, 10, 10, 0.18);
+  --hairline: 0; /* border width, zero on purpose so nobody adds one */
+
+  /* Names older components still use. Cards are no longer different from the page,
+     and there are no borders, so --line stays transparent. */
+  --surface-1: var(--bg);
+  --surface-2: var(--surface-float);
+  --surface-inset: var(--inset);
+  --line: transparent;
+  --line-strong: transparent;
+
+  /* Text. */
+  --ink: #0a0a0a;
+  --ink-2: #3d3d3d;
+  --ink-3: #666666;
+
+  /* Action: the primary button, links and the focus ring. */
+  --primary: #0b3d91;
+  --primary-hover: #082f70;
+  --on-primary: #ffffff;
+  --link: #0b3d91;
+  --focus: #0b3d91;
+  --selected: #0a0a0a; /* selected tab, active nav, selected row: black, never blue */
+  --accent: var(--primary);
+  --accent-soft: rgba(11, 61, 145, 0.08);
+  --on-accent: var(--on-primary);
+
+  /* Status: always a round dot plus a word in --ink. */
+  --good: #13892f;
+  --warning: #b77f00;
+  --serious: #c4562b;
+  --critical: #c62f2f;
+  --neutral: #8a8a8a; /* stopped: an empty ring, not a dot */
+
+  /* The 60-minute status strip. */
+  --strip-ok: #e2e2e2;
+  --strip-idle: #a3a3a3;
+  --strip-off: #f3f3f3;
+  --strip-bad: #0a0a0a;
+
+  --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --radius: 0px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
-  /* Motion tokens (dev-plans/02-frontend-design-system.md section 2.4). The same
-     numbers are in src/lib/motion.ts for JavaScript animations; a test keeps
-     them equal. */
+  /* Motion tokens (dev-plans/02-frontend-design-system.md). The same numbers are in
+     src/lib/motion.ts for JavaScript animations; a test keeps them equal. */
   --dur-instant: 100ms;
   --dur-quick: 180ms;
   --dur-move: 320ms;
   --dur-scene: 700ms;
   --ease-scene: cubic-bezier(0.65, 0, 0.35, 1);
 
-  /* Brand colours (brand/README.md). Deliberately separate from the website accent
-     (--accent): the logo, wordmark and loader keep these in both themes. */
-  --brand: #1fe8bf;
-  --brand-dev: #f4f8f9;
-  --brand-deck-from: #13c8cc;
-  --brand-deck-to: #1fe8bf;
-
-  /* Sidebar: the same surface as the top bar and the cards (dark in the dark theme, white in the light theme). */
-  --sidebar: var(--surface-1);
-  --sidebar-foreground: #c9d6da;
-  --sidebar-primary: #53d3e6;
-  --sidebar-primary-foreground: #04252b;
-  --sidebar-accent: rgba(83, 211, 230, 0.16);
-  --sidebar-accent-foreground: #53d3e6;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #53d3e6;
-
-  /* Empty-state illustration. */
-  --tile-top: #243239;
-  --tile-side: #172228;
-  --tile-line: rgba(83, 211, 230, 0.32);
-  --tile-icon: #cfe6ea;
-  --tile-shadow: rgba(0, 0, 0, 0.35);
-  --center-top: #0e1d21;
-  --center-side: #060d10;
-  color-scheme: dark;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #f3f6f6;
-    --surface-1: #ffffff;
-    --surface-2: #ffffff;
-    --fill: #e9eff0;
-    --fill-hover: #dde6e8;
-    --surface-inset: #e4eaec;
-    --line: rgba(12, 40, 48, 0.1);
-    --line-strong: rgba(12, 40, 48, 0.2);
-    --ink: #0d1517;
-    --ink-2: #3d4b50;
-    --ink-3: #5f6f75;
-    --accent: #0a7c8f;
-    --accent-soft: rgba(10, 124, 143, 0.1);
-    --on-accent: #ffffff;
-    --scrim: rgba(13, 21, 23, 0.18);
-    --neutral: #5f6f75;
-    --mark-prompt: #0b0f12;
-    --mark-under: #0b0f12;
-    --sidebar: var(--surface-1);
-    --sidebar-foreground: #26373c;
-    --sidebar-primary: #0a7c8f;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: rgba(10, 124, 143, 0.1);
-    --sidebar-accent-foreground: #0a7c8f;
-    --sidebar-border: rgba(12, 40, 48, 0.1);
-    --sidebar-ring: #0a7c8f;
-    /* Brand colours on a light background (brand/README.md). */
-    --brand: #0bbfa9;
-    --brand-dev: #0b0f12;
-    --brand-deck-from: #0fb3b8;
-    --brand-deck-to: #0bbfa9;
-    --tile-top: #ffffff;
-    --tile-side: #cde3e5;
-    --tile-line: #b7d4d7;
-    --tile-icon: #17323a;
-    --tile-shadow: rgba(16, 50, 58, 0.18);
-    color-scheme: light;
-  }
-}
-
-:root[data-theme="light"] {
-  --bg: #f3f6f6;
-  --surface-1: #ffffff;
-  --surface-2: #ffffff;
-  --fill: #e9eff0;
-  --fill-hover: #dde6e8;
-  --surface-inset: #e4eaec;
-  --line: rgba(12, 40, 48, 0.1);
-  --line-strong: rgba(12, 40, 48, 0.2);
-  --ink: #0d1517;
-  --ink-2: #3d4b50;
-  --ink-3: #5f6f75;
-  --accent: #0a7c8f;
-  --accent-soft: rgba(10, 124, 143, 0.1);
-  --on-accent: #ffffff;
-  --scrim: rgba(13, 21, 23, 0.18);
-  --neutral: #5f6f75;
-  --mark-prompt: #0b0f12;
-  --mark-under: #0b0f12;
-  --sidebar: var(--surface-1);
-  --sidebar-foreground: #26373c;
-  --sidebar-primary: #0a7c8f;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(10, 124, 143, 0.1);
-  --sidebar-accent-foreground: #0a7c8f;
-  --sidebar-border: rgba(12, 40, 48, 0.1);
-  --sidebar-ring: #0a7c8f;
-  /* Brand colours on a light background (brand/README.md). */
+  /* Brand colours (brand/README.md). Deliberately separate from the action blue
+     (--primary): the logo, wordmark and loader keep these. */
   --brand: #0bbfa9;
   --brand-dev: #0b0f12;
   --brand-deck-from: #0fb3b8;
   --brand-deck-to: #0bbfa9;
+  --mark-prompt: #0b0f12;
+  --mark-under: #0b0f12;
+
+  /* Sidebar: on the page, no divider. The active item is a --fill block with --ink text. */
+  --sidebar: var(--bg);
+  --sidebar-foreground: #3d3d3d;
+  --sidebar-primary: #0a0a0a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f3f3f3;
+  --sidebar-accent-foreground: #0a0a0a;
+  --sidebar-border: transparent;
+  --sidebar-ring: #0b3d91;
+
+  /* Empty-state illustration. */
   --tile-top: #ffffff;
   --tile-side: #cde3e5;
   --tile-line: #b7d4d7;
   --tile-icon: #17323a;
   --tile-shadow: rgba(16, 50, 58, 0.18);
+  --center-top: #0e1d21;
+  --center-side: #060d10;
   color-scheme: light;
 }
 
