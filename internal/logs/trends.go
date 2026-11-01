@@ -77,8 +77,8 @@ func (s *Store) Trends(workspace, stack string, q Query, now time.Time) (Trends,
 	}, nil
 }
 
-// busiest lists series by total, highest first (ties by key), keeping at most max when max is set.
-func busiest(m map[string]*Series, max int) []Series {
+// busiest lists series by total, highest first (ties by key), keeping at most limit when limit is set.
+func busiest(m map[string]*Series, limit int) []Series {
 	out := make([]Series, 0, len(m))
 	for _, sr := range m {
 		out = append(out, *sr)
@@ -89,8 +89,8 @@ func busiest(m map[string]*Series, max int) []Series {
 		}
 		return out[i].Key < out[j].Key
 	})
-	if max > 0 && len(out) > max {
-		out = out[:max]
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
 	}
 	return out
 }

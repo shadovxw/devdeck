@@ -584,7 +584,11 @@ func readFile(path string, max int) []Entry {
 
 // discover reads back every service folder a stack has on disk. The caller holds s.mu.
 func (s *Store) discover(workspace, stack string) {
-	entries, err := os.ReadDir(filepath.Join(s.o.Dir, workspace, stack))
+	dir := filepath.Join(s.o.Dir, workspace, stack)
+	if !strings.HasPrefix(dir, filepath.Clean(s.o.Dir)+string(filepath.Separator)) {
+		return // never read outside the log folder, whatever the names were
+	}
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}

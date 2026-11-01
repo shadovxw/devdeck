@@ -113,7 +113,7 @@ async function openVersions(path = "/hosts") {
   if (tab.getAttribute("aria-selected") !== "true") fireEvent.click(tab);
 }
 
-const tagField = (service: string) => screen.findByLabelText(`New tag for ${service}`) as Promise<HTMLInputElement>;
+const tagField = async (service: string) => (await screen.findByLabelText(`New tag for ${service}`)) as HTMLInputElement;
 
 afterEach(() => {
   cleanup();
