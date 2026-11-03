@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/shadovxw/devdeck/internal/secrets"
 	"github.com/shadovxw/devdeck/internal/workspace"
@@ -15,6 +16,8 @@ type Hosts struct {
 	Workspaces *workspace.Manager
 	Secrets    secrets.Store
 	Tunnels    *Tunnels
+
+	signingIn sync.Map // host key → struct{}, while an AWS sign-in for it is open
 }
 
 // HostView is what the page shows about a host. It never carries the token.
@@ -34,6 +37,12 @@ type HostView struct {
 
 // ErrNoHost means no local workspace has a host by that id.
 var ErrNoHost = errors.New("no such host")
+
+// ErrNotAWS means the host isn't reached through AWS, so there is nothing to sign in to.
+var ErrNotAWS = errors.New("this host isn't reached through AWS")
+
+// ErrSigningIn means a sign-in for this host is already open in the browser.
+var ErrSigningIn = errors.New("a sign-in for this host is already open: finish it in the browser")
 
 // ErrNoToken means the host's token hasn't been saved yet.
 var ErrNoToken = errors.New("no token is saved for this host yet: paste the one `devdeck agent token` made on the host")

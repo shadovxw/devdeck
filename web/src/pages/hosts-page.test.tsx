@@ -33,7 +33,7 @@ const services = [
   { Name: "acme-worker", Service: "worker", Image: "acme/worker:1", State: "exited", Health: "", Status: "Exited (2)", ExitCode: 2, Publishers: [] },
 ];
 
-type Server = { hosts?: HostView[]; info?: { error: string }; writable?: boolean };
+type Server = { hosts?: HostView[]; info?: { error: string }; writable?: boolean; loginError?: string };
 
 function ndjson(lines: object[]): Response {
   const body = new ReadableStream<Uint8Array>({
@@ -48,6 +48,7 @@ function ndjson(lines: object[]): Response {
 
 function mockServer(opts: Server = {}) {
   let hosts = opts.hosts ?? [host()];
+  let signedIn = false;
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, init?: RequestInit) => {
@@ -70,8 +71,13 @@ function mockServer(opts: Server = {}) {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       if (path === `${b}/disconnect`) return Promise.resolve(new Response(null, { status: 204 }));
+      if (path === `${b}/aws-login` && method === "POST") {
+        if (opts.loginError) return json({ message: opts.loginError }, 502);
+        signedIn = true;
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
       if (path === `${b}/info`) {
-        if (opts.info) return json({ message: opts.info.error }, 502);
+        if (opts.info && !signedIn) return json({ message: opts.info.error }, 502);
         hosts = hosts.map((h) => ({ ...h, tunnel: { open: true, port: 50123, users: 1 } }));
         return json({ version: "1.0.0", api: 1, stacks: [{ id: "acme", name: "Acme apps", allow_write: opts.writable === true, after: [] }] });
       }
@@ -195,6 +201,30 @@ describe("the Remote hosts page", () => {
     expect((await card.findByRole("alert")).textContent).toContain("aws sso login --profile dev");
     expect(card.getByText("Can’t connect")).toBeTruthy();
     expect(card.getByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+
+  it("signs in to AWS from a button when the sign-in has expired, then connects", async () => {
+    mockServer({ info: { error: "your AWS sign-in has expired: run `aws sso login --profile dev`" } });
+    renderHosts();
+    const card = within(await screen.findByRole("region", { name: "Dev box" }));
+    expect(card.queryByRole("button", { name: "Sign in to AWS" })).toBeNull(); // only once it has failed
+    fireEvent.click(card.getByRole("button", { name: "Connect" }));
+    fireEvent.click(await card.findByRole("button", { name: "Sign in to AWS" }));
+
+    await waitFor(() => expect(sent("POST", "/aws-login")).toHaveLength(1));
+    // signed in: the connection is asked again and works
+    expect(await card.findByText("Connected")).toBeTruthy();
+    expect(card.queryByRole("button", { name: "Sign in to AWS" })).toBeNull();
+  });
+
+  it("says why a sign-in didn't finish, and offers it again", async () => {
+    mockServer({ info: { error: "your AWS sign-in has expired: run `aws sso login --profile dev`" }, loginError: "the AWS CLI isn't installed: install it, then sign in" });
+    renderHosts();
+    const card = within(await screen.findByRole("region", { name: "Dev box" }));
+    fireEvent.click(card.getByRole("button", { name: "Connect" }));
+    fireEvent.click(await card.findByRole("button", { name: "Sign in to AWS" }));
+    expect(await card.findByText(/the AWS CLI isn't installed/)).toBeTruthy();
+    expect((card.getByRole("button", { name: "Sign in to AWS" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("saves a token, refuses one that isn't, and can forget it", async () => {

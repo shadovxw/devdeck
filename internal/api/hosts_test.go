@@ -130,6 +130,12 @@ func fakeSSM(say string) remote.Starter {
 
 func hostServer(t *testing.T, say string) (*echo.Echo, *memSecrets) {
 	t.Helper()
+	return hostServerWith(t, fakeSSM(say))
+}
+
+// hostServerWith is hostServer with its own stand-in for the AWS CLI.
+func hostServerWith(t *testing.T, start remote.Starter) (*echo.Echo, *memSecrets) {
+	t.Helper()
 	dir := filepath.Join(t.TempDir(), "workspaces")
 	must(t, os.MkdirAll(filepath.Join(dir, "demo"), 0o755))
 	must(t, os.WriteFile(filepath.Join(dir, "demo", "workspace.yaml"), []byte(`version: 1
@@ -143,7 +149,7 @@ hosts:
 `), 0o600))
 	m := &workspace.Manager{Dir: dir, ExamplesDir: "../../examples/workspaces"}
 	store := &memSecrets{m: map[string]string{}}
-	tunnels := &remote.Tunnels{Start: fakeSSM(say), OpenWithin: 2 * time.Second}
+	tunnels := &remote.Tunnels{Start: start, OpenWithin: 2 * time.Second}
 	t.Cleanup(tunnels.Close)
 
 	guard, err := NewGuard("127.0.0.1:7070", nil)

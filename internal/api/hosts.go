@@ -20,8 +20,10 @@ func hostError(err error) error {
 	switch {
 	case errors.Is(err, remote.ErrNoHost):
 		return echo.NewHTTPError(http.StatusNotFound, err.Error())
-	case errors.Is(err, remote.ErrNoToken):
+	case errors.Is(err, remote.ErrNoToken), errors.Is(err, remote.ErrSigningIn):
 		return echo.NewHTTPError(http.StatusConflict, err.Error())
+	case errors.Is(err, remote.ErrNotAWS):
+		return echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error())
 	case errors.As(err, &refusal) && refusal.Status == http.StatusUnauthorized:
 		return echo.NewHTTPError(http.StatusBadGateway, "the agent refused the saved token: save the token again")
 	case errors.As(err, &refusal) && refusal.Status == http.StatusNotFound:
@@ -71,6 +73,15 @@ func registerHosts(g *echo.Group, h *remote.Hosts) {
 	one.PUT("/token", hostSetToken(h))
 	one.DELETE("/token", func(c echo.Context) error {
 		if err := h.DeleteToken(c.Param("ws"), c.Param("host")); err != nil {
+			return hostError(err)
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	// POST .../aws-login opens the AWS sign-in page in the browser (aws sso login) and waits
+	// until it is finished there. 204 when signed in. devdeck never sees a password.
+	one.POST("/aws-login", func(c echo.Context) error {
+		if err := h.SignIn(c.Request().Context(), c.Param("ws"), c.Param("host")); err != nil {
 			return hostError(err)
 		}
 		return c.NoContent(http.StatusNoContent)
