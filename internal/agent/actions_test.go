@@ -306,3 +306,46 @@ func TestDockerRunnerExec(t *testing.T) {
 		t.Error("a program that can't start")
 	}
 }
+
+// lockProbe notes whether the stack is still locked at the moment the last line is written.
+type lockProbe struct {
+	*httptest.ResponseRecorder
+	locked func() bool
+	// atDone is set when the "done" line is written.
+	atDone *bool
+}
+
+func (p *lockProbe) Write(b []byte) (int, error) {
+	if bytes.Contains(b, []byte(`"done":true`)) {
+		*p.atDone = p.locked()
+	}
+	return p.ResponseRecorder.Write(b)
+}
+
+// A client that starts its next write the moment it reads "done" must not find the stack busy, so the
+// stack is unlocked before the last line goes out (it used to be unlocked after, and a quick next write
+// sometimes got "busy: ... is still running").
+func TestTheStackIsFreeWhenTheLastLineGoesOut(t *testing.T) {
+	for name, f := range map[string]*fakeRunner{
+		"a write that worked": newWriteFake(),
+		"a write that fails":  func() *fakeRunner { f := newWriteFake(); f.execErr = errors.New("docker ended with code 1"); return f }(),
+	} {
+		a, h := newTestAgent(f)
+		req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7071/v1/stacks/apps/services/api/restart", nil)
+		req.Header.Set("Authorization", "Bearer "+testToken)
+		lockedAtDone := true
+		probe := &lockProbe{ResponseRecorder: httptest.NewRecorder(), atDone: &lockedAtDone, locked: func() bool {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			_, busy := a.running["apps"]
+			return busy
+		}}
+		h.ServeHTTP(probe, req)
+		if lockedAtDone {
+			t.Errorf("%s: the stack was still locked when the last line was written", name)
+		}
+		if got := actionLines(t, probe.Body.String()); len(got) == 0 || !got[len(got)-1].Done {
+			t.Errorf("%s: no last line: %+v", name, got)
+		}
+	}
+}

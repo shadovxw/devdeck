@@ -153,11 +153,15 @@ func (a *Agent) act(w http.ResponseWriter, r *http.Request, s Stack, what write,
 // runs to its end (or to actionTimeout) and the stack stays locked until then. body does the
 // work, handing each line of output to line; the results it returns go on the last line.
 func (a *Agent) streamWrite(w http.ResponseWriter, r *http.Request, s Stack, what write, body func(ctx context.Context, line func(string)) ([]VersionResult, error)) {
-	release, busy := a.lock(s.ID, what)
-	if release == nil {
+	unlock, busy := a.lock(s.ID, what)
+	if unlock == nil {
 		writeError(w, http.StatusConflict, "busy: "+busy+" is still running")
 		return
 	}
+	// The stack is unlocked before the last line goes out: a client that starts its next write the moment it
+	// reads "done" must not find the stack still busy. The defer covers an early return.
+	var once sync.Once
+	release := func() { once.Do(unlock) }
 	defer release()
 
 	fl, _ := w.(http.Flusher)
@@ -208,6 +212,7 @@ func (a *Agent) streamWrite(w http.ResponseWriter, r *http.Request, s Stack, wha
 		audit.Info().Msg("write")
 	}
 
+	release()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			err = errors.New("stopped after " + actionTimeout.String())

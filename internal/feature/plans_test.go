@@ -106,11 +106,12 @@ func TestLoadPlans(t *testing.T) {
 
 func TestPlanFiles(t *testing.T) {
 	ctx := context.Background()
-	g, env, _ := plansRepo(t)
+	g, env, wt := plansRepo(t)
+	put(t, wt, "reviews/a1-x.md", "from a folder\n")
 	plans, _ := LoadPlans(ctx, g, env)
 	blob, other := &plans[0], &plans[2]
 
-	if got := Files(ctx, g, env, blob); !slices.Equal(got, []string{"README.md", "changes.md", "feature.yaml", "plan.md"}) {
+	if got := Files(ctx, g, env, blob); !slices.Equal(got, []string{"README.md", "changes.md", "feature.yaml", "plan.md", "reviews/a1-x.md"}) {
 		t.Errorf("blob files = %v (from the folder, with the change not yet committed, and without .git)", got)
 	}
 	if got := Files(ctx, g, env, other); !slices.Equal(got, []string{"README.md", "feature.yaml", "reviews/a1-claude.md"}) {
@@ -119,6 +120,12 @@ func TestPlanFiles(t *testing.T) {
 
 	if text, err := ReadFile(ctx, g, env, blob, "changes.md"); err != nil || text != "not committed yet\n" {
 		t.Errorf("a file only in the folder: %q, %v", text, err)
+	}
+	if text, err := ReadFile(ctx, g, env, blob, "reviews/a1-x.md"); err != nil || text != "from a folder\n" {
+		t.Errorf("a file in a sub-folder of the worktree: %q, %v", text, err)
+	}
+	if _, err := ReadFile(ctx, g, env, blob, ".git"); err == nil {
+		t.Errorf("the worktree's .git file isn't part of the plan")
 	}
 	if text, err := ReadFile(ctx, g, env, other, "reviews/a1-claude.md"); err != nil || text != "ok\n" {
 		t.Errorf("a file read through git: %q, %v", text, err)

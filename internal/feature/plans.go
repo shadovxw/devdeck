@@ -167,18 +167,22 @@ func ReadFile(ctx context.Context, g Git, env Env, p *Plan, rel string) (string,
 		return "", fmt.Errorf("%q isn't a file of the plan", rel)
 	}
 	if p.Worktree != "" {
-		path, ok := workspace.JoinInside(p.Worktree, clean)
-		if !ok {
-			return "", fmt.Errorf("%q isn't a file of the plan", rel)
+		// The file opened is one found by walking the plan's folder, never a path built from rel, so a
+		// name that isn't in the plan (or a symlink that points out of it) can't be opened.
+		for _, f := range planFiles(p.Worktree) {
+			if f != clean {
+				continue
+			}
+			b, err := os.ReadFile(filepath.Join(p.Worktree, filepath.FromSlash(f)))
+			if err != nil {
+				break
+			}
+			if len(b) > 256<<10 {
+				b = b[:256<<10]
+			}
+			return string(b), nil
 		}
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return "", fmt.Errorf("%s isn't in the plan", clean)
-		}
-		if len(b) > 256<<10 {
-			b = b[:256<<10]
-		}
-		return string(b), nil
+		return "", fmt.Errorf("%s isn't in the plan", clean)
 	}
 	return g.Show(ctx, env.PlansRepo, p.rev, clean)
 }
@@ -189,24 +193,7 @@ func Files(ctx context.Context, g Git, env Env, p *Plan) []string {
 	if p.Worktree == "" {
 		files, _ = g.Files(ctx, env.PlansRepo, p.rev)
 	} else {
-		_ = filepath.WalkDir(p.Worktree, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return nil
-			}
-			// In a worktree .git is a file that points at the repository, not a folder.
-			if d.Name() == ".git" {
-				if d.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if d.Type().IsRegular() {
-				if rel, err := filepath.Rel(p.Worktree, path); err == nil {
-					files = append(files, filepath.ToSlash(rel))
-				}
-			}
-			return nil
-		})
+		files = planFiles(p.Worktree)
 	}
 	slices.Sort(files)
 	if len(files) > maxListed {
@@ -215,5 +202,29 @@ func Files(ctx context.Context, g Git, env Env, p *Plan) []string {
 	if files == nil {
 		files = []string{}
 	}
+	return files
+}
+
+// planFiles lists the regular files under a plan's folder, as paths with forward slashes. The .git entry
+// (in a worktree a file that points at the repository, not a folder) is left out, and so is any symlink.
+func planFiles(root string) []string {
+	var files []string
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.Name() == ".git" {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Type().IsRegular() {
+			if rel, err := filepath.Rel(root, path); err == nil {
+				files = append(files, filepath.ToSlash(rel))
+			}
+		}
+		return nil
+	})
 	return files
 }
