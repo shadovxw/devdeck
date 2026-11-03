@@ -28,7 +28,8 @@ change anything. devdeck has to be running (DEVDECK_ADDR, default 127.0.0.1:7070
 
 const instructions = "Read-only view of the user's running devdeck, their local developer cockpit. " +
 	"Start with devdeck_status to see what is running. Secrets are never available: " +
-	"environment variable values are hidden and tokens are not exposed. If a tool says devdeck isn't running, ask the user to open the devdeck app."
+	"environment variable values are hidden and tokens are not exposed. If a tool says devdeck isn't running, ask the user to open the devdeck app. " +
+	"For how to do something in devdeck (set it up, build and push images, remote hosts, changing a tag, the agent), read its guides with get_guide before answering."
 
 // Env is what the command reads and writes. Tests replace the parts they need.
 type Env struct {

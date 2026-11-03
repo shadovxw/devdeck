@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/shadovxw/devdeck/docs"
 	"github.com/shadovxw/devdeck/internal/workspace"
 )
 
@@ -37,7 +38,7 @@ func parseKind(s string) (workspace.Kind, error) {
 	return "", fmt.Errorf("kind must be one of: %s", strings.Join(kindEnum(), ", "))
 }
 
-// Resources are the JSON Schemas of devdeck's files, built into the program.
+// Resources are the JSON Schemas of devdeck's files and devdeck's guides, built into the program.
 func Resources() []Resource {
 	var out []Resource
 	for _, k := range kinds {
@@ -49,7 +50,7 @@ func Resources() []Resource {
 			Read:        func() (string, error) { b, err := workspace.SchemaJSON(k); return string(b), err },
 		})
 	}
-	return out
+	return append(out, guideResources(docs.FS)...)
 }
 
 func checkTools(c *client) []Tool {
@@ -72,6 +73,7 @@ func checkTools(c *client) []Tool {
 			}, "kind", "yaml"),
 			Call: c.validate,
 		},
+		guideTool(docs.FS),
 	}
 }
 

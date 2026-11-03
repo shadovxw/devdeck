@@ -76,6 +76,7 @@ func Register(e *echo.Echo, d Deps) {
 	})
 	registerPlugins(v1, d.Plugins)
 	registerUIState(v1)
+	registerDocs(v1)
 	registerStandalone(v1, d)
 	if d.Workspaces != nil {
 		registerWorkspaces(v1, d.Workspaces, d.Supervisor)

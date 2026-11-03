@@ -38,7 +38,8 @@ func TestResources(t *testing.T) {
 		t.Error("initialize doesn't announce resources")
 	}
 	list := answers[1]["result"].(map[string]any)["resources"].([]any)
-	if len(list) != 3 || list[0].(map[string]any)["uri"] != "devdeck://schema/workspace" {
+	// the three schemas come first, then the guides
+	if len(list) < 4 || list[0].(map[string]any)["uri"] != "devdeck://schema/workspace" || list[3].(map[string]any)["uri"] != "devdeck://docs/claude-quickstart" {
 		t.Errorf("resources = %v", list)
 	}
 	content := answers[2]["result"].(map[string]any)["contents"].([]any)[0].(map[string]any)

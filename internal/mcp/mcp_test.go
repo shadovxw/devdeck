@@ -102,7 +102,7 @@ func TestProtocol(t *testing.T) {
 			t.Errorf("%v isn't marked read-only", tool["name"])
 		}
 	}
-	if got := strings.Join(names, ","); got != "devdeck_status,list_workspaces,get_workspace,doctor,query_logs,log_histogram,log_groups,list_hosts,host_info,host_services,host_compose,host_logs,get_schema,validate_workspace_yaml,git_accounts,git_repos,get_ui_state" {
+	if got := strings.Join(names, ","); got != "devdeck_status,list_workspaces,get_workspace,doctor,query_logs,log_histogram,log_groups,list_hosts,host_info,host_services,host_compose,host_logs,get_schema,validate_workspace_yaml,get_guide,git_accounts,git_repos,get_ui_state" {
 		t.Errorf("tools = %s", got)
 	}
 	if code := answers[3]["error"].(map[string]any)["code"]; code != float64(codeMethodNotFound) {

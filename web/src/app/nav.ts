@@ -1,6 +1,7 @@
 import {
   Bell,
   Bot,
+  BookOpen,
   Boxes,
   Container,
   Database,
@@ -365,6 +366,15 @@ const GROUPS: GroupDef[] = [
           headline: "Nothing checked yet",
           text: "Check that your machine has everything a workspace needs. Tool status is already on the Plugins page.",
           cta: { label: "See tool status", icon: Puzzle, to: "/plugins" },
+        },
+      },
+      {
+        path: "/docs",
+        label: "Docs",
+        icon: BookOpen,
+        empty: {
+          headline: "No guides",
+          text: "The guides that come with devdeck are listed here.",
         },
       },
       {

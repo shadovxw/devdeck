@@ -4,6 +4,8 @@ devdeck has a connector for [Claude Code](https://claude.com/claude-code). Once 
 
 ## Connect it
 
+For a teammate: [`claude-quickstart.md`](claude-quickstart.md) has a block to paste into Claude Code that does the steps below and checks them.
+
 devdeck has to be installed (the installer, or a `devdeck.exe` you built) and Claude Code too. Then, in a terminal:
 
 ```powershell
@@ -31,8 +33,9 @@ devdeck must be running for Claude to read anything: the connector asks the runn
 | Git accounts | `git_accounts`, `git_repos` | on |
 | What's on your screen | `get_ui_state` | on |
 | Remote hosts | `list_hosts`, `host_info`, `host_services`, `host_compose`, `host_logs` | **off** |
+| devdeck's own guides | `get_guide`, and the resources `devdeck://docs/<name>` | always on (no switch) |
 
-`get_schema` and the three schemas (`devdeck://schema/workspace`, `stack`, `flow`) are built in and work even when devdeck isn't running. Claude Code also offers four prompts: **why-is-this-stack-failing**, **compare-host-and-local**, **explain-this-screen** and **check-my-workspace-yaml**.
+`get_schema` and the three schemas (`devdeck://schema/workspace`, `stack`, `flow`) are built in and work even when devdeck isn't running. So are the guides: `get_guide` with no id lists them, with an id reads one (the same guides as **Docs** in the app: setup, Docker builds, remote hosts and tags, this connector). That is how Claude answers "how do I…?" about devdeck from the guide instead of guessing. They are public text with nothing about you in them, so they have no switch and are not noted in the Claude access list. Claude Code also offers four prompts: **why-is-this-stack-failing**, **compare-host-and-local**, **explain-this-screen** and **check-my-workspace-yaml**.
 
 ## What Claude never gets
 
