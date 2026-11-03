@@ -33,10 +33,14 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "path": { "type": "string", "minLength": 1, "description": "Folder of the repository, relative to the workspace root." },
-        "type": { "enum": ["go", "node", "python", "docker", "other"] },
+        "type": { "type": "string", "enum": ["go", "node", "python", "docker", "other"] },
         "remote": { "type": "string", "description": "Where it lives, as host/owner/repo (no credentials)." },
         "connection": { "type": "string", "description": "Overrides the account rules for this repo." },
         "default_branch": { "type": "string" },
+        "local_only": {
+          "type": "boolean",
+          "description": "This folder is not meant to be a git repository (for example infrastructure that only runs locally): devdeck stops warning that it has no .git, and has no remote to check."
+        },
         "images": {
           "type": "array",
           "description": "Docker images built from this repository.",
@@ -124,7 +128,7 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "name": { "type": "string", "maxLength": 80 },
-        "type": { "enum": ["aws-ssm"], "description": "How devdeck reaches it: aws-ssm opens an SSM port-forwarding session with the AWS CLI." },
+        "type": { "type": "string", "enum": ["aws-ssm"], "description": "How devdeck reaches it: aws-ssm opens an SSM port-forwarding session with the AWS CLI." },
         "aws": {
           "type": "object",
           "additionalProperties": false,

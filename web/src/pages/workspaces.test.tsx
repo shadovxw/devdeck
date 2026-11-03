@@ -13,7 +13,8 @@ const demo: WorkspaceSummary = {
   name: "demo",
   source: "local",
   root: "~/code",
-  repos: 2,
+  repos: 3,
+  repo_types: { go: 1, node: 1, other: 1 },
   stacks: 1,
   flows: 0,
   errors: 1,
@@ -22,14 +23,32 @@ const demo: WorkspaceSummary = {
 
 const issues: Issue[] = [
   { file: "stacks/full.yaml", path: "/services/1/repo", line: 9, severity: "error", message: 'There is no repo with id "ghost".' },
-  { file: "workspace.yaml", line: 3, severity: "warning", message: "The folder doesn’t exist on this machine." },
+  {
+    file: "workspace.yaml",
+    line: 3,
+    severity: "warning",
+    message: "This folder isn't a git repository (no .git inside).",
+    code: "repo-not-git",
+    fixes: [
+      { id: "mark-local-only", label: "Mark local_only: true", kind: "edit" },
+      { id: "git-init", label: "Run git init", kind: "action" },
+    ],
+  },
 ];
 
 const detail: WorkspaceDetail = {
   ...demo,
-  workspace: { name: "demo", root: "~/code", repos: [{ id: "api", path: "api", type: "go", remote: "github.com/acme/api" }] },
-  stacks: [{ name: "full" }],
-  flows: [],
+  workspace: {
+    name: "demo",
+    root: "~/code",
+    repos: [
+      { id: "api", path: "api", type: "go", remote: "github.com/acme/api" },
+      { id: "web", path: "web", type: "node", remote: "github.com/acme/web" },
+      { id: "infra", path: "infra", local_only: true },
+    ],
+  },
+  stacks: [{ name: "full", services: [{ id: "api", kind: "process" }] }],
+  flows: [{ name: "nightly" }],
   issues,
 };
 
@@ -41,7 +60,24 @@ const calls: string[] = [];
 /** Whether a DELETE for the demo workspace was sent. */
 const deleted = () => calls.includes("DELETE /api/v1/workspaces/demo");
 
-const sample: WorkspaceSummary = { ...demo, id: "acme-shop", name: "acme-shop", source: "example", root: "~/code/acme-shop", repos: 3, stacks: 2, flows: 1, errors: 0, warnings: 0 };
+const sample: WorkspaceSummary = { ...demo, repo_types: undefined, id: "acme-shop", name: "acme-shop", source: "example", root: "~/code/acme-shop", repos: 3, stacks: 2, flows: 1, errors: 0, warnings: 0 };
+
+const git = (repo: string, state: string, work?: object) => ({
+  workspace: "demo",
+  workspace_name: "demo",
+  repo,
+  path: `C:/code/${repo}`,
+  remote: "",
+  expected: { name: "", email: "" },
+  actual: { name: "", email: "" },
+  state,
+  work,
+});
+const gitRows = [
+  git("api", "ok", { branch: "main", detached: false, upstream: "origin/main", ahead: 0, behind: 0, changed: 2 }),
+  git("web", "no-rule", { branch: "dev", detached: false, upstream: "origin/dev", ahead: 0, behind: 0, changed: 0 }),
+  git("infra", "no-remote"),
+];
 
 const chosen = "/home/me/code";
 /** Lets a test finish a folder dialog that is still open. */
@@ -66,6 +102,9 @@ function mockServer(
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       if (url === "/api/v1/workspaces/demo") return Promise.resolve(Response.json(detail));
+      if (url === "/api/v1/workspaces/acme-shop") return Promise.resolve(Response.json({ ...sample, workspace: { name: "acme-shop", root: "~/code/acme-shop", repos: [] }, stacks: [], flows: [], issues: [] }));
+      if (url === "/api/v1/workspaces/demo/file") return Promise.resolve(Response.json({ yaml: draft, hash: "h1", path: "/code/demo/workspace.yaml" }));
+      if (url === "/api/v1/git/repos") return Promise.resolve(Response.json(gitRows));
       if (url === "/api/v1/system/pick-folder") {
         if (opts.pick === "cancel") return Promise.resolve(new Response(null, { status: 204 }));
         if (opts.pick === "error") return Promise.resolve(Response.json({ message: "the folder dialog couldn't be opened: type the folder’s path instead" }, { status: 500 }));
@@ -122,36 +161,32 @@ describe("workspaces page", () => {
     expect(drawer.getByLabelText(/Folder that contains/)).toBeTruthy();
   });
 
-  it("shows each workspace as a card with its counts and problems", async () => {
+  it("shows each workspace as a card with its counts, its problems and its mix of types", async () => {
     mockServer({ list: [demo, sample] });
     renderAt("/workspaces");
 
-    const card = within(await screen.findByRole("listitem", { name: "Workspace demo" }));
+    const card = within(await screen.findByRole("button", { name: "Workspace demo" }));
     expect(card.getByText("Yours")).toBeTruthy();
     expect(card.getByText("~/code")).toBeTruthy();
-    expect(card.getByText("Repos").nextElementSibling?.textContent).toBe("2");
-    expect(card.getByText("Stacks").nextElementSibling?.textContent).toBe("1");
-    expect(card.getByText("Flows").nextElementSibling?.textContent).toBe("0");
-    expect(card.getByTitle("1 error")).toBeTruthy();
-    expect(card.getByTitle("1 warning")).toBeTruthy();
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(card.getByText("repos").previousElementSibling?.textContent).toBe("3");
+    expect(card.getByText("stacks").previousElementSibling?.textContent).toBe("1");
+    expect(card.getByText("flows").previousElementSibling?.textContent).toBe("0");
+    expect(card.getByText("problems").previousElementSibling?.textContent).toMatch(/2$/);
+    expect(card.getByRole("img", { name: "Repos by type: go 1, node 1, other 1" })).toBeTruthy();
 
-    const other = within(screen.getByRole("listitem", { name: "Workspace acme-shop" }));
+    const other = within(screen.getByRole("button", { name: "Workspace acme-shop" }));
     expect(other.getByText("Example")).toBeTruthy();
-    expect(other.getByText("Problems").nextElementSibling?.textContent).toBe("None");
+    expect(other.getByText("problems").previousElementSibling?.textContent).toBe("0");
+    expect(other.queryByRole("img")).toBeNull(); // no types to show
   });
 
-  it("puts Add workspace on the title's line, at the right, and opens the drawer from it", async () => {
+  it("puts Add workspace on the title's line, and opens the drawer from it or from the tile", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces");
-    const add = await screen.findByRole("button", { name: /Add workspace/ });
-    await screen.findByRole("listitem", { name: "Workspace demo" });
-    // same row as the page title (inside the header), pushed to the right, and no "1 workspace" count
-    const row = add.parentElement as HTMLElement;
-    expect(row.className).toContain("justify-between");
-    expect(within(row).getByRole("heading", { level: 1, name: "Workspaces" })).toBeTruthy();
-    expect(row.closest("header")).toBeTruthy();
-    expect(screen.queryByText(/\d+ workspaces?$/)).toBeNull();
+    const add = await screen.findByRole("button", { name: /^Add workspace/ });
+    await screen.findByRole("button", { name: "Workspace demo" });
+    expect(add.closest("header")).toBeTruthy();
+    expect(within(add.closest("header") as HTMLElement).getByRole("heading", { level: 1, name: "Workspaces" })).toBeTruthy();
 
     fireEvent.click(add);
     expect(await screen.findByRole("dialog", { name: "Add a workspace" })).toBeTruthy();
@@ -159,29 +194,137 @@ describe("workspaces page", () => {
     // the drawer closes again with Escape, and leaves the list as it was
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByRole("listitem", { name: "Workspace demo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Workspace demo" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /Add a workspace/ }));
+    expect(await screen.findByRole("dialog", { name: "Add a workspace" })).toBeTruthy();
   });
+
+  it("shows the first workspace's repos with their git state, and filters them", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces");
+    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
+    const table = within(await details.findByRole("table", { name: "Repositories of demo" }));
+
+    // the file's repos are joined with what git says about each folder
+    const api = within(table.getByText("api").closest("tr") as HTMLElement);
+    expect(api.getByText("main")).toBeTruthy();
+    expect(api.getByText("2 changed")).toBeTruthy();
+    expect(api.getByText("github.com/acme/api")).toBeTruthy();
+    const web = within(table.getByText("web").closest("tr") as HTMLElement);
+    expect(web.getByText("clean")).toBeTruthy();
+
+    // a folder that isn't a git repository, marked local-only, goes in its own group at the end
+    expect(table.getByText(/Local only/)).toBeTruthy();
+    const infra = within(table.getByText("infra").closest("tr") as HTMLElement);
+    expect(infra.getByText("no .git")).toBeTruthy();
+
+    // one repo is behind a remote whose profile isn't set up: a pointer to the Repositories page
+    expect(details.getByRole("link", { name: "Open Repositories" })).toBeTruthy();
+
+    // filter by type, by text, and by uncommitted changes
+    fireEvent.click(details.getByRole("button", { name: /^go/ }));
+    expect(table.queryByText("web")).toBeNull();
+    expect(table.getByText("api")).toBeTruthy();
+    fireEvent.click(details.getByRole("button", { name: /^go/ }));
+    fireEvent.click(details.getByRole("button", { name: /Uncommitted changes/ }));
+    expect(table.queryByText("web")).toBeNull();
+    fireEvent.click(details.getByRole("button", { name: /Uncommitted changes/ }));
+    fireEvent.change(details.getByLabelText("Filter repositories"), { target: { value: "inf" } });
+    expect(table.queryByText("api")).toBeNull();
+    expect(table.getByText("infra")).toBeTruthy();
+    fireEvent.change(details.getByLabelText("Filter repositories"), { target: { value: "zzz" } });
+    expect(details.getByText("No repository matches.")).toBeTruthy();
+  });
+
+  it("shows the details of the card that is chosen, and keeps the choice in the address", async () => {
+    mockServer({ list: [demo, sample] });
+    renderAt("/workspaces");
+    const first = await screen.findByRole("button", { name: "Workspace demo" });
+    const second = screen.getByRole("button", { name: "Workspace acme-shop" });
+    expect(first.getAttribute("aria-pressed")).toBe("true"); // the first shows when none is chosen
+    expect(await screen.findByRole("region", { name: "Details of demo" })).toBeTruthy();
+
+    fireEvent.click(second);
+    await waitFor(() => expect(second.getAttribute("aria-pressed")).toBe("true"));
+    expect(first.getAttribute("aria-pressed")).toBe("false");
+    expect(await screen.findByRole("region", { name: "Details of acme-shop" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Details of demo" })).toBeNull();
+  });
+
+  it("opens the workspace named in the address, so a link can point at it", async () => {
+    mockServer({ list: [demo, sample] });
+    renderAt("/workspaces?open=acme-shop");
+    expect(await screen.findByRole("region", { name: "Details of acme-shop" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Workspace acme-shop" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("lists the problems by file with their lines, and links the ones in workspace.yaml to the editor", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces");
+    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
+    fireEvent.click(await details.findByRole("tab", { name: /Problems/ }));
+
+    const panel = within(details.getByRole("tabpanel"));
+    expect(panel.getByText("stacks/full.yaml")).toBeTruthy();
+    expect(panel.getByText("line 9")).toBeTruthy();
+    expect(panel.getByText(/no repo with id "ghost"/)).toBeTruthy();
+    expect(panel.getByText(/Can be fixed: Mark local_only: true or Run git init/)).toBeTruthy();
+
+    // only workspace.yaml opens in the editor, at the line of the problem
+    const links = panel.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute("href")).toBe("/workspaces/demo/edit?line=3");
+    expect(links[0].textContent).toBe("Fix in the editor");
+  });
+
+  it("lists the stacks with a way to open them, and the flows", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces");
+    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
+    fireEvent.click(await details.findByRole("tab", { name: /Stacks/ }));
+    expect(details.getByText("full")).toBeTruthy();
+    expect(details.getByRole("link", { name: "Open stack" }).getAttribute("href")).toBe("/stacks?workspace=demo");
+    expect(details.getByText("nightly")).toBeTruthy();
+  });
+
+  it("has an Edit file button for the user's own workspaces only", async () => {
+    mockServer({ list: [demo, sample] });
+    renderAt("/workspaces");
+    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
+    expect(details.getByRole("link", { name: /Edit file/ }).getAttribute("href")).toBe("/workspaces/demo/edit");
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace acme-shop" }));
+    const other = within(await screen.findByRole("region", { name: "Details of acme-shop" }));
+    expect(other.queryByRole("link", { name: /Edit file/ })).toBeNull();
+  });
+
+  async function openSettings(id = "demo") {
+    const details = within(await screen.findByRole("region", { name: `Details of ${id}` }));
+    fireEvent.click(await details.findByRole("tab", { name: "Settings" }));
+    return details;
+  }
 
   it("deletes a workspace only after it is confirmed", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces");
-    const card = within(await screen.findByRole("listitem", { name: "Workspace demo" }));
+    const settings = await openSettings();
+    expect(await settings.findByText("/code/demo/workspace.yaml")).toBeTruthy();
 
-    fireEvent.click(card.getByRole("button", { name: "Delete demo" }));
+    fireEvent.click(settings.getByRole("button", { name: /Delete demo/ }));
     const confirm = within(await screen.findByRole("group", { name: "Confirm deleting demo" }));
-    expect(confirm.getByText(/repositories aren’t touched/)).toBeTruthy();
-    expect(posted.some((p) => p.url.endsWith("/workspaces/demo"))).toBe(false); // nothing yet
+    expect(deleted()).toBe(false); // nothing yet
 
     // Cancel leaves it alone
     fireEvent.click(confirm.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("group", { name: "Confirm deleting demo" })).toBeNull();
     expect(deleted()).toBe(false);
 
-    fireEvent.click(card.getByRole("button", { name: "Delete demo" }));
+    fireEvent.click(settings.getByRole("button", { name: /Delete demo/ }));
     fireEvent.click(within(await screen.findByRole("group", { name: "Confirm deleting demo" })).getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(deleted()).toBe(true));
-    await waitFor(() => expect(screen.queryByRole("listitem", { name: "Workspace demo" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Workspace demo" })).toBeNull());
     // with none left, the page offers to add one
     expect(await screen.findByRole("heading", { name: "No workspace yet" })).toBeTruthy();
   });
@@ -189,73 +332,21 @@ describe("workspaces page", () => {
   it("says why a workspace could not be deleted and keeps it", async () => {
     mockServer({ list: [demo], deleteError: { status: 409, message: "stop its running stacks before deleting this workspace" } });
     renderAt("/workspaces");
-    const card = within(await screen.findByRole("listitem", { name: "Workspace demo" }));
+    const settings = await openSettings();
 
-    fireEvent.click(card.getByRole("button", { name: "Delete demo" }));
+    fireEvent.click(settings.getByRole("button", { name: /Delete demo/ }));
     fireEvent.click(within(await screen.findByRole("group", { name: "Confirm deleting demo" })).getByRole("button", { name: "Delete" }));
 
     expect((await screen.findByRole("alert")).textContent).toBe("stop its running stacks before deleting this workspace");
-    expect(screen.getByRole("listitem", { name: "Workspace demo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Workspace demo" })).toBeTruthy();
   });
 
   it("offers no delete on the sample workspace", async () => {
     mockServer({ list: [sample] });
     renderAt("/workspaces");
-    const card = within(await screen.findByRole("listitem", { name: "Workspace acme-shop" }));
-    expect(card.queryByRole("button", { name: /Delete/ })).toBeNull();
-  });
-
-  it("opens a card to show its details, each problem with its file and line, and closes it again", async () => {
-    mockServer({ list: [demo] });
-    renderAt("/workspaces");
-    const toggle = await screen.findByRole("button", { name: "demo" });
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    // nothing is fetched for the details until the card is opened
-    expect(calls).not.toContain("GET /api/v1/workspaces/demo");
-    expect(screen.queryByRole("region", { name: "demo" })).toBeNull();
-
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-
-    const panel = within(await screen.findByRole("region", { name: "demo" }));
-    expect(await panel.findByText("stacks/full.yaml")).toBeTruthy();
-    expect(panel.getByText("line 9")).toBeTruthy();
-    expect(panel.getByText(/no repo with id "ghost"/)).toBeTruthy();
-    expect(panel.getByText("github.com/acme/api")).toBeTruthy();
-    expect(calls).toContain("GET /api/v1/workspaces/demo");
-
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    await waitFor(() => expect(screen.queryByRole("region", { name: "demo" })).toBeNull());
-  });
-
-  it("opens one card at a time", async () => {
-    mockServer({ list: [demo, sample] });
-    renderAt("/workspaces");
-    const first = await screen.findByRole("button", { name: "demo" });
-    const second = await screen.findByRole("button", { name: "acme-shop" });
-
-    fireEvent.click(first);
-    await waitFor(() => expect(first.getAttribute("aria-expanded")).toBe("true"));
-    fireEvent.click(second);
-    await waitFor(() => expect(second.getAttribute("aria-expanded")).toBe("true"));
-    expect(first.getAttribute("aria-expanded")).toBe("false");
-  });
-
-  it("opens the card named in the address, so a link can point at it", async () => {
-    mockServer({ list: [demo] });
-    renderAt("/workspaces?open=demo");
-    expect(await screen.findByRole("region", { name: "demo" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "demo" }).getAttribute("aria-expanded")).toBe("true");
-  });
-
-  it("clicking the delete button does not also open the card", async () => {
-    mockServer({ list: [demo] });
-    renderAt("/workspaces");
-    const card = within(await screen.findByRole("listitem", { name: "Workspace demo" }));
-    fireEvent.click(card.getByRole("button", { name: "Delete demo" }));
-    expect(card.getByRole("button", { name: "demo" }).getAttribute("aria-expanded")).toBe("false");
-    expect(await card.findByRole("group", { name: "Confirm deleting demo" })).toBeTruthy();
+    const settings = await openSettings("acme-shop");
+    expect(await settings.findByText("Example (read only)")).toBeTruthy();
+    expect(settings.queryByRole("button", { name: /Delete/ })).toBeNull();
   });
 
   it("scans a folder, shows the draft, and saves exactly what is in the box", async () => {
@@ -277,7 +368,7 @@ describe("workspaces page", () => {
 
     await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces", body: { yaml: draft + "# edited\n" } }));
     // the form closes and the new workspace is in the list
-    expect(await screen.findByRole("button", { name: "code" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Workspace code" })).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); // the drawer closes once it is saved
   });
 

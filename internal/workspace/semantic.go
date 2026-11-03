@@ -27,6 +27,13 @@ func (p *parsed) warn(path, msg string) Issue {
 	return i
 }
 
+// warnWith is a warning that has a code and fixes the editor can offer.
+func (p *parsed) warnWith(path, msg, code string, fixes ...Fix) Issue {
+	i := p.warn(path, msg)
+	i.Code, i.Fixes = code, fixes
+	return i
+}
+
 var (
 	secretName = regexp.MustCompile(`(?i)(token|passw(or)?d|secret|api[_-]?key|private[_-]?key)`)
 	envRef     = regexp.MustCompile(`^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$`)

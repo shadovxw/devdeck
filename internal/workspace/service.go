@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,9 @@ import (
 	"strings"
 	"time"
 )
+
+// workspaceYAML is the name of the file a workspace is defined in.
+const workspaceYAML = "workspace.yaml"
 
 // Where a workspace comes from.
 const (
@@ -58,8 +62,10 @@ type Summary struct {
 	Repos       int    `json:"repos"`
 	Stacks      int    `json:"stacks"`
 	Flows       int    `json:"flows"`
-	Errors      int    `json:"errors"`
-	Warnings    int    `json:"warnings"`
+	// RepoTypes counts the repos by their type ("go": 3), with "other" for the ones that name none.
+	RepoTypes map[string]int `json:"repo_types,omitempty"`
+	Errors    int            `json:"errors"`
+	Warnings  int            `json:"warnings"`
 }
 
 // Detail is a whole workspace with everything found wrong in it.
@@ -118,6 +124,12 @@ func summarise(id, source string, l *Loaded) Summary {
 	sum := Summary{ID: id, Name: id, Source: source, Errors: Count(l.Issues, SeverityError), Warnings: Count(l.Issues, SeverityWarning)}
 	if w := l.Workspace; w != nil {
 		sum.Name, sum.Description, sum.Root, sum.Repos = w.Name, w.Description, w.Root, len(w.Repos)
+		for _, r := range w.Repos {
+			if sum.RepoTypes == nil {
+				sum.RepoTypes = map[string]int{}
+			}
+			sum.RepoTypes[cmp.Or(r.Type, "other")]++
+		}
 	}
 	sum.Stacks, sum.Flows = len(l.Stacks), len(l.Flows)
 	return sum
@@ -173,7 +185,9 @@ func (s *Manager) Get(id string) (*Detail, error) {
 }
 
 // Validate checks YAML text without saving it. workspaceID (optional) names the
-// workspace a stack or flow belongs to, so its repo ids can be checked.
+// workspace a stack or flow belongs to, so its repo ids can be checked. For the text of
+// a workspace's own workspace.yaml it also looks at the folders on disk, the way a saved
+// workspace is checked, so the editor shows the same warnings (and fixes) before saving.
 func (s *Manager) Validate(k Kind, yamlText, workspaceID string) []Issue {
 	var repoIDs map[string]bool
 	if workspaceID != "" {
@@ -181,6 +195,10 @@ func (s *Manager) Validate(k Kind, yamlText, workspaceID string) []Issue {
 			repoIDs = map[string]bool{}
 			for _, r := range d.Workspace.Repos {
 				repoIDs[r.ID] = true
+			}
+			if k == KindWorkspace && d.Source != SourceExample {
+				_, issues := checkWorkspaceText(workspaceYAML, d.Folder, []byte(yamlText), Options{KnownPlugins: s.plugins(), CheckPaths: true})
+				return tidy(issues)
 			}
 		}
 	}
@@ -194,7 +212,7 @@ func (s *Manager) Create(yamlText string) (*Summary, []Issue, error) {
 	if s.Dir == "" {
 		return nil, nil, ErrNoDir
 	}
-	w, issues := checkWorkspaceText("workspace.yaml", "", []byte(yamlText), Options{})
+	w, issues := checkWorkspaceText(workspaceYAML, "", []byte(yamlText), Options{})
 	if w == nil || HasErrors(issues) {
 		return nil, tidy(issues), ErrInvalid
 	}
@@ -206,7 +224,7 @@ func (s *Manager) Create(yamlText string) (*Summary, []Issue, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, nil, err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "workspace.yaml"), []byte(yamlText), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, workspaceYAML), []byte(yamlText), 0o644); err != nil {
 		return nil, nil, fmt.Errorf("save workspace: %w", err)
 	}
 	d, err := s.Get(w.Name)
@@ -225,7 +243,7 @@ func (s *Manager) YAML(id string) (string, error) {
 	if !ok {
 		return "", ErrNotFound
 	}
-	b, err := os.ReadFile(filepath.Join(f[0], "workspace.yaml"))
+	b, err := os.ReadFile(filepath.Join(f[0], workspaceYAML))
 	if err != nil {
 		return "", err
 	}
@@ -248,14 +266,14 @@ func (s *Manager) Update(id, yamlText string) (*Summary, []Issue, error) {
 	if f[1] == SourceExample {
 		return nil, nil, ErrReadOnly
 	}
-	w, issues := checkWorkspaceText("workspace.yaml", "", []byte(yamlText), Options{})
+	w, issues := checkWorkspaceText(workspaceYAML, "", []byte(yamlText), Options{})
 	if w == nil || HasErrors(issues) {
 		return nil, tidy(issues), ErrInvalid
 	}
 	if w.Name != id {
 		return nil, nil, ErrRenameWorkspace
 	}
-	file := filepath.Join(f[0], "workspace.yaml")
+	file := filepath.Join(f[0], workspaceYAML)
 	if old, err := os.ReadFile(file); err == nil {
 		if err := os.WriteFile(file+".prev", old, 0o644); err != nil {
 			return nil, nil, fmt.Errorf("keep the old workspace.yaml: %w", err)

@@ -19,6 +19,7 @@ import { ReposPage } from "../pages/ReposPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { StacksPage } from "../pages/StacksPage";
 import { WorkspacesPage } from "../pages/WorkspacesPage";
+import { WorkspaceEditPage } from "../pages/workspace-edit/WorkspaceEditPage";
 import { FatalError, PageError } from "./ErrorPages";
 import { NAV_ITEMS } from "./nav";
 import { Shell } from "./Shell";
@@ -71,6 +72,7 @@ export const routes: RouteObject[] = [
             path: item.path,
             element: built[item.path] ?? <Placeholder item={item} />,
           })),
+          { path: "/workspaces/:id/edit", element: <WorkspaceEditPage /> },
           { path: "*", element: <NotFound /> },
         ],
       },

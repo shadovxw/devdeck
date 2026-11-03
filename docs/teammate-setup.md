@@ -24,7 +24,7 @@ Never share a token in chat or email: it goes straight into your own devdeck (be
 
 ## 3. Write your workspace
 
-A workspace is a folder in `%AppData%\devdeck\workspaces\<name>\` with a `workspace.yaml` (repos, images, hosts) and optional `stacks\` and `flows\` files. You can create it from **Workspaces** (scan the folder that holds your repositories, review, save; the pencil edits it later), or have Claude write it (section 5). Check any file with:
+A workspace is a folder in `%AppData%\devdeck\workspaces\<name>\` with a `workspace.yaml` (repos, images, hosts) and optional `stacks\` and `flows\` files. You can create it from **Workspaces** (scan the folder that holds your repositories, review, save; **Edit file** changes it later), or have Claude write it (section 5). Check any file with:
 
 ```powershell
 devdeck workspace check <name>
