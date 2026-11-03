@@ -464,6 +464,22 @@ describe("the Images page", () => {
     expect(dock.getByText(/0 running · 0 queued · 1 done/)).toBeTruthy();
   });
 
+  it("copies the whole build output with one button", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    mockServer();
+    renderAt("/images");
+    await startBuild();
+    const log = await screen.findByRole("log", { name: "Build output" });
+    await waitFor(() => expect(log.textContent).toContain("#2 pushing"));
+    expect(screen.getByText(/Build output · \d+ lines?/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy log" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText.mock.calls[0][0]).toBe(log.textContent); // every line, as shown
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeTruthy();
+  });
+
   it("offers to deploy the pushed tag to a host, when there is one", async () => {
     mockServer({ hosts: [{ workspace: "demo", id: "dev-box", name: "Dev box", token_set: true, tunnel: { open: false, users: 0 } }] });
     renderAt("/images");
