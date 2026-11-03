@@ -305,6 +305,38 @@ func registerImages(g *echo.Group, svc *dockerx.Service, m *workspace.Manager, g
 		return c.NoContent(http.StatusNoContent)
 	})
 
+	// GET /images/:ws/:repo/:image/tags?limit=10 lists the tags Docker Hub has for the image's repository,
+	// most recently pushed first, so the next tag can be chosen. It signs in with the account that owns
+	// the namespace.
+	ig.GET("/:ws/:repo/:image/tags", func(c echo.Context) error {
+		limit := 10
+		if v := c.QueryParam("limit"); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 1 || n > 50 {
+				return echo.NewHTTPError(http.StatusBadRequest, "limit must be a number from 1 to 50")
+			}
+			limit = n
+		}
+		t, err := findImage(m, c.Param("ws"), c.Param("repo"), c.Param("image"))
+		if err != nil {
+			return err
+		}
+		acct, err := svc.Resolve(t.image.Repository, t.image.Account)
+		if err != nil {
+			return dockerFail(c, err, "the Docker account couldn't be chosen")
+		}
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 30*time.Second)
+		defer cancel()
+		tags, err := svc.Tags(ctx, acct, t.image.Repository, limit)
+		if err != nil {
+			return dockerFail(c, err, "the tags couldn't be read from Docker Hub")
+		}
+		if tags == nil {
+			tags = []dockerx.Tag{}
+		}
+		return c.JSON(http.StatusOK, map[string]any{"repository": t.image.Repository, "tags": tags})
+	})
+
 	// POST /images/:ws/:repo/:image/build builds the image and pushes it as <repository>:<tag>.
 	// A refusal (no account, a tag that exists, a secret that can't be found) is an error status;
 	// once docker starts, the output streams back as newline-delimited JSON ({"line"} per line,

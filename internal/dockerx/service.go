@@ -316,6 +316,19 @@ func (s *Service) BuildSecret(name string) (secrets.Value, error) {
 	return v, err
 }
 
+// Tags asks Docker Hub for the repository's most recent tags, signing in with the account.
+func (s *Service) Tags(ctx context.Context, a Account, repository string, limit int) ([]Tag, error) {
+	tok, err := s.Secrets.Get(SecretName(a.ID))
+	if err != nil {
+		return nil, err
+	}
+	jwt, err := s.Hub.Login(ctx, a.Username, tok.Reveal())
+	if err != nil {
+		return nil, err
+	}
+	return s.Hub.Tags(ctx, jwt, repository, limit)
+}
+
 // TagExists asks Docker Hub whether the repository already has the tag, signing in with the account.
 func (s *Service) TagExists(ctx context.Context, a Account, repository, tag string) (bool, error) {
 	tok, err := s.Secrets.Get(SecretName(a.ID))

@@ -5,8 +5,8 @@ import { Link } from "react-router";
 import { navByPath } from "../app/nav";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
-import { pill, pillDanger, pillInput, pillPrimary } from "../design/pills";
-import { useBuilds, useClearBuilds, useImageBuild, useImages, type BuildRecord, type ImageRow } from "../lib/docker";
+import { pill, pillDanger, pillInput, pillPrimary, pillSmall } from "../design/pills";
+import { nextTag, useBuilds, useClearBuilds, useImageBuild, useImages, useImageTags, type BuildRecord, type ImageRow } from "../lib/docker";
 import { useHosts } from "../lib/hosts";
 import { stagger } from "../lib/motion";
 import { ago, took } from "../lib/time";
@@ -41,9 +41,49 @@ function Output({ lines }: Readonly<{ lines: string[] }>) {
 }
 
 /** One image: what it is, where its repository stands, and the tag field that builds and pushes it. */
-function ImageCard({ row }: Readonly<{ row: ImageRow }>) {
+/** The tags Docker Hub already has for an image, newest first, to pick the next one from. A tag fills the box. */
+function RecentTags({ row, onPick, now }: Readonly<{ row: ImageRow; onPick: (tag: string) => void; now: number }>) {
+  const q = useImageTags(row, true);
+  if (q.isPending) return <output aria-label="Loading the tags…" className="skeleton block h-6 w-72" />;
+  if (q.isError) {
+    return (
+      <p role="alert" className="m-0 text-[13px] text-ink-3">
+        The tags couldn’t be read from Docker Hub: {q.error.message}
+      </p>
+    );
+  }
+  const tags = q.data.tags;
+  const next = nextTag(tags.map((t) => t.name));
+  if (tags.length === 0) return <p className="m-0 text-[13px] text-ink-3">No tag on Docker Hub yet for {q.data.repository}.</p>;
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="m-0 text-[12px] text-ink-3">On Docker Hub, newest first. Click one to put it in the box.</p>
+      <ul aria-label={`Tags of ${row.repository}`} className="m-0 flex list-none flex-wrap gap-2 p-0">
+        {tags.map((t) => (
+          <li key={t.name}>
+            <button type="button" className={pillSmall} onClick={() => onPick(t.name)} title={t.pushed_at ? `Pushed ${t.pushed_at}` : undefined}>
+              <span className="font-mono">{t.name}</span>
+              {t.pushed_at && <span className="ms-1.5 text-ink-3">{ago(t.pushed_at, now)}</span>}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {next && (
+        <p className="m-0 text-[13px] text-ink-2">
+          Next after the highest:{" "}
+          <button type="button" className="font-mono underline" onClick={() => onPick(next)}>
+            {next}
+          </button>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ImageCard({ row, showTags }: Readonly<{ row: ImageRow; showTags: boolean }>) {
   const now = useNow(true, 30_000);
   const [tag, setTag] = useState("");
+  const [tagsOpen, setTagsOpen] = useState(false);
   const [asking, setAsking] = useState(false);
   const { state, run, reset } = useImageBuild(row);
   const hosts = useHosts();
@@ -148,7 +188,24 @@ function ImageCard({ row }: Readonly<{ row: ImageRow }>) {
           {state.running ? "Building…" : "Build and push"}
         </button>
         {tag !== "" && !validTag && <span className="text-[12px] text-ink-3">Letters, digits, dots, dashes and underscores.</span>}
+        {!row.problem && !showTags && (
+          <button type="button" aria-expanded={tagsOpen} className={pill} onClick={() => setTagsOpen((o) => !o)}>
+            {tagsOpen ? "Hide tags" : "Recent tags"}
+          </button>
+        )}
       </form>
+
+      {!row.problem && (showTags || tagsOpen) && (
+        <RecentTags
+          row={row}
+          now={now}
+          onPick={(t) => {
+            setTag(t);
+            setAsking(false);
+            if (state.exists) reset();
+          }}
+        />
+      )}
 
       {asking && (
         <div role="group" aria-label="Confirm the build" className="flex flex-col gap-2 rounded-ctl bg-fill p-3">
@@ -281,6 +338,7 @@ export function ImagesPage() {
   const images = useImages();
   const builds = useBuilds();
   const rows = images.data ?? [];
+  const [showTags, setShowTags] = useState(false);
 
   return (
     <>
@@ -289,9 +347,16 @@ export function ImagesPage() {
         group={item.group}
         description="Type a tag after the colon and devdeck builds the image on this PC and pushes it to Docker Hub."
         actions={
-          <Link to="/connections/docker" className={pill}>
-            Docker Hub accounts
-          </Link>
+          <>
+            {rows.length > 0 && (
+              <button type="button" aria-pressed={showTags} className={pill} onClick={() => setShowTags((s) => !s)} title="Ask Docker Hub for the last tags of every image, to choose the next one">
+                {showTags ? "Hide recent tags" : "Show recent tags"}
+              </button>
+            )}
+            <Link to="/connections/docker" className={pill}>
+              Docker Hub accounts
+            </Link>
+          </>
         }
       />
 
@@ -320,7 +385,7 @@ export function ImagesPage() {
 
       <div className="enter mt-4 flex flex-col gap-3" style={stagger(1)}>
         {rows.map((r) => (
-          <ImageCard key={`${r.workspace}/${r.repo}/${r.image}`} row={r} />
+          <ImageCard key={`${r.workspace}/${r.repo}/${r.image}`} row={r} showTags={showTags} />
         ))}
       </div>
 

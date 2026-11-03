@@ -70,6 +70,8 @@ type Server = {
   buildAnswer?: (body: { tag: string; overwrite: boolean }) => Response;
   /** The remote hosts; the Deploy link after a build only shows when there is one. */
   hosts?: object[];
+  /** The tags Docker Hub has, newest first; "fail" makes the request fail. */
+  tags?: Array<{ name: string; pushed_at?: string }> | "fail";
 };
 
 function mockServer(opts: Server = {}) {
@@ -124,6 +126,10 @@ function mockServer(opts: Server = {}) {
       }
 
       if (path === "/images" && method === "GET") return json(opts.images ?? [image()]);
+      if (path.startsWith("/images/demo/api/api/tags")) {
+        if (opts.tags === "fail") return json({ message: "the tags couldn't be read from Docker Hub" }, 500);
+        return json({ repository: "acme/demo-api", tags: opts.tags ?? [] });
+      }
       if (path === "/images/builds" && method === "GET") return json(builds);
       if (path === "/images/builds" && method === "DELETE") {
         builds = [];
@@ -292,6 +298,48 @@ describe("the Images page", () => {
     expect(card.getByText(/no value is saved under the name npm-token/)).toBeTruthy();
     expect((card.getByRole("button", { name: "Build and push" }) as HTMLButtonElement).disabled).toBe(true);
     expect(card.getByRole("link", { name: "Docker Hub page" }).getAttribute("href")).toBe("/connections/docker");
+  });
+
+  it("shows the tags Docker Hub has, suggests the next one, and fills the box from a click", async () => {
+    mockServer({
+      tags: [
+        { name: "1.0.95", pushed_at: new Date(Date.now() - 2 * 3600_000).toISOString() },
+        { name: "1.0.94", pushed_at: new Date(Date.now() - 3 * 86400_000).toISOString() },
+        { name: "latest" },
+      ],
+    });
+    renderAt("/images");
+    const card = within(await screen.findByRole("region", { name: "Image acme/demo-api" }));
+    expect(card.queryByRole("list", { name: "Tags of acme/demo-api" })).toBeNull(); // only when asked for
+    expect(sent("GET", "/tags")).toHaveLength(0);
+
+    fireEvent.click(card.getByRole("button", { name: "Recent tags" }));
+    const list = within(await card.findByRole("list", { name: "Tags of acme/demo-api" }));
+    expect(list.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["1.0.952 h ago", "1.0.943 d ago", "latest"]);
+    expect(sent("GET", "/tags")[0].url).toContain("limit=10");
+
+    // the suggestion is the next after the highest version, "latest" being ignored
+    fireEvent.click(card.getByRole("button", { name: "1.0.96" }));
+    expect((card.getByPlaceholderText("tag, for example 1.0.4") as HTMLInputElement).value).toBe("1.0.96");
+    fireEvent.click(list.getByRole("button", { name: /^1\.0\.94/ }));
+    expect((card.getByPlaceholderText("tag, for example 1.0.4") as HTMLInputElement).value).toBe("1.0.94");
+
+    fireEvent.click(card.getByRole("button", { name: "Hide tags" }));
+    expect(card.queryByRole("list", { name: "Tags of acme/demo-api" })).toBeNull();
+  });
+
+  it("shows the tags of every image at once from the page's button, and says when there is none or it failed", async () => {
+    mockServer({ tags: [] });
+    renderAt("/images");
+    fireEvent.click(await screen.findByRole("button", { name: "Show recent tags" }));
+    expect(await screen.findByText(/No tag on Docker Hub yet for acme\/demo-api/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Recent tags" })).toBeNull(); // the page's button covers every card
+    cleanup();
+
+    mockServer({ tags: "fail" });
+    renderAt("/images");
+    fireEvent.click(await screen.findByRole("button", { name: "Show recent tags" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("The tags couldn’t be read from Docker Hub");
   });
 
   it("blocks an image with no account, or whose folder isn't here", async () => {

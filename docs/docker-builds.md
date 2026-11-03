@@ -35,6 +35,8 @@ A repository can list several images (several Dockerfiles or several Docker Hub 
 
 If Docker Hub already has that tag, devdeck says so and asks before pushing over it.
 
+**Choosing the tag.** **Recent tags** on an image (or **Show recent tags** at the top, for every image) asks Docker Hub for the last 10 tags of its repository, newest first, with how long ago each was pushed. Click one to put it in the box. Under the list, **Next after the highest** offers the tag after the highest plain version (`1.0.95` gives `1.0.96`; `latest` and names that aren't a version are ignored). The list is read with the account that owns the namespace, only when you ask, and refreshes after a build.
+
 ## Which account pushes
 
 The part of the repository before the slash is the namespace: `acme` in `acme/auth-service`. devdeck pushes with the account whose username is that namespace, or that lists it as an organisation. If **two** accounts own it, add `account: <name>` to the image. If **none** does, the Images page says so and links to the Docker Hub page. Accounts live in `docker-accounts.yaml` in devdeck's data folder, per person and per machine: a workspace never names a person's account unless it says `account:`.
@@ -75,4 +77,4 @@ A build runs `docker buildx build --push` with a **private, temporary** docker c
 | the build secret ... has no value saved | Save it on the Docker Hub page under the name the workspace file uses. |
 | the repository isn't on this machine | The folder in `workspace.yaml` doesn't exist here: clone it, or fix the path. |
 
-Not built yet: deploying the pushed tag to a remote host from the Images page (it arrives with the Versions panel), listing the tags that exist on Docker Hub, a vulnerability scan before the push, and registries other than Docker Hub.
+Not built yet: a vulnerability scan before the push, and registries other than Docker Hub.

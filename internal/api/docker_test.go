@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -110,6 +111,11 @@ func dockerServer(t *testing.T) *dockerEnv {
 			_, _ = w.Write([]byte(`{"token":"jwt"}`))
 		case strings.HasPrefix(r.URL.Path, "/v2/user/orgs"):
 			_, _ = w.Write([]byte(`{"results":[{"orgname":"acme"}]}`))
+		case r.URL.Path == "/v2/repositories/acme/demo-api/tags/":
+			_, _ = w.Write([]byte(`{"results":[
+				{"name":"1.0","last_updated":"2026-10-01T10:00:00.000000Z"},
+				{"name":"1.2","last_updated":"2026-11-02T10:00:00.000000Z","tag_last_pushed":"2026-11-02T10:00:00.000000Z"},
+				{"name":"1.1","last_updated":"2026-10-15T10:00:00.000000Z"}]}`))
 		case r.URL.Path == "/v2/repositories/acme/demo-api/tags/1.0/":
 			_, _ = w.Write([]byte(`{"name":"1.0"}`))
 		default:
@@ -567,5 +573,41 @@ func TestEditAWorkspace(t *testing.T) {
 	}
 	if rec := d.call(http.MethodPut, "/api/v1/workspaces/demo", `{`); rec.Code != http.StatusBadRequest {
 		t.Errorf("not JSON = %d, want 400", rec.Code)
+	}
+}
+
+func TestTheTagsOnDockerHubComeNewestFirst(t *testing.T) {
+	d := dockerServer(t)
+	if rec := d.call(http.MethodGet, "/api/v1/images/demo/api/api/tags", ""); rec.Code != http.StatusConflict {
+		t.Errorf("with no account that owns the namespace = %d %s", rec.Code, rec.Body)
+	}
+	d.addAccount(t, "work", "ana-work", "dckr_pat_fake_value", "acme")
+
+	rec := d.call(http.MethodGet, "/api/v1/images/demo/api/api/tags", "")
+	var v struct {
+		Repository string
+		Tags       []dockerx.Tag
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("tags = %d %s", rec.Code, rec.Body)
+	}
+	var names []string
+	for _, tg := range v.Tags {
+		names = append(names, tg.Name)
+	}
+	if v.Repository != "acme/demo-api" || !slices.Equal(names, []string{"1.2", "1.1", "1.0"}) {
+		t.Errorf("tags = %v of %s, want newest first", names, v.Repository)
+	}
+
+	if rec := d.call(http.MethodGet, "/api/v1/images/demo/api/api/tags?limit=2", ""); !strings.Contains(rec.Body.String(), `"1.1"`) || strings.Contains(rec.Body.String(), `"1.0"`) {
+		t.Errorf("limit=2 = %s", rec.Body)
+	}
+	for _, bad := range []string{"limit=0", "limit=51", "limit=x"} {
+		if rec := d.call(http.MethodGet, "/api/v1/images/demo/api/api/tags?"+bad, ""); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s = %d, want 400", bad, rec.Code)
+		}
+	}
+	if rec := d.call(http.MethodGet, "/api/v1/images/demo/api/nope/tags", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("an unknown image = %d", rec.Code)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -570,5 +571,45 @@ func TestServiceCheckAndTagExists(t *testing.T) {
 	}
 	if ok, err := s.TagExists(context.Background(), a, "acme/api", "2.0"); ok || err != nil {
 		t.Errorf("TagExists(new) = %v %v", ok, err)
+	}
+}
+
+func TestHubTags(t *testing.T) {
+	hub, _ := hubServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/repositories/acme/api/tags/":
+			if r.URL.Query().Get("page_size") != "6" {
+				t.Errorf("page_size = %q, want twice the limit", r.URL.Query().Get("page_size"))
+			}
+			_, _ = w.Write([]byte(`{"results":[
+				{"name":"1.0.1","last_updated":"2026-10-02T00:00:00Z"},
+				{"name":"bad tag!","last_updated":"2026-12-01T00:00:00Z"},
+				{"name":"1.0.3","last_updated":"2026-10-04T00:00:00Z"},
+				{"name":"1.0.2","last_updated":"2026-10-03T00:00:00Z","tag_last_pushed":"2026-10-05T00:00:00Z"},
+				{"name":"1.0.0","last_updated":"2026-10-01T00:00:00Z"}]}`))
+		case "/v2/repositories/acme/new/tags/":
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			w.WriteHeader(http.StatusBadGateway)
+		}
+	})
+	ctx := context.Background()
+	got, err := hub.Tags(ctx, "j", "acme/api", 3)
+	var names []string
+	for _, tg := range got {
+		names = append(names, tg.Name)
+	}
+	// newest first by the push time when Docker Hub gives one, a tag with a bad name left out, at most 3
+	if err != nil || !slices.Equal(names, []string{"1.0.2", "1.0.3", "1.0.1"}) {
+		t.Errorf("tags = %v, %v", names, err)
+	}
+	if got, err := hub.Tags(ctx, "j", "acme/new", 10); got != nil || err != nil {
+		t.Errorf("a repository that doesn't exist yet: %v, %v", got, err)
+	}
+	if _, err := hub.Tags(ctx, "j", "acme/other", 10); err == nil {
+		t.Error("a bad gateway should be an error")
+	}
+	if _, err := hub.Tags(ctx, "j", "../etc", 10); err == nil {
+		t.Error("a bad repository was sent to Docker Hub")
 	}
 }

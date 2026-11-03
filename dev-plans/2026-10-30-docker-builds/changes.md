@@ -37,3 +37,9 @@ Built as one PR at the owner's request (the plan had D1 to D4 and T1 as separate
 - **A real push to Docker Hub** (needs a token): the runner is tested against a fake docker and, for the docker config and helper lookup, by hand against Docker Desktop without a push.
 - **`from: github` against a real `gh`**: the account lookup is the same code the git credential helper uses; the build path is tested only up to "no rule matches".
 - The deploy button after a build (it needs the Versions panel), Docker Hub tag listing, scans, other registries, and MCP tools for images (Claude can't reach these routes: the connector's allow-list doesn't include them).
+
+## 2026-11-03: recent tags
+
+- **`GET /api/v1/images/:ws/:repo/:image/tags?limit=10`** (1 to 50): the repository's most recently pushed tags on Docker Hub, newest first, read with the account that owns the namespace. `dockerx.Hub.Tags` asks for twice the limit, drops names that aren't valid tags, and sorts by the push time. A repository that doesn't exist yet has none.
+- **Images page**: **Recent tags** per image and **Show recent tags** for all; a click fills the tag box; **Next after the highest** (`nextTag` in `lib/docker.ts`). Asked for on demand, not on load, so the page makes no sign-in to Docker Hub until it is wanted.
+- Tests: Go (`TestHubTags`, `TestTheTagsOnDockerHubComeNewestFirst`) and web (`docker-pages.test.tsx`, `docker-tags.test.ts`).

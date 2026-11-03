@@ -144,6 +144,46 @@ export function useImages() {
   return useQuery({ queryKey: keys.images, queryFn: ({ signal }) => api.get<ImageRow[]>("/images", signal), refetchInterval: 20_000 });
 }
 
+/** A tag Docker Hub has for an image's repository, with when it was last pushed. */
+export type HubTag = { name: string; pushed_at?: string };
+
+/** The tags Docker Hub has for an image's repository, most recently pushed first (10 by default). Asked for on demand. */
+export function useImageTags(row: Pick<ImageRow, "workspace" | "repo" | "image">, enabled: boolean, limit = 10) {
+  const path = `/images/${encodeURIComponent(row.workspace)}/${encodeURIComponent(row.repo)}/${encodeURIComponent(row.image)}/tags?limit=${limit}`;
+  return useQuery({
+    queryKey: ["images", "tags", row.workspace, row.repo, row.image, limit],
+    queryFn: ({ signal }) => api.get<{ repository: string; tags: HubTag[] }>(path, signal),
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/**
+ * The tag after the highest dotted number among `names` ("1.0.95" gives "1.0.96", "v2.3" gives "v2.4"). Tags
+ * that aren't a plain version (latest, a branch name, a date with letters) are ignored; undefined when none is.
+ */
+export function nextTag(names: string[]): string | undefined {
+  let best: { parts: number[]; prefix: string } | undefined;
+  for (const name of names) {
+    const m = /^(v?)(\d+(?:\.\d+)*)$/.exec(name);
+    if (!m) continue;
+    const parts = m[2].split(".").map(Number);
+    if (!best || compareParts(parts, best.parts) > 0) best = { parts, prefix: m[1] };
+  }
+  if (!best) return undefined;
+  const next = [...best.parts.slice(0, -1), best.parts[best.parts.length - 1] + 1];
+  return best.prefix + next.join(".");
+}
+
+function compareParts(a: number[], b: number[]): number {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
 export function useBuilds() {
   return useQuery({ queryKey: keys.builds, queryFn: ({ signal }) => api.get<BuildRecord[]>("/images/builds?limit=30", signal) });
 }
