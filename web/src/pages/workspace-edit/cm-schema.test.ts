@@ -3,7 +3,7 @@ import { yaml, yamlLanguage } from "@codemirror/lang-yaml";
 import { EditorState } from "@codemirror/state";
 import { stateExtensions } from "codemirror-json-schema";
 import { yamlCompletion } from "codemirror-json-schema/yaml";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { inlineRefs } from "../../lib/json-schema";
 import schema from "../../../../internal/workspace/schemas/workspace.schema.json";
@@ -25,15 +25,17 @@ async function suggest(textWithBar: string): Promise<string[]> {
 
 const head = "version: 1\nname: demo\nroot: ~/code\n";
 
+// The library resolves the schema on first use, which can take a moment on a busy machine, so a test asks until it answers.
+const offers = (text: string, label: string) => vi.waitFor(async () => expect(await suggest(text)).toContain(label), { timeout: 5000 });
+
 describe("schema suggestions", () => {
   it("offers the top-level keys while one is typed", async () => {
-    expect(await suggest(head + "re|\n")).toContain("repos");
+    await offers(head + "re|\n", "repos");
   });
   it("offers the repo keys, local_only among them", async () => {
-    expect(await suggest(head + "repos:\n  - id: a\n    path: a\n    loc|\n")).toContain("local_only");
+    await offers(head + "repos:\n  - id: a\n    path: a\n    loc|\n", "local_only");
   });
   it("offers the repo types for type:", async () => {
-    const got = await suggest(head + "repos:\n  - id: a\n    path: a\n    type: d|\n");
-    expect(got).toContain("docker");
+    await offers(head + "repos:\n  - id: a\n    path: a\n    type: d|\n", "docker");
   });
 });

@@ -37,3 +37,11 @@ Built as one PR at the owner's request (the plan had D1 to D4 and T1 as separate
 - **A real push to Docker Hub** (needs a token): the runner is tested against a fake docker and, for the docker config and helper lookup, by hand against Docker Desktop without a push.
 - **`from: github` against a real `gh`**: the account lookup is the same code the git credential helper uses; the build path is tested only up to "no rule matches".
 - The deploy button after a build (it needs the Versions panel), Docker Hub tag listing, scans, other registries, and MCP tools for images (Claude can't reach these routes: the connector's allow-list doesn't include them).
+
+## 2026-11-03: the Images page redesign
+
+- **Page** (`web/src/pages/ImagesPage.tsx`, `web/src/pages/images/`): a summary (images, up to date, changed since last build, building now), a filter with chips, one row per image (source and commits since the last build, the latest tag on Docker Hub, the tag to push, Build & push), details per image (the last 10 tags with sizes, build settings, secrets, the command to build by hand), ticking several images to build them in a queue, and a Builds strip along the bottom. The confirmation before a build stays, and shows the command.
+- **Server**: `GET /api/v1/images/tags?limit=10` (the tags of every image's repository in one answer, one Docker Hub sign-in per account, `dockerx.Service.TagsFor`, `Hub.Tags` with sizes); each image row has `ahead` (commits since the last good build, `gitx.Git.CountSince`); the build output starts with the command that ran (never a secret's value).
+- **Web libraries**: `lib/images.ts` (filters, sort, summary, the command shown, sizes), `useAllImageTags` and `useBuildJobs` (a queue that builds one at a time) in `lib/docker.ts`, replacing `useImageBuild`.
+- Not built: a suggested next tag (asked not to), choosing the account or platform on the page, extra tags such as `latest`.
+- Tests: Go (`TestHubTags`, `TestAllTheTagsAtOnce`, `TestCountSince`, `TestBuildPrintsTheCommandFirstWithoutTheSecret`) and web (`docker-pages.test.tsx` Images section, `images.test.ts`).

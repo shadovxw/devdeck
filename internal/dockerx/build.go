@@ -54,7 +54,7 @@ type Spec struct {
 	// Dockerfile and Context are relative to Dir ("Dockerfile" and "." when empty).
 	Dockerfile string
 	Context    string
-	// Platforms default to linux/amd64.
+	// Platforms is what to build for. Empty adds no --platform, so docker builds for this machine's own platform.
 	Platforms []string
 	// Revision is the git commit, recorded in the image's labels.
 	Revision string
@@ -137,17 +137,17 @@ func (s Spec) plan() (*plan, error) {
 		return nil, fmt.Errorf("the build context %s doesn't exist", buildContext)
 	}
 	platforms := s.Platforms
-	if len(platforms) == 0 {
-		platforms = []string{"linux/amd64"}
-	}
 	for _, p := range platforms {
 		if !platformPattern.MatchString(p) {
 			return nil, fmt.Errorf("%q isn't a platform devdeck builds for (linux/amd64, linux/arm64, linux/arm/v7)", p)
 		}
 	}
 
-	args := []string{"buildx", "build", "--progress", "plain", "--platform", strings.Join(platforms, ","),
-		"-f", dockerfile, "-t", s.Repository + ":" + s.Tag}
+	args := []string{"buildx", "build", "--progress", "plain"}
+	if len(platforms) > 0 {
+		args = append(args, "--platform", strings.Join(platforms, ","))
+	}
+	args = append(args, "-f", dockerfile, "-t", s.Repository+":"+s.Tag)
 	if s.Revision != "" {
 		args = append(args, "--label", "org.opencontainers.image.revision="+s.Revision)
 	}
@@ -172,6 +172,19 @@ func (s Spec) plan() (*plan, error) {
 	}
 	pl.args = append(args, "--push", buildContext)
 	return pl, nil
+}
+
+// displayCommand is a program and its arguments as one line to read, quoting what has a space or a quote.
+func displayCommand(name string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+	parts = append(parts, name)
+	for _, a := range args {
+		if a == "" || strings.ContainsAny(a, " \t\"'") {
+			a = `"` + strings.ReplaceAll(a, `"`, `\"`) + `"` // plain quotes: a Windows path keeps its backslashes
+		}
+		parts = append(parts, a)
+	}
+	return strings.Join(parts, " ")
 }
 
 func orDefault(v, def string) string {
@@ -204,6 +217,10 @@ func (b *Builder) Build(ctx context.Context, spec Spec, out func(string)) error 
 		return err
 	}
 	defer cfg.cleanup()
+
+	// The command, as the first line of the output, so what ran can be read and repeated. It holds names
+	// of variables, never a secret's value.
+	out("$ " + displayCommand("docker", pl.args) + "    (in " + spec.Dir + ")")
 
 	var red logs.Redactor
 	red.SetEnv(pl.maskEnv)

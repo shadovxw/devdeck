@@ -1,293 +1,90 @@
-import { Container } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Container, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { navByPath } from "../app/nav";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
-import { pill, pillDanger, pillInput, pillPrimary } from "../design/pills";
-import { useBuilds, useClearBuilds, useImageBuild, useImages, type BuildRecord, type ImageRow } from "../lib/docker";
+import { pill } from "../design/pills";
+import { useAllImageTags, useBuildJobs, useBuilds, useImages, type ImageRow, type ImageTags } from "../lib/docker";
 import { useHosts } from "../lib/hosts";
-import { stagger } from "../lib/motion";
-import { ago, took } from "../lib/time";
+import { filterImages, imageKey, noImageFilter, sortImages, summarize, tagPattern, type ImageFilter } from "../lib/images";
 import { useNow } from "../lib/use-now";
+import { BatchBar, BuildDock } from "./images/BuildDock";
+import { History } from "./images/History";
+import { blockerOf, ImageRowView, listGrid } from "./images/ImageRowView";
 
-const th = "px-3 py-2 text-start text-[13px] font-medium text-ink-3";
-const td = "px-3 py-2 align-top";
-const tagPattern = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
+const chips: Array<{ chip: ImageFilter["chip"]; label: string }> = [
+  { chip: "all", label: "All" },
+  { chip: "ahead", label: "Changed since last build" },
+  { chip: "dirty", label: "Uncommitted changes" },
+  { chip: "never", label: "Never built here" },
+];
 
-/** A state as a word with a shape, never colour alone. */
-function Mark({ ok, children, title }: Readonly<{ ok: boolean; children: ReactNode; title?: string }>) {
-  const tone = ok ? "var(--good)" : "var(--critical)";
+function SummaryCard({ label, value, note }: Readonly<{ label: string; value: number; note: string }>) {
   return (
-    <span className="inline-flex items-center gap-2 text-[13px] text-ink-2" title={title}>
-      <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden className="shrink-0">
-        {ok ? <circle cx="6" cy="6" r="4.5" fill={tone} /> : <path d="M6 1.2 11 10.2H1Z" fill={tone} />}
-      </svg>
-      {children}
-    </span>
+    <div className="flex flex-col gap-1 bg-inset p-4">
+      <span className="text-[12px] text-ink-3">{label}</span>
+      <b className="text-[22px] font-bold leading-none tabular-nums text-ink">{value}</b>
+      <span className="text-[12px] text-ink-3">{note}</span>
+    </div>
   );
 }
 
-const short = (sha?: string) => (sha ? sha.slice(0, 7) : "");
-
-function Output({ lines }: Readonly<{ lines: string[] }>) {
-  if (lines.length === 0) return null;
-  return (
-    <pre aria-label="Build output" role="log" className="m-0 max-h-[18rem] overflow-auto rounded-ctl bg-bg p-3 font-mono text-[12px] leading-5 text-ink-2">
-      {lines.join("\n")}
-    </pre>
-  );
-}
-
-/** One image: what it is, where its repository stands, and the tag field that builds and pushes it. */
-function ImageCard({ row }: Readonly<{ row: ImageRow }>) {
-  const now = useNow(true, 30_000);
-  const [tag, setTag] = useState("");
-  const [asking, setAsking] = useState(false);
-  const { state, run, reset } = useImageBuild(row);
-  const hosts = useHosts();
-
-  const secretProblem = row.secrets.find((s) => s.problem)?.problem;
-  const blocker = row.folder_missing ? "The repository isn’t on this machine." : (row.problem ?? secretProblem);
-  const validTag = tagPattern.test(tag);
-  const target = `${row.repository}:${tag}`;
-
-  function confirm(overwrite: boolean) {
-    setAsking(false);
-    void run(tag, overwrite);
-  }
-
-  return (
-    <section aria-label={`Image ${row.repository}`} className="flex flex-col gap-3 rounded-ctl bg-inset p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="m-0 truncate font-mono text-[15px] font-medium text-ink">{row.repository}</h3>
-          <p className="m-0 mt-0.5 text-[13px] text-ink-3">
-            {row.workspace_name} · {row.repo}
-            {row.image !== row.repo ? ` · ${row.image}` : ""} · {row.platforms.join(", ")}
-          </p>
-        </div>
-        {row.account ? <Mark ok>Pushed with {row.account}</Mark> : <Mark ok={false}>No account</Mark>}
-      </div>
-
-      <dl className="m-0 flex flex-wrap gap-x-8 gap-y-2 text-[13px]">
-        {!row.folder_missing && (
-          <div className="flex flex-col gap-0.5">
-            <dt className="text-[12px] text-ink-3">Repository</dt>
-            <dd className="m-0 text-ink-2">
-              {row.branch ?? "—"}
-              {row.commit ? ` at ${short(row.commit)}` : ""}
-              {row.dirty && <span className="ms-2 text-ink">· uncommitted changes</span>}
-            </dd>
-          </div>
-        )}
-        {row.secrets.length > 0 && (
-          <div className="flex flex-col gap-0.5">
-            <dt className="text-[12px] text-ink-3">Build secrets</dt>
-            <dd className="m-0 flex flex-wrap gap-3 text-ink-2">
-              {row.secrets.map((s) => (
-                <Mark key={s.id} ok={!s.problem} title={s.problem}>
-                  {s.id} from {s.from === "github" ? "GitHub account" : `keychain (${s.name ?? s.id})`}
-                </Mark>
-              ))}
-            </dd>
-          </div>
-        )}
-        <div className="flex flex-col gap-0.5">
-          <dt className="text-[12px] text-ink-3">Last build</dt>
-          <dd className="m-0 text-ink-2">
-            {row.last ? (
-              <>
-                {row.last.tag} · {ago(row.last.at, now)} · {row.last.ok ? "Pushed" : "Failed"}
-              </>
-            ) : (
-              "None yet"
-            )}
-          </dd>
-        </div>
-      </dl>
-
-      {blocker && (
-        <p role="status" className="m-0 text-[13px] text-ink">
-          {blocker}{" "}
-          {(row.problem || secretProblem) && !row.folder_missing && (
-            <Link to="/connections/docker" className="underline">
-              Docker Hub page
-            </Link>
-          )}
-        </p>
-      )}
-
-      <form
-        className="flex flex-wrap items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (validTag) setAsking(true);
-        }}
-      >
-        <label className="sr-only" htmlFor={`tag-${row.workspace}-${row.repo}-${row.image}`}>
-          Tag for {row.repository}
-        </label>
-        <span className="font-mono text-[13px] text-ink-3">{row.repository}:</span>
-        <input
-          id={`tag-${row.workspace}-${row.repo}-${row.image}`}
-          value={tag}
-          onChange={(e) => {
-            setTag(e.target.value);
-            setAsking(false);
-            if (state.exists) reset();
-          }}
-          placeholder="tag, for example 1.0.4"
-          spellCheck={false}
-          autoComplete="off"
-          disabled={Boolean(blocker) || state.running}
-          className={`${pillInput} w-56 font-mono`}
-        />
-        <button type="submit" disabled={Boolean(blocker) || state.running || !validTag} className={pillPrimary}>
-          {state.running ? "Building…" : "Build and push"}
-        </button>
-        {tag !== "" && !validTag && <span className="text-[12px] text-ink-3">Letters, digits, dots, dashes and underscores.</span>}
-      </form>
-
-      {asking && (
-        <div role="group" aria-label="Confirm the build" className="flex flex-col gap-2 rounded-ctl bg-fill p-3">
-          <p className="m-0 text-[13px] leading-5 text-ink-2">
-            Build {row.repository} from {row.branch ?? "the current folder"}
-            {row.commit ? ` at ${short(row.commit)}` : ""} and push it as <span className="font-mono text-ink">{target}</span> to Docker Hub with the account{" "}
-            {row.account}?{row.dirty ? " The folder has uncommitted changes, and the image is built from them." : ""}
-          </p>
-          <div className="flex items-center gap-2">
-            <button type="button" className={pillPrimary} onClick={() => confirm(false)}>
-              Build and push
-            </button>
-            <button type="button" className={pill} onClick={() => setAsking(false)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {state.exists && (
-        <div role="group" aria-label="The tag already exists" className="flex flex-col gap-2 rounded-ctl bg-fill p-3">
-          <p className="m-0 text-[13px] leading-5 text-ink">{state.exists}</p>
-          <div className="flex items-center gap-2">
-            <button type="button" className={pillDanger} onClick={() => confirm(true)}>
-              Push over it
-            </button>
-            <button type="button" className={pill} onClick={reset}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      <Output lines={state.lines} />
-      {state.result && (
-        <p role="status" className="m-0 text-[13px] text-ink">
-          <Mark ok={state.result.ok}>
-            {state.result.ok ? `Pushed ${state.tag ? `${row.repository}:${state.tag}` : ""}` : `Failed: ${state.result.error ?? "the build didn’t finish"}`}
-          </Mark>
-        </p>
-      )}
-      {state.result?.ok && state.tag && (hosts.data?.length ?? 0) > 0 && (
-        <p className="m-0 text-[13px] text-ink-2">
-          <Link to={"/hosts?" + new URLSearchParams({ deploy: [row.repository, state.tag].join(":") }).toString()} className="underline">
-            Deploy {state.tag} to a host
-          </Link>{" "}
-          to change the tag on a remote stack and recreate its container.
-        </p>
-      )}
-    </section>
-  );
-}
-
-function History({ builds }: Readonly<{ builds: BuildRecord[] }>) {
-  const now = useNow(true, 30_000);
-  const clear = useClearBuilds();
-  const [sure, setSure] = useState(false);
-  return (
-    <section aria-label="Build history" className="enter mt-6 flex flex-col gap-3 rounded-ctl bg-inset p-5" style={stagger(3)}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 text-[16px] font-medium text-ink">Build history</h2>
-        {builds.length > 0 &&
-          (sure ? (
-            <span className="flex items-center gap-2 text-[13px] text-ink-2">
-              Clear the whole list?
-              <button
-                type="button"
-                className={pillDanger}
-                onClick={() => {
-                  clear.mutate();
-                  setSure(false);
-                }}
-              >
-                Clear
-              </button>
-              <button type="button" className={pill} onClick={() => setSure(false)}>
-                Keep
-              </button>
-            </span>
-          ) : (
-            <button type="button" className={pill} onClick={() => setSure(true)}>
-              Clear list
-            </button>
-          ))}
-      </div>
-      {builds.length === 0 ? (
-        <p className="m-0 text-[13px] text-ink-3">Nothing has been built yet.</p>
-      ) : (
-        <div className="max-h-[22rem] overflow-auto">
-          <table className="w-full border-collapse text-[14px]">
-            <thead>
-              <tr>
-                <th className={th}>When</th>
-                <th className={th}>Image</th>
-                <th className={th}>Commit</th>
-                <th className={th}>Account</th>
-                <th className={th}>Result</th>
-                <th className={th}>Took</th>
-              </tr>
-            </thead>
-            <tbody>
-              {builds.map((b) => (
-                <tr key={b.id} className="border-t border-line">
-                  <td className={`${td} whitespace-nowrap text-[13px] text-ink-2`}>{ago(b.at, now)}</td>
-                  <td className={`${td} font-mono text-[12px] text-ink`}>
-                    {b.repository}:{b.tag}
-                  </td>
-                  <td className={`${td} font-mono text-[12px] text-ink-2`}>
-                    {short(b.revision) || "—"}
-                    {b.dirty ? " +changes" : ""}
-                  </td>
-                  <td className={`${td} text-[13px] text-ink-2`}>{b.account}</td>
-                  <td className={td} title={b.error}>
-                    <Mark ok={b.ok}>{b.ok ? "Pushed" : "Failed"}</Mark>
-                  </td>
-                  <td className={`${td} whitespace-nowrap text-[13px] text-ink-3`}>{took(b.seconds)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-}
-
-/** Build and push Docker images: type a tag, and devdeck builds the image on this PC and pushes it with the right account. */
+/** Build and push Docker images: see where each stands, type a tag, and devdeck builds it on this PC and pushes it with the right account. */
 export function ImagesPage() {
   const item = navByPath("/images");
   const images = useImages();
   const builds = useBuilds();
-  const rows = images.data ?? [];
+  const hubTags = useAllImageTags();
+  const hosts = useHosts();
+  const { jobs, enqueue, dismiss } = useBuildJobs();
+  const now = useNow(true, 30_000);
+
+  const [filter, setFilter] = useState<ImageFilter>(noImageFilter);
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const [open, setOpen] = useState<string | null>(null);
+  const [asking, setAsking] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batchAsking, setBatchAsking] = useState(false);
+
+  const all = useMemo(() => images.data ?? [], [images.data]);
+  const rows = useMemo(() => sortImages(filterImages(all, filter)), [all, filter]);
+  const summary = summarize(all);
+  const running = jobs.filter((j) => j.state === "running" || j.state === "queued").length;
+  const hasHosts = (hosts.data?.length ?? 0) > 0;
+
+  const tagOf = (r: ImageRow) => typed[imageKey(r)] ?? "";
+  const hubOf = (r: ImageRow): ImageTags | undefined => {
+    if (hubTags.isError) return { workspace: r.workspace, repo: r.repo, image: r.image, repository: r.repository, tags: [], error: hubTags.error.message };
+    return hubTags.data?.find((h) => imageKey(h) === imageKey(r));
+  };
+  const active = (r: ImageRow) => jobs.some((j) => j.key === imageKey(r) && (j.state === "running" || j.state === "queued"));
+
+  // The ticked images that can be built now, and why the others are left out.
+  const ticked = all.filter((r) => selected.has(imageKey(r)));
+  const ready: Array<{ row: ImageRow; tag: string; target: string }> = [];
+  const skipped: string[] = [];
+  for (const r of ticked) {
+    const tag = tagOf(r);
+    if (blockerOf(r)) skipped.push(`${r.image} can’t be built yet`);
+    else if (!tagPattern.test(tag)) skipped.push(`${r.image} has no valid tag`);
+    else if (active(r)) skipped.push(`${r.image} is already queued`);
+    else if (hubOf(r)?.tags.some((t) => t.name === tag)) skipped.push(`${r.image}:${tag} already exists on Docker Hub`);
+    else ready.push({ row: r, tag, target: `${r.repository}:${tag}` });
+  }
+
+  const build = (r: ImageRow, overwrite: boolean) => {
+    setAsking(null);
+    enqueue([{ row: r, tag: tagOf(r), overwrite }]);
+  };
 
   return (
     <>
       <PageHeader
         title={item.label}
         group={item.group}
-        description="Type a tag after the colon and devdeck builds the image on this PC and pushes it to Docker Hub."
+        description="Builds on this PC from the commit checked out, then pushes to Docker Hub. Type a tag and confirm."
         actions={
           <Link to="/connections/docker" className={pill}>
             Docker Hub accounts
@@ -296,18 +93,18 @@ export function ImagesPage() {
       />
 
       {images.isPending && (
-        <div role="status" aria-label="Loading images…" className="mt-4 grid gap-3">
+        <output aria-label="Loading images…" className="mt-4 grid gap-3">
           {[0, 1].map((i) => (
             <div key={i} className="skeleton h-36 w-full" />
           ))}
-        </div>
+        </output>
       )}
       {images.isError && (
         <p role="alert" className="mt-4 text-[14px] text-ink">
           The images couldn’t be read: {images.error.message}
         </p>
       )}
-      {images.data && rows.length === 0 && (
+      {images.data && all.length === 0 && (
         <EmptyState
           icon={Container}
           empty={{
@@ -318,11 +115,121 @@ export function ImagesPage() {
         />
       )}
 
-      <div className="enter mt-4 flex flex-col gap-3" style={stagger(1)}>
-        {rows.map((r) => (
-          <ImageCard key={`${r.workspace}/${r.repo}/${r.image}`} row={r} />
-        ))}
-      </div>
+      {all.length > 0 && (
+        <>
+          <section aria-label="Summary" className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryCard label="Images" value={summary.total} note={`in ${summary.workspaces} ${summary.workspaces === 1 ? "workspace" : "workspaces"}`} />
+            <SummaryCard label="Up to date" value={summary.upToDate} note="last build is the current commit" />
+            <SummaryCard label="Changed since last build" value={summary.ahead} note="commits on top of what was built" />
+            <SummaryCard label="Building now" value={running} note={running === 0 ? "nothing queued" : "running or waiting"} />
+          </section>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <label className="relative">
+              <Search size={14} aria-hidden className="pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2 text-ink-3" />
+              <input
+                type="search"
+                value={filter.text}
+                onChange={(e) => setFilter((f) => ({ ...f, text: e.target.value }))}
+                placeholder="Filter images"
+                aria-label="Filter images"
+                className="h-7 w-56 bg-inset ps-8 pe-2 text-[13px] text-ink outline-none placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-accent"
+              />
+            </label>
+            {chips.map((c) => (
+              <button
+                key={c.chip}
+                type="button"
+                aria-pressed={filter.chip === c.chip}
+                onClick={() => setFilter((f) => ({ ...f, chip: c.chip }))}
+                className={`inline-flex h-7 items-center gap-1.5 px-2.5 text-[12.5px] transition-colors ${filter.chip === c.chip ? "bg-primary text-primary-foreground" : "bg-fill text-ink hover:bg-fill-hover"}`}
+              >
+                {c.label}
+                <span className="font-mono text-[11px] opacity-75">{filterImages(all, { ...noImageFilter, chip: c.chip }).length}</span>
+              </button>
+            ))}
+            <span className="flex-1" />
+            <span className="text-[12px] text-ink-3">Most commits since the last build first</span>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-px">
+            <div className={`${listGrid} px-4 pb-1 text-[12px] text-ink-3 max-lg:hidden`}>
+              <input
+                type="checkbox"
+                aria-label="Select every image shown"
+                checked={rows.length > 0 && rows.every((r) => selected.has(imageKey(r)))}
+                onChange={(e) => setSelected(e.target.checked ? new Set(rows.map(imageKey)) : new Set())}
+                className="size-4 accent-[var(--primary)]"
+              />
+              <span>Image</span>
+              <span>Source on this PC</span>
+              <span>Latest on Docker Hub</span>
+              <span>Tag to push</span>
+              <span />
+              <span className="w-8" />
+            </div>
+            {rows.map((r) => {
+              const key = imageKey(r);
+              return (
+                <ImageRowView
+                  key={key}
+                  row={r}
+                  hub={hubOf(r)}
+                  hubLoading={hubTags.isPending}
+                  tag={tagOf(r)}
+                  onTag={(t) => {
+                    setTyped((m) => ({ ...m, [key]: t }));
+                    setAsking(null);
+                  }}
+                  selected={selected.has(key)}
+                  onSelect={(on) =>
+                    setSelected((s) => {
+                      const next = new Set(s);
+                      if (on) next.add(key);
+                      else next.delete(key);
+                      return next;
+                    })
+                  }
+                  job={jobs.find((j) => j.key === key)}
+                  open={open === key}
+                  onToggle={() => setOpen((o) => (o === key ? null : key))}
+                  asking={asking === key}
+                  onAsk={() => setAsking(key)}
+                  onCancel={() => setAsking(null)}
+                  onConfirm={(overwrite) => build(r, overwrite)}
+                  onDismiss={() => dismiss(key)}
+                  hasHosts={hasHosts}
+                  now={now}
+                />
+              );
+            })}
+            {rows.length === 0 && <p className="m-0 bg-surface-1 p-4 text-[14px] text-ink-3">No image matches.</p>}
+          </div>
+        </>
+      )}
+
+      {(selected.size > 0 || jobs.length > 0) && (
+        <div className="sticky bottom-0 z-10 mt-4 flex flex-col gap-px">
+          <BatchBar
+            count={selected.size}
+            ready={ready}
+            skipped={skipped}
+            asking={batchAsking}
+            onAsk={() => setBatchAsking(true)}
+            onCancel={() => setBatchAsking(false)}
+            onClear={() => {
+              setSelected(new Set());
+              setBatchAsking(false);
+            }}
+            onConfirm={() => {
+              enqueue(ready.map((x) => ({ row: x.row, tag: x.tag })));
+              setSelected(new Set());
+              setBatchAsking(false);
+            }}
+          />
+          <BuildDock jobs={jobs} now={now} />
+        </div>
+      )}
 
       <History builds={builds.data ?? []} />
     </>

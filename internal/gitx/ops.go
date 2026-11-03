@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -79,6 +80,25 @@ func (g Git) Head(ctx context.Context, dir string) (string, error) {
 		return "", fmt.Errorf("git couldn't read the current commit of %s", dir)
 	}
 	return out, nil
+}
+
+var revPattern = regexp.MustCompile(`^[0-9a-f]{7,64}$`)
+
+// CountSince is how many commits the repository in dir has on top of rev (rev..HEAD). rev must be a
+// commit hash. An error when git can't say, for example when rev isn't in this clone.
+func (g Git) CountSince(ctx context.Context, dir, rev string) (int, error) {
+	if !revPattern.MatchString(rev) {
+		return 0, fmt.Errorf("%q isn't a commit hash", rev)
+	}
+	out, code, err := g.run(ctx, dir, "rev-list", "--count", rev+"..HEAD")
+	if err != nil || code != 0 {
+		return 0, fmt.Errorf("git couldn't count the commits since %s", rev)
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil {
+		return 0, fmt.Errorf("git couldn't count the commits since %s", rev)
+	}
+	return n, nil
 }
 
 // The operations devdeck runs. Each has one fixed command, shown before it runs.

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -140,5 +141,40 @@ func TestHead(t *testing.T) {
 	head, err := g.Head(ctx, dir)
 	if err != nil || len(head) != 40 {
 		t.Errorf("Head = %q, %v: want a full commit hash", head, err)
+	}
+}
+
+func TestCountSince(t *testing.T) {
+	g := isolatedGit(t)
+	dir := repo(t, g, "")
+	ctx := context.Background()
+	commit := func(msg string) string {
+		t.Helper()
+		for _, args := range [][]string{{"-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", msg}} {
+			cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+			cmd.Env = append(os.Environ(), g.Env...)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v\n%s", args, err, out)
+			}
+		}
+		head, err := g.Head(ctx, dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return head
+	}
+	first := commit("one")
+	if n, err := g.CountSince(ctx, dir, first); err != nil || n != 0 {
+		t.Errorf("at the same commit: %d, %v", n, err)
+	}
+	commit("two")
+	commit("three")
+	if n, err := g.CountSince(ctx, dir, first); err != nil || n != 2 {
+		t.Errorf("two commits on: %d, %v", n, err)
+	}
+	for _, bad := range []string{"", "--all", "HEAD~1", "zzzzzzz", strings.Repeat("a", 40)} {
+		if _, err := g.CountSince(ctx, dir, bad); err == nil {
+			t.Errorf("CountSince(%q) should fail", bad)
+		}
 	}
 }

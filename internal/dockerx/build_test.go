@@ -45,8 +45,7 @@ func TestPlan(t *testing.T) {
 	}
 	got := strings.Join(pl.args, " ")
 	for _, want := range []string{
-		"buildx build --progress plain --platform linux/amd64",
-		"-f " + filepath.Join(dir, "Dockerfile"),
+		"buildx build --progress plain -f " + filepath.Join(dir, "Dockerfile"),
 		"-t acme/api:1.0.3",
 		"--push " + dir,
 	} {
@@ -180,7 +179,7 @@ func TestBuildRunsDockerWithAPrivateConfig(t *testing.T) {
 	text := strings.Join(lines, "\n")
 
 	for _, want := range []string{
-		"ARGS:buildx build --progress plain --platform linux/amd64",
+		"ARGS:buildx build --progress plain -f",
 		"-t acme/api:1.0.3",
 		"--secret id=gh_token,env=DEVDECK_BUILD_SECRET_0",
 		"HELPER: true",
@@ -449,5 +448,49 @@ func TestNilHistoryKeepsNothingAndFailsNothing(t *testing.T) {
 	}
 	if got, err := (&History{}).Newest(); err != nil || len(got) != 0 {
 		t.Errorf("Newest = %v %v", got, err)
+	}
+}
+
+func TestBuildPrintsTheCommandFirstWithoutTheSecret(t *testing.T) {
+	b := fakeBuilder(t)
+	dir := repoDir(t)
+	s := goodSpec(dir)
+	s.Secrets = []Secret{{ID: "gh_token", Value: secrets.NewValue("ghp_fake_value_1")}}
+
+	var lines []string
+	if err := b.Build(context.Background(), s, collect(&lines)); err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	first := lines[0]
+	for _, want := range []string{"$ docker buildx build --progress plain -f", "-t acme/api:1.0.3", "--secret id=gh_token,env=DEVDECK_BUILD_SECRET_0", "--push", "(in " + dir + ")"} {
+		if !strings.Contains(first, want) {
+			t.Errorf("the first line is missing %q: %s", want, first)
+		}
+	}
+	if strings.Contains(first, "ghp_fake_value_1") {
+		t.Errorf("the secret is in the command line: %s", first)
+	}
+}
+
+func TestDisplayCommandQuotesWhatNeedsIt(t *testing.T) {
+	got := displayCommand("docker", []string{"buildx", "-f", `C:\my repo\Dockerfile`, "--label", "a=b", ""})
+	if want := `docker buildx -f "C:\my repo\Dockerfile" --label a=b ""`; got != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+}
+
+func TestPlanAddsNoPlatformUnlessTheWorkspaceSetsOne(t *testing.T) {
+	dir := repoDir(t)
+	s := goodSpec(dir)
+	pl, err := s.plan()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(pl.args, " "); strings.Contains(got, "--platform") {
+		t.Errorf("no platform was set, so docker should choose: %s", got)
+	}
+	s.Platforms = []string{"linux/arm64"}
+	if pl, err = s.plan(); err != nil || !strings.Contains(strings.Join(pl.args, " "), "--platform linux/arm64") {
+		t.Errorf("a platform that is set should be passed: %v %v", pl, err)
 	}
 }

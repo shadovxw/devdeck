@@ -135,6 +135,25 @@ export function useDisconnectHost(ws: string, host: string) {
   });
 }
 
+/** Whether a connection error says the AWS sign-in has run out (the server's own words for it). */
+export const needsAwsSignIn = (message: string | undefined) => /AWS sign-in has expired/i.test(message ?? "");
+
+/**
+ * Opens the AWS sign-in page in the browser (`aws sso login` for the host's profile) and waits until it is
+ * finished there, which can take a minute or more. devdeck never sees a password. When it is done the host's
+ * connection is asked again.
+ */
+export function useAwsSignIn(ws: string, host: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<void>(`${base(ws, host)}/aws-login`),
+    onSuccess: () => {
+      qc.removeQueries({ queryKey: ["hosts", ws, host] });
+      void qc.invalidateQueries({ queryKey: keys.hosts });
+    },
+  });
+}
+
 /** A write to ask of a host's agent: a service's start/stop/restart, or a stack's up/down/pull/script. */
 export type HostAction = {
   name: "start" | "stop" | "restart" | "up" | "down" | "pull" | "script";

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -110,6 +111,11 @@ func dockerServer(t *testing.T) *dockerEnv {
 			_, _ = w.Write([]byte(`{"token":"jwt"}`))
 		case strings.HasPrefix(r.URL.Path, "/v2/user/orgs"):
 			_, _ = w.Write([]byte(`{"results":[{"orgname":"acme"}]}`))
+		case r.URL.Path == "/v2/repositories/acme/demo-api/tags/":
+			_, _ = w.Write([]byte(`{"results":[
+				{"name":"1.0","last_updated":"2026-10-01T10:00:00.000000Z"},
+				{"name":"1.2","last_updated":"2026-11-02T10:00:00.000000Z","tag_last_pushed":"2026-11-02T10:00:00.000000Z"},
+				{"name":"1.1","last_updated":"2026-10-15T10:00:00.000000Z"}]}`))
 		case r.URL.Path == "/v2/repositories/acme/demo-api/tags/1.0/":
 			_, _ = w.Write([]byte(`{"name":"1.0"}`))
 		default:
@@ -329,7 +335,7 @@ func TestImagesList(t *testing.T) {
 	}
 
 	api := by["api"]
-	if api.Repository != "acme/demo-api" || api.Account != "work" || api.Problem != "" || api.Dockerfile != "Dockerfile" || api.Context != "." || api.Platforms[0] != "linux/amd64" || api.FolderMissing {
+	if api.Repository != "acme/demo-api" || api.Account != "work" || api.Problem != "" || api.Dockerfile != "Dockerfile" || api.Context != "." || len(api.Platforms) != 0 || api.FolderMissing {
 		t.Errorf("api = %+v", api)
 	}
 	if len(api.Secrets) != 1 || api.Secrets[0].Name != "npm-token" || !strings.Contains(api.Secrets[0].Problem, "no value is saved") {
@@ -567,5 +573,48 @@ func TestEditAWorkspace(t *testing.T) {
 	}
 	if rec := d.call(http.MethodPut, "/api/v1/workspaces/demo", `{`); rec.Code != http.StatusBadRequest {
 		t.Errorf("not JSON = %d, want 400", rec.Code)
+	}
+}
+
+func TestAllTheTagsAtOnce(t *testing.T) {
+	d := dockerServer(t)
+	rec := d.call(http.MethodGet, "/api/v1/images/tags", "")
+	var rows []struct {
+		Repo, Image, Repository, Error string
+		Tags                           []dockerx.Tag
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil || rec.Code != http.StatusOK || len(rows) == 0 {
+		t.Fatalf("tags = %d %s", rec.Code, rec.Body)
+	}
+	for _, r := range rows {
+		if r.Error == "" {
+			t.Errorf("%s has no account yet but no error", r.Repository)
+		}
+	}
+
+	d.addAccount(t, "work", "ana-work", "dckr_pat_fake_value", "acme")
+	rec = d.call(http.MethodGet, "/api/v1/images/tags?limit=2", "")
+	rows = nil
+	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("tags = %d %s", rec.Code, rec.Body)
+	}
+	byRepo := map[string][]string{}
+	errs := map[string]string{}
+	for _, r := range rows {
+		for _, tg := range r.Tags {
+			byRepo[r.Repository] = append(byRepo[r.Repository], tg.Name)
+		}
+		errs[r.Repository] = r.Error
+	}
+	// the one repository the fake Docker Hub knows, newest first and cut at the limit; another namespace has no
+	// account and says so, without stopping the rest
+	if !slices.Equal(byRepo["acme/demo-api"], []string{"1.2", "1.1"}) || errs["acme/demo-api"] != "" {
+		t.Errorf("acme/demo-api = %v (%q)", byRepo["acme/demo-api"], errs["acme/demo-api"])
+	}
+	if errs["other/demo-worker"] == "" {
+		t.Error("a namespace with no account should have an error")
+	}
+	if rec := d.call(http.MethodGet, "/api/v1/images/tags?limit=99", ""); rec.Code != http.StatusBadRequest {
+		t.Errorf("limit=99 = %d", rec.Code)
 	}
 }

@@ -9,6 +9,8 @@ import { LevelMark } from "../design/LevelMark";
 import { PageHeader } from "../design/PageHeader";
 import { pill, pillDanger, pillInput, pillPrimary, pillSelect, pillSmall } from "../design/pills";
 import {
+  needsAwsSignIn,
+  useAwsSignIn,
   useDisconnectHost,
   useForgetHostToken,
   useHostCompose,
@@ -376,6 +378,7 @@ function HostCard({ host, deploy }: Readonly<{ host: HostView; deploy?: Deploy |
   const enabled = host.token_set && (connect || host.tunnel.open);
   const info = useHostInfo(host.workspace, host.id, enabled);
   const disconnect = useDisconnectHost(host.workspace, host.id);
+  const signIn = useAwsSignIn(host.workspace, host.id);
 
   let status = <Mark shape="ring" color="var(--ink-3)" label="Not connected" />;
   if (info.isFetching && !info.data) status = <Mark shape="ring" color="var(--accent)" label="Connecting…" />;
@@ -427,6 +430,25 @@ function HostCard({ host, deploy }: Readonly<{ host: HostView; deploy?: Deploy |
         <p role="alert" className="m-0 text-[13px] text-critical">
           {info.error.message}
         </p>
+      )}
+      {host.type === "aws-ssm" && (needsAwsSignIn(info.error?.message) || signIn.isPending || signIn.isError) && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className={pillPrimary}
+            disabled={signIn.isPending}
+            title="Runs the AWS sign-in for this host's profile and opens its page in your browser. devdeck never sees or keeps your password."
+            onClick={() => signIn.mutate()}
+          >
+            {signIn.isPending ? "Waiting for the browser…" : "Sign in to AWS"}
+          </button>
+          {signIn.isPending && <output className="text-[13px] text-ink-3">Finish signing in in the browser window that opened, then allow the request.</output>}
+          {signIn.isError && (
+            <p role="alert" className="m-0 text-[13px] text-critical">
+              {signIn.error.message}
+            </p>
+          )}
+        </div>
       )}
       <TokenForm host={host} />
 

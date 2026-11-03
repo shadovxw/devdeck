@@ -2,6 +2,7 @@ package dockerx
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -116,6 +119,57 @@ func (h *Hub) Namespaces(ctx context.Context, jwt, username string) []string {
 		}
 	}
 	return out
+}
+
+// Tag is one tag of a Docker Hub repository.
+type Tag struct {
+	Name string `json:"name"`
+	// PushedAt is when the tag was last pushed (RFC 3339), as Docker Hub says it.
+	PushedAt string `json:"pushed_at,omitempty"`
+	// Size is the compressed size in bytes, when Docker Hub says.
+	Size int64 `json:"size,omitempty"`
+}
+
+// Tags lists a repository's most recently pushed tags, newest first, at most limit (1 to 100).
+// A repository that doesn't exist yet has none.
+func (h *Hub) Tags(ctx context.Context, jwt, repository string, limit int) ([]Tag, error) {
+	if !ValidRepository(repository) {
+		return nil, fmt.Errorf("%q isn't a Docker Hub repository", repository)
+	}
+	limit = min(max(limit, 1), 100)
+	// Docker Hub sorts by when a tag was last updated, newest first; the page is made larger than
+	// asked for and sorted again here, so the order doesn't depend on that.
+	var page struct {
+		Results []struct {
+			Name        string `json:"name"`
+			LastUpdated string `json:"last_updated"`
+			LastPushed  string `json:"tag_last_pushed"`
+			FullSize    int64  `json:"full_size"`
+		} `json:"results"`
+	}
+	path := fmt.Sprintf("/v2/repositories/%s/tags/?page_size=%d&ordering=last_updated", repository, min(limit*2, 100))
+	code, err := h.do(ctx, http.MethodGet, path, jwt, nil, &page)
+	switch {
+	case err != nil:
+		return nil, err
+	case code == http.StatusNotFound:
+		return nil, nil
+	case code != http.StatusOK:
+		return nil, fmt.Errorf("listing the tags failed: Docker Hub answered %d", code)
+	}
+	tags := make([]Tag, 0, len(page.Results))
+	for _, r := range page.Results {
+		if !ValidTag(r.Name) {
+			continue
+		}
+		tags = append(tags, Tag{Name: r.Name, PushedAt: cmp.Or(r.LastPushed, r.LastUpdated), Size: r.FullSize})
+	}
+	// RFC 3339 times in the same zone sort as text; newest first
+	slices.SortStableFunc(tags, func(a, b Tag) int { return strings.Compare(b.PushedAt, a.PushedAt) })
+	if len(tags) > limit {
+		tags = tags[:limit]
+	}
+	return tags, nil
 }
 
 // TagExists reports whether the repository already has the tag. A repository that doesn't
