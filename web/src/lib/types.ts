@@ -61,6 +61,8 @@ export type WorkspaceSummary = {
   repos: number;
   stacks: number;
   flows: number;
+  /** Repos by type ("go": 3); "other" counts the ones that name none. */
+  repo_types?: Record<string, number>;
   errors: number;
   warnings: number;
 };

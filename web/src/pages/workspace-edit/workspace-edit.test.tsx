@@ -10,11 +10,12 @@ import { useUi } from "../../store/ui";
 // CodeMirror needs a real browser's layout, so the page is tested with a plain textarea standing in for the
 // editor (and a <pre> for the diff). What the editor itself does is tested in cm-schema and yaml-doc.
 vi.mock("./YamlEditor", () => ({
-  default: (props: { value: string; onChange: (v: string) => void; onCursor: (c: { line: number; col: number }) => void; readOnly?: boolean }) => (
+  default: (props: { value: string; onChange: (v: string) => void; onCursor: (c: { line: number; col: number }) => void; readOnly?: boolean; initialLine?: number }) => (
     <textarea
       aria-label="workspace.yaml"
       value={props.value}
       readOnly={props.readOnly}
+      data-initial-line={props.initialLine}
       onChange={(e) => props.onChange(e.target.value)}
       onClick={() => props.onCursor({ line: 6, col: 1 })}
     />
@@ -122,8 +123,8 @@ function mockServer(opts: Server = {}) {
   );
 }
 
-function renderEditor() {
-  const router = createMemoryRouter(routes, { initialEntries: ["/workspaces/demo/edit"] });
+function renderEditor(path = "/workspaces/demo/edit") {
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -308,6 +309,12 @@ describe("the workspace.yaml editor", () => {
     expect(text).toMatch(/- id: api\n\s+path: api\n\s+type: node/);
     expect(text).toContain('path: ""');
     expect(reviewButton().disabled).toBe(false);
+  });
+
+  it("opens at the line it is linked to from the Problems tab", async () => {
+    mockServer();
+    renderEditor("/workspaces/demo/edit?line=9");
+    expect((await editor()).getAttribute("data-initial-line")).toBe("9");
   });
 
   it("opens a sample read-only", async () => {

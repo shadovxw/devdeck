@@ -1,6 +1,6 @@
 import { ExternalLink, Save, Undo2 } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useBlocker, useParams } from "react-router";
+import { useBlocker, useParams, useSearchParams } from "react-router";
 
 import { PageHeader } from "../../design/PageHeader";
 import { primaryButton, quietButton } from "../../design/buttons";
@@ -52,6 +52,7 @@ const DiffFallback = () => <div role="status" aria-label="Loading the comparison
  */
 export function WorkspaceEditPage() {
   const { id = "" } = useParams();
+  const startLine = Number(useSearchParams()[0].get("line")) || undefined;
   const ed = useWorkspaceEditor(id);
   const detail = useWorkspace(id);
   const git = useGitRepos();
@@ -200,6 +201,7 @@ export function WorkspaceEditPage() {
                   issues={ed.issues}
                   schema={schema.data}
                   readOnly={readOnly}
+                  initialLine={startLine}
                   onCursor={setCursor}
                   onFix={applyFix}
                   onSave={() => ed.dirty && setReviewing(true)}

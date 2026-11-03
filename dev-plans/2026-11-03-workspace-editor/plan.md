@@ -1,6 +1,6 @@
 # The workspace.yaml editor
 
-> 2026-11-03 · owner: Vrishank Warrier · builds on [`06-workspace-config.md`](../06-workspace-config.md) (the file and its schema) and [`02-frontend-design-system.md`](../02-frontend-design-system.md) (Paper) · status: **built (2026-11-03). One PR: the editor. The Workspaces page redesign is a separate PR.**
+> 2026-11-03 · owner: Vrishank Warrier · builds on [`06-workspace-config.md`](../06-workspace-config.md) (the file and its schema) and [`02-frontend-design-system.md`](../02-frontend-design-system.md) (Paper) · status: **built (2026-11-03). One PR: the editor and the Workspaces page that leads to it.**
 
 ## 1. Goal
 
@@ -48,7 +48,13 @@ Paper is monochrome (the accent is near-black), so the syntax is told apart by w
 
 Known: `npm audit --omit=dev` reports three low findings in `deepmerge`, pulled in by `json-schema-library` (a dependency of `codemirror-json-schema`). CI fails only on high.
 
-## 5. Later
+## 5. The Workspaces page
+
+The page around the editor changes in the same PR: cards in a grid (counts, problems, a bar of repos by type, an Add tile) with the details of the chosen workspace below, in tabs: Repositories (joined with `GET /git/repos`: branch, clean or changed or ahead and behind, remote; filters; a dimmed shared prefix; local-only last), Stacks, Problems (grouped by file; workspace.yaml problems link to the editor at their line with `?line=`) and Settings (root, file path, delete with confirmation). The list endpoint gains `repo_types`. The edit button moves from the card to the details.
+
+Not built: the "no workspace is active" banner and "make active" (there is no active-workspace concept yet; the top bar's switcher is still a placeholder), Fetch all, Rescan folder, Import workspace.yaml, and the last-commit column. Each needs a decision or an endpoint of its own.
+
+## 6. Later
 
 - Use the same editor for `stacks/*.yaml` (the outline already links to them).
 - Write a `# yaml-language-server: $schema=…` header into files devdeck creates, so VS Code gets the same suggestions from `GET /schema/workspace`.

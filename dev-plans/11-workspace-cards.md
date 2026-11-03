@@ -18,7 +18,7 @@
 
 - `internal/workspace/service.go`: `Manager.Delete`, `ErrReadOnly`.
 - `internal/api/workspaces.go`: the route, with the running-stack check through the supervisor.
-- `web/src/pages/WorkspacesPage.tsx`: `WorkspaceCard`, the drawer, `AddWorkspace` (now only the form). `lib/api.ts` has `api.delete`; `lib/queries.ts` has `useDeleteWorkspace`.
+- `web/src/pages/WorkspacesPage.tsx`: `WorkspaceCard`, the drawer, `AddWorkspace` (now only the form). *(2026-11-03: the card is now `web/src/pages/workspaces/WorkspaceCards.tsx` and delete lives in the details' Settings tab; see `2026-11-03-workspace-editor/plan.md` §5.)* `lib/api.ts` has `api.delete`; `lib/queries.ts` has `useDeleteWorkspace`.
 
 ## Verified
 

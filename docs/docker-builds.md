@@ -6,7 +6,7 @@ devdeck can build an image from one of your repositories and push it to Docker H
 
 **1. Add your Docker Hub accounts** (Connections, Docker Hub). For each: a short name, the Docker Hub username, and the organisations the account can push to. Then add its **access token**: make one on hub.docker.com (Account settings, Personal access tokens) with *Read & Write* permission. devdeck keeps it in your OS keychain and never shows it again. **Test** signs in and shows who the account is and which namespaces it can use.
 
-**2. Say what each repository builds**, in its `workspace.yaml` (edit it from Workspaces with the pencil, or with a text editor):
+**2. Say what each repository builds**, in its `workspace.yaml` (edit it from Workspaces with **Edit file**, or with a text editor):
 
 ```yaml
 repos:

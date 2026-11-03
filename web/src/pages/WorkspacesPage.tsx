@@ -1,104 +1,23 @@
-import { Boxes, ChevronDown, FolderOpen, FolderSearch, Pencil, Plus, Trash2 } from "lucide-react";
+import { Boxes, FolderOpen, FolderSearch, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { navByPath } from "../app/nav";
 import { primaryButton, quietButton } from "../design/buttons";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
-import { IssueList, Mark } from "../design/IssueList";
+import { IssueList } from "../design/IssueList";
 import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
 import { useDebounced } from "../lib/use-debounced";
-import {
-  useCreateWorkspace,
-  useDeleteWorkspace,
-  usePickFolder,
-  useScanFolder,
-  useValidateWorkspace,
-  useWorkspace,
-  useWorkspaces,
-} from "../lib/queries";
-import type { WorkspaceSummary } from "../lib/types";
+import { useCreateWorkspace, usePickFolder, useScanFolder, useValidateWorkspace, useWorkspaces } from "../lib/queries";
+import { WorkspaceCards } from "./workspaces/WorkspaceCards";
+import { WorkspaceDetail } from "./workspaces/WorkspaceDetail";
 
-const th = "px-4 py-2.5 text-start text-[13px] font-medium text-ink-3";
-const td = "px-4 py-3";
 const field =
   "h-10 w-full min-w-0 rounded-ctl bg-inset px-3 text-[14px] text-ink placeholder:text-ink-3 outline-none " +
   "focus-visible:ring-2 focus-visible:ring-accent";
-
-function IssueCount({ errors, warnings }: { errors: number; warnings: number }) {
-  if (!errors && !warnings) return <span className="text-ink-3">None</span>;
-  return (
-    <span className="inline-flex items-center gap-3 tabular-nums">
-      {errors > 0 && (
-        <span className="inline-flex items-center gap-1.5" title={`${errors} error${errors === 1 ? "" : "s"}`}>
-          <Mark severity="error" />
-          {errors}
-        </span>
-      )}
-      {warnings > 0 && (
-        <span className="inline-flex items-center gap-1.5" title={`${warnings} warning${warnings === 1 ? "" : "s"}`}>
-          <Mark severity="warning" />
-          {warnings}
-        </span>
-      )}
-    </span>
-  );
-}
-
-/** What opens under a card: the repos, stacks and flows of the workspace, and its problems. Loaded when the card opens. */
-function DetailBody({ id }: { id: string }) {
-  const { data, isPending, isError } = useWorkspace(id);
-  return (
-    <div className="flex flex-col gap-5 px-4 pb-1 pt-2">
-      {isPending && <div role="status" aria-label="Loading workspace…" className="skeleton h-4 w-48" />}
-      {isError && <p className="m-0 text-ink-3">Could not load this workspace.</p>}
-      {data && (
-        <>
-          {data.workspace?.repos && data.workspace.repos.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-[14px]">
-                <thead>
-                  <tr>
-                    <th className={th}>Repository</th>
-                    <th className={th}>Folder</th>
-                    <th className={th}>Type</th>
-                    <th className={th}>Remote</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.workspace.repos.map((r) => (
-                    <tr key={r.id} className="border-t border-line">
-                      <td className={`${td} font-mono text-[13px]`}>{r.id}</td>
-                      <td className={`${td} font-mono text-[13px] text-ink-2`}>{r.path}</td>
-                      <td className={`${td} text-ink-3`}>{r.type}</td>
-                      <td className={`${td} font-mono text-[13px] text-ink-3`}>{r.remote}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {(data.stacks.length > 0 || data.flows.length > 0) && (
-            <p className="m-0 text-[14px] text-ink-2">
-              {data.stacks.length > 0 && <>Stacks: {data.stacks.map((s) => s.name).join(", ")}. </>}
-              {data.flows.length > 0 && <>Flows: {data.flows.map((f) => f.name).join(", ")}.</>}
-            </p>
-          )}
-
-          <div>
-            <h3 className="m-0 mb-2 text-[13px] font-medium text-ink-3">Problems</h3>
-            <IssueList issues={data.issues} />
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 /** Scan a folder, review the drafted workspace.yaml, then save it. Lives in the drawer. */
 function AddWorkspace({ onCreated }: { onCreated: (id: string) => void }) {
@@ -201,130 +120,15 @@ function AddWorkspace({ onCreated }: { onCreated: (id: string) => void }) {
   );
 }
 
-const iconButton =
-  "grid size-8 shrink-0 place-items-center rounded-ctl text-ink-3 transition hover:bg-accent-soft hover:text-ink active:scale-90";
-
-/**
- * One workspace as a card. The whole card is the accordion's button: clicking it
- * opens the details under it, and the arrow turns to show it is open. Delete
- * (with a confirmation) is only on the user's own workspaces.
- */
-function WorkspaceCard({ w, onDeleted, onEdit }: { w: WorkspaceSummary; onDeleted: () => void; onEdit: () => void }) {
-  const del = useDeleteWorkspace();
-  const [confirming, setConfirming] = useState(false);
-  const mine = w.source === "local";
-
-  return (
-    <AccordionItem
-      value={w.id}
-      role="listitem"
-      aria-label={`Workspace ${w.name}`}
-      className="relative flex flex-col rounded-sheet bg-surface-1 transition-colors hover:bg-fill/60 data-[state=open]:bg-fill"
-    >
-      <div className="flex items-start gap-2 p-4 pb-0">
-        <div className="min-w-0 flex-1">
-          {/* This button covers the whole card (the ::after), so a click anywhere opens the details. */}
-          <AccordionTrigger
-            hideChevron
-            className="block max-w-full truncate p-0 text-[16px] font-semibold text-ink after:absolute after:inset-0 after:content-[''] hover:no-underline"
-          >
-            {w.name}
-          </AccordionTrigger>
-          {w.root && <p className="m-0 mt-0.5 truncate font-mono text-[12px] text-ink-3">{w.root}</p>}
-        </div>
-        <span className="shrink-0 rounded-ctl bg-inset px-2 py-0.5 text-[12px] text-ink-3">{mine ? "Yours" : "Example"}</span>
-        {mine && (
-          <button type="button" onClick={onEdit} title="Edit this workspace's file" aria-label={`Edit ${w.name}`} className={`${iconButton} relative z-10 -mt-1`}>
-            <Pencil size={16} aria-hidden />
-          </button>
-        )}
-        {mine && (
-          <button type="button" onClick={() => setConfirming(true)} title="Delete this workspace" aria-label={`Delete ${w.name}`} className={`${iconButton} relative z-10 -mt-1`}>
-            <Trash2 size={16} aria-hidden />
-          </button>
-        )}
-        <ChevronDown
-          size={18}
-          aria-hidden
-          className="mt-0.5 shrink-0 text-ink-3 transition-transform duration-(--dur-quick) group-data-[state=open]/item:rotate-180"
-        />
-      </div>
-
-      {w.description && <p className="m-0 line-clamp-2 px-4 pt-3 text-[13px] leading-5 text-ink-3">{w.description}</p>}
-
-      <dl className="m-0 mt-auto flex items-end gap-6 p-4">
-        {(
-          [
-            ["Repos", w.repos],
-            ["Stacks", w.stacks],
-            ["Flows", w.flows],
-          ] as const
-        ).map(([label, n]) => (
-          <div key={label} className="flex flex-col gap-0.5">
-            <dt className="text-[12px] text-ink-3">{label}</dt>
-            <dd className="m-0 text-[20px] font-bold leading-none tabular-nums text-ink">{n}</dd>
-          </div>
-        ))}
-        <div className="ms-auto flex flex-col items-end gap-0.5 text-[13px]">
-          <dt className="text-[12px] text-ink-3">Problems</dt>
-          <dd className="m-0">
-            <IssueCount errors={w.errors} warnings={w.warnings} />
-          </dd>
-        </div>
-      </dl>
-
-      {confirming && (
-        <div role="group" aria-label={`Confirm deleting ${w.name}`} className="relative z-10 mx-4 mb-4 flex flex-col gap-2.5 rounded-ctl bg-inset p-3">
-          <p className="m-0 text-[13px] leading-5 text-ink-2">
-            Delete “{w.name}”? Its files move to a trash folder inside your workspaces folder. Your repositories aren’t touched.
-          </p>
-          {del.error && (
-            <p role="alert" className="m-0 text-[13px] text-critical">
-              {del.error.message}
-            </p>
-          )}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => del.mutate(w.id, { onSuccess: onDeleted })}
-              disabled={del.isPending}
-              className="inline-flex h-8 items-center rounded-ctl bg-critical px-3 text-[13px] font-medium text-white transition hover:brightness-110 active:scale-[.97] disabled:opacity-50"
-            >
-              {del.isPending ? "Deleting…" : "Delete"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setConfirming(false);
-                del.reset();
-              }}
-              disabled={del.isPending}
-              className={`${quietButton} !h-8 !px-3 !text-[13px]`}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Above the card-wide button, so the details can be selected and scrolled. */}
-      <AccordionContent className="relative z-10 pb-2">
-        <DetailBody id={w.id} />
-      </AccordionContent>
-    </AccordionItem>
-  );
-}
-
-const addButton =
-  "inline-flex h-9 items-center gap-2 rounded-ctl bg-accent px-3.5 text-[14px] font-medium text-on-accent transition hover:brightness-110 active:scale-[.97]";
-
 export function WorkspacesPage() {
   const item = navByPath("/workspaces");
   const [params, setParams] = useSearchParams();
-  const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
   const { data, isPending, isError } = useWorkspaces();
-  const openId = params.get("open") ?? undefined;
+
+  // The selected workspace is kept in the address (?open=) so a link can point at it. With none chosen, the first shows.
+  const chosen = params.get("open") ?? undefined;
+  const selected = data?.find((w) => w.id === chosen)?.id ?? data?.[0]?.id;
 
   function open(id?: string) {
     setParams(id ? { open: id } : {}, { replace: true });
@@ -339,7 +143,7 @@ export function WorkspacesPage() {
         group={item.group}
         actions={
           !showEmpty && (
-            <button type="button" onClick={() => setAdding(true)} className={addButton}>
+            <button type="button" onClick={() => setAdding(true)} className={primaryButton}>
               <Plus size={16} aria-hidden />
               Add workspace
             </button>
@@ -350,36 +154,19 @@ export function WorkspacesPage() {
       {showEmpty && item.empty && <EmptyState icon={Boxes} empty={item.empty} onCta={() => setAdding(true)} />}
 
       {isPending && (
-        <div role="status" aria-label="Loading workspaces…" className="mt-4 grid grid-cols-1 gap-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="skeleton h-36 w-full" />
+        <div role="status" aria-label="Loading workspaces…" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {[0, 1].map((i) => (
+            <div key={i} className="skeleton h-40 w-full" />
           ))}
         </div>
       )}
       {isError && <p className="mt-4 text-ink-3">Could not load workspaces.</p>}
 
       {data && data.length > 0 && (
-        // One card open at a time; the open one is kept in the address (?open=) so a link can point at it.
-        <Accordion
-          type="single"
-          collapsible
-          role="list"
-          value={openId ?? ""}
-          onValueChange={(id) => open(id || undefined)}
-          className="enter mt-4 flex flex-col gap-3"
-          style={stagger(2)}
-        >
-          {data.map((w) => (
-            <WorkspaceCard
-              key={w.id}
-              w={w}
-              onEdit={() => void navigate(`/workspaces/${encodeURIComponent(w.id)}/edit`)}
-              onDeleted={() => {
-                if (openId === w.id) open();
-              }}
-            />
-          ))}
-        </Accordion>
+        <div className="enter mt-4 flex flex-col gap-6" style={stagger(2)}>
+          <WorkspaceCards items={data} selected={selected} onSelect={open} onAdd={() => setAdding(true)} />
+          {selected && <WorkspaceDetail key={selected} id={selected} onDeleted={() => open()} />}
+        </div>
       )}
 
       <Sheet open={adding} onOpenChange={setAdding}>

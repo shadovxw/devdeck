@@ -166,3 +166,30 @@ func TestValidatingTheTextOfAWorkspaceAlsoChecksItsFolders(t *testing.T) {
 		}
 	}
 }
+
+func TestTheListCountsRepoTypes(t *testing.T) {
+	m, _ := editorWorkspace(t, "")
+	d, _ := m.Get("demo")
+	text := strings.Replace(mustFile(t, m).YAML, "path: api\n", "path: api\n    type: go\n", 1)
+	if _, _, err := m.Update("demo", text); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range m.List() {
+		if s.ID == "demo" {
+			if s.RepoTypes["go"] != 1 || s.RepoTypes["other"] != 1 || len(s.RepoTypes) != 2 {
+				t.Errorf("repo types = %v (workspace %s)", s.RepoTypes, d.Name)
+			}
+			return
+		}
+	}
+	t.Fatal("demo is not in the list")
+}
+
+func mustFile(t *testing.T, m *Manager) File {
+	t.Helper()
+	f, err := m.File("demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}

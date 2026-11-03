@@ -32,6 +32,8 @@ type Props = {
   onFix: (issue: Issue, fix: IssueFix) => void;
   onSave: () => void;
   readOnly?: boolean;
+  /** A line to scroll to and put the cursor on when the editor opens (a link from the Problems tab). */
+  initialLine?: number;
   ref?: Ref<EditorHandle>;
 };
 
@@ -42,7 +44,7 @@ type SchemaArg = NonNullable<Parameters<typeof updateSchema>[1]>;
  * underlined with their fixes, and a blue mark beside what changed since the last save. Loaded lazily,
  * because CodeMirror is the biggest thing in the app.
  */
-export default function YamlEditor({ value, onChange, baseText, issues, schema, onCursor, onFix, onSave, readOnly, ref }: Props) {
+export default function YamlEditor({ value, onChange, baseText, issues, schema, onCursor, onFix, onSave, readOnly, initialLine, ref }: Props) {
   const cm = useRef<ReactCodeMirrorRef>(null);
   // The view exists only after the first render; what depends on it waits for it, whatever order things arrive in.
   const [view, setView] = useState<EditorView | null>(null);
@@ -106,19 +108,30 @@ export default function YamlEditor({ value, onChange, baseText, issues, schema, 
     if (view && flat) updateSchema(view, flat as SchemaArg);
   }, [view, flat]);
 
+  const goTo = useCallback((v: EditorView, line: number) => {
+    const at = v.state.doc.line(Math.max(1, Math.min(line, v.state.doc.lines)));
+    v.dispatch({ selection: { anchor: at.from }, effects: EditorView.scrollIntoView(at.from, { y: "center" }) });
+    v.focus();
+  }, []);
+
+  const arrived = useRef(false);
+  useEffect(() => {
+    if (view && initialLine && !arrived.current) {
+      arrived.current = true;
+      goTo(view, initialLine);
+    }
+  }, [view, initialLine, goTo]);
+
   useImperativeHandle(
     ref,
     () => ({
       goToLine(line) {
-        const view = cm.current?.view;
-        if (!view) return;
-        const at = view.state.doc.line(Math.max(1, Math.min(line, view.state.doc.lines)));
-        view.dispatch({ selection: { anchor: at.from }, effects: EditorView.scrollIntoView(at.from, { y: "center" }) });
-        view.focus();
+        const v = cm.current?.view;
+        if (v) goTo(v, line);
       },
       focus: () => cm.current?.view?.focus(),
     }),
-    [],
+    [goTo],
   );
 
   return (

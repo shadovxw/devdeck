@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -58,8 +59,10 @@ type Summary struct {
 	Repos       int    `json:"repos"`
 	Stacks      int    `json:"stacks"`
 	Flows       int    `json:"flows"`
-	Errors      int    `json:"errors"`
-	Warnings    int    `json:"warnings"`
+	// RepoTypes counts the repos by their type ("go": 3), with "other" for the ones that name none.
+	RepoTypes map[string]int `json:"repo_types,omitempty"`
+	Errors    int            `json:"errors"`
+	Warnings  int            `json:"warnings"`
 }
 
 // Detail is a whole workspace with everything found wrong in it.
@@ -118,6 +121,12 @@ func summarise(id, source string, l *Loaded) Summary {
 	sum := Summary{ID: id, Name: id, Source: source, Errors: Count(l.Issues, SeverityError), Warnings: Count(l.Issues, SeverityWarning)}
 	if w := l.Workspace; w != nil {
 		sum.Name, sum.Description, sum.Root, sum.Repos = w.Name, w.Description, w.Root, len(w.Repos)
+		for _, r := range w.Repos {
+			if sum.RepoTypes == nil {
+				sum.RepoTypes = map[string]int{}
+			}
+			sum.RepoTypes[cmp.Or(r.Type, "other")]++
+		}
 	}
 	sum.Stacks, sum.Flows = len(l.Stacks), len(l.Flows)
 	return sum
