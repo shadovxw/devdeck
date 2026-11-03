@@ -15,6 +15,20 @@ function Fact({ name, children }: Readonly<{ name: string; children: React.React
   );
 }
 
+/** What git says about a repo's folder, as rows: its branch, remote and profile, or why there is nothing. */
+function GitFacts({ localOnly, row }: Readonly<{ localOnly: boolean; row: GitRepo | undefined }>) {
+  if (localOnly) return <Fact name="Git">local only</Fact>;
+  if (!row) return <Fact name="Git">not checked yet (save first)</Fact>;
+  if (!row.work) return <Fact name="Git">not a git repository</Fact>;
+  return (
+    <>
+      <Fact name="Branch">{row.work.branch || "–"}</Fact>
+      <Fact name="Remote">{row.remote || "none"}</Fact>
+      <Fact name="Profile">{row.connection ?? "no rule matches"}</Fact>
+    </>
+  );
+}
+
 /** The repo under the cursor, checked against this machine: its folder, branch, remote, profile and the stacks using it. */
 function AtCursor({ outline, line, git, stacks }: Readonly<{ outline: Outline; line: number; git: GitRepo[]; stacks: Array<{ name: string; repos: string[] }> }>) {
   const repo = repoAtLine(outline, line);
@@ -22,39 +36,29 @@ function AtCursor({ outline, line, git, stacks }: Readonly<{ outline: Outline; l
 
   const row = git.find((g) => g.repo === repo.id);
   const users = stacks.filter((s) => s.repos.includes(repo.id)).map((s) => s.name);
-  const isRepo = row?.work !== undefined;
 
   return (
     <dl className="m-0">
       <Fact name="Repo">{repo.id || "–"}</Fact>
       <Fact name="Folder">{row?.path ?? repo.path ?? "–"}</Fact>
-      {repo.localOnly ? (
-        <Fact name="Git">local only</Fact>
-      ) : !row ? (
-        <Fact name="Git">not checked yet (save first)</Fact>
-      ) : isRepo ? (
-        <>
-          <Fact name="Branch">{row.work?.branch || "–"}</Fact>
-          <Fact name="Remote">{row.remote || "none"}</Fact>
-          <Fact name="Profile">{row.connection ?? "no rule matches"}</Fact>
-        </>
-      ) : (
-        <Fact name="Git">not a git repository</Fact>
-      )}
+      <GitFacts localOnly={repo.localOnly} row={row} />
       <Fact name="Used by">{users.length > 0 ? users.join(", ") : "no stack"}</Fact>
     </dl>
   );
 }
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** What is being checked overall, as three lines: the schema, the folders, git. */
 function Checks({ issues, valid }: Readonly<{ issues: Issue[]; valid: boolean }>) {
   const count = (code: string) => issues.filter((i) => i.code === code).length;
   const missing = count("repo-folder-missing");
   const notGit = count("repo-not-git");
-  const rows: Array<{ ok: boolean; text: string }> = [
-    { ok: valid, text: valid ? "Matches the schema" : "Doesn't match the schema yet" },
-    { ok: missing === 0, text: missing === 0 ? "Every folder is there" : `${missing} folder${missing === 1 ? "" : "s"} missing` },
-    { ok: notGit === 0, text: notGit === 0 ? "Every folder is a git repository" : `${notGit} folder${notGit === 1 ? "" : "s"} without git` },
+  const line = (ok: boolean, good: string, bad: string) => ({ ok, text: ok ? good : bad });
+  const rows = [
+    line(valid, "Matches the schema", "Doesn't match the schema yet"),
+    line(missing === 0, "Every folder is there", `${plural(missing, "folder")} missing`),
+    line(notGit === 0, "Every folder is a git repository", `${plural(notGit, "folder")} without git`),
   ];
   return (
     <ul className="m-0 flex list-none flex-col gap-1 p-0">

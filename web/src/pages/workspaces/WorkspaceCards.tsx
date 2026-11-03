@@ -29,6 +29,7 @@ function Card({ w, selected, onSelect }: Readonly<{ w: WorkspaceSummary; selecte
   const problems = w.errors + w.warnings;
   const mix = typeMix(w.repo_types);
   const total = mix.reduce((n, m) => n + m.count, 0);
+  const mixLabel = "Repos by type: " + mix.map((m) => m.type + " " + m.count).join(", ");
   return (
     <li className="contents">
       <button
@@ -61,7 +62,7 @@ function Card({ w, selected, onSelect }: Readonly<{ w: WorkspaceSummary; selecte
 
         {total > 0 && (
           <span className="flex flex-col gap-1.5">
-            <span className="flex h-1.5 w-full gap-px overflow-hidden rounded-tag" role="img" aria-label={`Repos by type: ${mix.map((m) => `${m.type} ${m.count}`).join(", ")}`}>
+            <span className="flex h-1.5 w-full gap-px overflow-hidden rounded-tag" role="img" aria-label={mixLabel}>
               {mix.map((m) => (
                 <i key={m.type} style={{ flex: m.count, background: m.shade }} />
               ))}

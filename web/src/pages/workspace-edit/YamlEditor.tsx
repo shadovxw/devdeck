@@ -44,7 +44,7 @@ type SchemaArg = NonNullable<Parameters<typeof updateSchema>[1]>;
  * underlined with their fixes, and a blue mark beside what changed since the last save. Loaded lazily,
  * because CodeMirror is the biggest thing in the app.
  */
-export default function YamlEditor({ value, onChange, baseText, issues, schema, onCursor, onFix, onSave, readOnly, initialLine, ref }: Props) {
+export default function YamlEditor({ value, onChange, baseText, issues, schema, onCursor, onFix, onSave, readOnly, initialLine, ref }: Readonly<Props>) {
   const cm = useRef<ReactCodeMirrorRef>(null);
   // The view exists only after the first render; what depends on it waits for it, whatever order things arrive in.
   const [view, setView] = useState<EditorView | null>(null);

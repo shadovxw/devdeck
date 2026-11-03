@@ -49,7 +49,7 @@ function mockServer(opts: Server = {}) {
       const method = init?.method ?? "GET";
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ method, url, body });
-      const path = url.replace("/api/v1", "").split("?")[0];
+      const path = url.replace(/^\/api\/v1/, "").split("?")[0];
       const json = (v: unknown, status = 200) => Promise.resolve(Response.json(v, { status }));
       const empty = (status = 204) => Promise.resolve(new Response(null, { status }));
       if (path === "/health") return json({ status: "ok", version: "test" });
@@ -182,7 +182,7 @@ describe("the workspace.yaml editor", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Mark local_only: true" }));
 
     await waitFor(() => expect(box.value).toContain("    path: infra\n    local_only: true\n"));
-    expect(box.value.replace("    local_only: true\n", "")).toBe(START);
+    expect(box.value.replace(/ {4}local_only: true\n/, "")).toBe(START);
     await waitFor(() => expect(reviewButton().disabled).toBe(false));
     await waitFor(() => expect(screen.queryByText(/isn't a git repository/)).toBeNull());
 

@@ -12,7 +12,7 @@ import schema from "../../../../internal/workspace/schemas/workspace.schema.json
 // The library suggests once a character has been typed; an empty spot gets nothing.
 async function suggest(textWithBar: string): Promise<string[]> {
   const pos = textWithBar.indexOf("|");
-  const doc = textWithBar.replace("|", "");
+  const doc = textWithBar.slice(0, pos) + textWithBar.slice(pos + 1);
   const state = EditorState.create({
     doc,
     selection: { anchor: pos },

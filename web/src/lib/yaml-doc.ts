@@ -28,7 +28,8 @@ function parse(text: string): Parsed {
 
 function str(map: YAMLMap, key: string): string | undefined {
   const v = map.get(key);
-  return typeof v === "string" ? v : typeof v === "number" ? String(v) : undefined;
+  if (typeof v === "string") return v;
+  return typeof v === "number" ? String(v) : undefined;
 }
 
 /** The top-level keys and the repos of a workspace.yaml, with their lines. Tolerates text that doesn't parse. */
@@ -127,8 +128,13 @@ export function removeRepo(text: string, index: number): string {
 
 /** "services/api" → "api"; the id the user would type anyway. */
 export function idFromPath(path: string): string {
-  const last = path.replaceAll("\\", "/").split("/").filter(Boolean).pop() ?? "";
-  return last.toLowerCase().replaceAll(/[^a-z0-9-]+/g, "-").replaceAll(/^-+|-+$/g, "");
+  const last = path.replaceAll("\\", "/").split("/").findLast(Boolean) ?? "";
+  const id = last.toLowerCase().replaceAll(/[^a-z0-9-]+/g, "-");
+  let from = 0;
+  let to = id.length;
+  while (from < to && id[from] === "-") from++;
+  while (to > from && id[to - 1] === "-") to--;
+  return id.slice(from, to);
 }
 
 /** What the Form view shows. Missing or odd values come back empty rather than throwing. */

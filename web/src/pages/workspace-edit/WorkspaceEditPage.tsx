@@ -9,20 +9,33 @@ import { useWorkspace } from "../../lib/queries";
 import type { Issue, IssueFix } from "../../lib/types";
 import { useGitInit, useWorkspaceSchema } from "../../lib/workspace-file";
 import { markLocalOnly, outline as parseOutline, repoIndexOfPath } from "../../lib/yaml-doc";
+import { CompareDialog, GitInitDialog, LeaveDialog, ReviewDialog } from "./EditDialogs";
 import { FormView } from "./FormView";
 import { Inspector } from "./Inspector";
-import { Modal } from "./Modal";
 import { Outline } from "./Outline";
 import { useWorkspaceEditor } from "./useWorkspaceEditor";
 import type { Cursor, EditorHandle } from "./YamlEditor";
 
 // CodeMirror is the biggest thing in the app and only this page needs it.
 const YamlEditor = lazy(() => import("./YamlEditor"));
-const DiffView = lazy(() => import("./DiffView"));
 
 type Mode = "form" | "yaml";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** What the live check says, in a few words. */
+function checkStatus(settled: boolean, errors: number, warnings: number): string {
+  if (!settled) return "Checking…";
+  if (errors > 0) return plural(errors, "error");
+  return warnings > 0 ? `Valid · ${plural(warnings, "warning")}` : "Valid";
+}
+
+/** Where the file stands against the disk. */
+function fileState(readOnly: boolean, dirty: boolean, saved: boolean): string {
+  if (readOnly) return "sample, read only";
+  if (dirty) return "unsaved changes";
+  return saved ? "saved" : "no changes";
+}
 
 function Segmented({ mode, onChange }: Readonly<{ mode: Mode; onChange: (mode: Mode) => void }>) {
   const item = (m: Mode, text: string) => (
@@ -36,14 +49,12 @@ function Segmented({ mode, onChange }: Readonly<{ mode: Mode; onChange: (mode: M
     </button>
   );
   return (
-    <div role="group" aria-label="Edit as" className="inline-flex">
+    <fieldset aria-label="Edit as" className="m-0 inline-flex min-w-0 border-0 p-0">
       {item("form", "Form")}
       {item("yaml", "YAML")}
-    </div>
+    </fieldset>
   );
 }
-
-const DiffFallback = () => <div role="status" aria-label="Loading the comparison…" className="skeleton h-48" />;
 
 /**
  * The editor for one workspace's workspace.yaml. The file is the source of truth: the Form and YAML views edit the
@@ -119,7 +130,7 @@ export function WorkspaceEditPage() {
     return (
       <>
         <PageHeader title="Edit workspace" group="Workspace" parent="Workspaces" parentTo="/workspaces" />
-        <div role="status" aria-label="Loading workspace.yaml…" className="skeleton mt-6 h-96" />
+        <output aria-label="Loading workspace.yaml…" className="skeleton mt-6 block h-96" />
       </>
     );
   }
@@ -134,7 +145,7 @@ export function WorkspaceEditPage() {
     );
   }
 
-  const status = !ed.settled ? "Checking…" : errors > 0 ? plural(errors, "error") : warnings > 0 ? `Valid · ${plural(warnings, "warning")}` : "Valid";
+  const status = checkStatus(ed.settled, errors, warnings);
   const vscode = ed.path ? `vscode://file/${encodeURI(ed.path.replaceAll("\\", "/"))}` : "";
 
   return (
@@ -145,9 +156,9 @@ export function WorkspaceEditPage() {
         parent="Workspaces"
         parentTo="/workspaces"
         summary={
-          <span role="status" className="text-ink-3">
-            workspace.yaml · {readOnly ? "sample, read only" : ed.dirty ? "unsaved changes" : ed.saved ? "saved" : "no changes"} · {status}
-          </span>
+          <output className="text-ink-3">
+            workspace.yaml · {fileState(readOnly, ed.dirty, ed.saved)} · {status}
+          </output>
         }
         actions={
           <>
@@ -192,7 +203,7 @@ export function WorkspaceEditPage() {
           )}
           <div className="min-h-0 flex-1">
             {mode === "yaml" ? (
-              <Suspense fallback={<div role="status" aria-label="Loading the editor…" className="skeleton h-full" />}>
+              <Suspense fallback={<output aria-label="Loading the editor…" className="skeleton block h-full" />}>
                 <YamlEditor
                   ref={editor}
                   value={ed.text}
@@ -235,128 +246,10 @@ export function WorkspaceEditPage() {
         </div>
       </div>
 
-      <Modal
-        open={reviewing}
-        onOpenChange={(o) => {
-          setReviewing(o);
-          if (!o) ed.resetSaveError();
-        }}
-        wide
-        title="Review changes"
-        description="The old file is kept next to it as workspace.yaml.prev."
-        footer={
-          <>
-            {ed.saveError && (
-              <span role="alert" className="me-auto text-[13px] text-critical">
-                {ed.saveError.message}
-              </span>
-            )}
-            {!ed.saveError && !ed.valid && ed.settled && <span className="me-auto text-[13px] text-critical">Fix the errors first: only a valid file is saved.</span>}
-            <button type="button" onClick={() => setReviewing(false)} className={quietButton}>
-              Cancel
-            </button>
-            <button type="button" disabled={!ed.valid || !ed.settled || ed.saving} onClick={save} className={`${primaryButton} disabled:cursor-not-allowed disabled:opacity-50`}>
-              {ed.saving ? "Saving…" : "Save"}
-            </button>
-          </>
-        }
-      >
-        {reviewing && (
-          <Suspense fallback={<DiffFallback />}>
-            <DiffView original={ed.base} modified={ed.text} originalLabel="Saved" modifiedLabel="Your edits" />
-          </Suspense>
-        )}
-      </Modal>
-
-      <Modal
-        open={comparing && ed.changedOnDisk !== null}
-        onOpenChange={setComparing}
-        wide
-        title="Changed on disk"
-        description="Your edits are on the right. Reload takes the disk's version; Keep mine makes your next save replace it."
-        footer={
-          <>
-            <button type="button" onClick={() => setComparing(false)} className={quietButton}>
-              Close
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                ed.keepMine();
-                setComparing(false);
-              }}
-              className={quietButton}
-            >
-              Keep mine
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                ed.reload();
-                setComparing(false);
-              }}
-              className={primaryButton}
-            >
-              Reload from disk
-            </button>
-          </>
-        }
-      >
-        {comparing && ed.changedOnDisk && (
-          <Suspense fallback={<DiffFallback />}>
-            <DiffView original={ed.changedOnDisk.yaml} modified={ed.text} originalLabel="On disk now" modifiedLabel="Your edits" />
-          </Suspense>
-        )}
-      </Modal>
-
-      <Modal
-        open={initRepo !== null}
-        onOpenChange={(o) => {
-          if (!o) {
-            setInitRepo(null);
-            gitInit.reset();
-          }
-        }}
-        title={`Run git init in ${initRepo?.path ?? ""}?`}
-        description="This creates a .git folder there and changes no files. The folder has to be in the workspace file already."
-        footer={
-          <>
-            {gitInit.error && (
-              <span role="alert" className="me-auto text-[13px] text-critical">
-                {gitInit.error.message}
-              </span>
-            )}
-            <button type="button" onClick={() => setInitRepo(null)} className={quietButton}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={gitInit.isPending}
-              onClick={() => initRepo && gitInit.mutate(initRepo.id, { onSuccess: () => setInitRepo(null) })}
-              className={primaryButton}
-            >
-              {gitInit.isPending ? "Running…" : "Run git init"}
-            </button>
-          </>
-        }
-      />
-
-      <Modal
-        open={blocker.state === "blocked"}
-        onOpenChange={(o) => !o && blocker.reset?.()}
-        title="Leave without saving?"
-        description="Your edits to workspace.yaml haven’t been saved."
-        footer={
-          <>
-            <button type="button" onClick={() => blocker.reset?.()} className={quietButton}>
-              Keep editing
-            </button>
-            <button type="button" onClick={() => blocker.proceed?.()} className={primaryButton}>
-              Discard and leave
-            </button>
-          </>
-        }
-      />
+      <ReviewDialog open={reviewing} onOpenChange={setReviewing} ed={ed} onSave={save} />
+      <CompareDialog open={comparing} onOpenChange={setComparing} ed={ed} />
+      <GitInitDialog repo={initRepo} onClose={() => setInitRepo(null)} run={gitInit} />
+      <LeaveDialog open={blocker.state === "blocked"} stay={() => blocker.reset?.()} leave={() => blocker.proceed?.()} />
     </>
   );
 }

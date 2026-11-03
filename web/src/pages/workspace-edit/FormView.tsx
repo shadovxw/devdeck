@@ -23,9 +23,7 @@ export function FormView({ text, onChange, readOnly }: Readonly<{ text: string; 
   const form = formValues(text);
   if (!form.ok) {
     return (
-      <p role="status" className="m-0 p-6 text-[14px] text-ink-3">
-        The text can’t be read as a workspace yet. Fix it in the YAML view, then come back.
-      </p>
+      <output className="m-0 block p-6 text-[14px] text-ink-3">The text can’t be read as a workspace yet. Fix it in the YAML view, then come back.</output>
     );
   }
 
@@ -79,7 +77,7 @@ export function FormView({ text, onChange, readOnly }: Readonly<{ text: string; 
               <div className="flex items-center gap-3">
                 <label className="inline-flex items-center gap-1.5 text-[12px] text-ink-3" title="Not meant to be a git repository: stops the warning about a missing .git">
                   <input type="checkbox" checked={r.localOnly} disabled={readOnly} aria-label={`Repo ${r.index + 1} local only`} onChange={(e) => onChange(setRepoField(text, r.index, "local_only", e.target.checked))} />
-                  local only
+                  <span>local only</span>
                 </label>
                 <button
                   type="button"

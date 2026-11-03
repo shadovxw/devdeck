@@ -44,8 +44,8 @@ export function filterRows(rows: RepoRow[], f: RepoFilter): RepoRow[] {
   return rows.filter((r) => {
     if (q && !r.repo.id.toLowerCase().includes(q) && !r.repo.path.toLowerCase().includes(q)) return false;
     if (f.types.length > 0 && !f.types.includes(r.type)) return false;
-    if (f.changed && !((r.git?.work?.changed ?? 0) > 0)) return false;
-    if (f.behind && !((r.git?.work?.behind ?? 0) > 0)) return false;
+    if (f.changed && (r.git?.work?.changed ?? 0) <= 0) return false;
+    if (f.behind && (r.git?.work?.behind ?? 0) <= 0) return false;
     return true;
   });
 }

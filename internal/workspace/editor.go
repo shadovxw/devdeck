@@ -46,7 +46,7 @@ func (s *Manager) File(id string) (File, error) {
 	if !ok {
 		return File{}, ErrNotFound
 	}
-	path := filepath.Join(f[0], "workspace.yaml")
+	path := filepath.Join(f[0], workspaceYAML)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return File{}, err

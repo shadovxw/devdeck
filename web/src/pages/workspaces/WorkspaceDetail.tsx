@@ -13,7 +13,10 @@ import { RepoTable } from "./RepoTable";
 
 type Tab = "repos" | "stacks" | "problems" | "settings";
 
-const editUrl = (id: string, line?: number) => `/workspaces/${encodeURIComponent(id)}/edit${line ? `?line=${line}` : ""}`;
+const editUrl = (id: string, line?: number) => {
+  const base = `/workspaces/${encodeURIComponent(id)}/edit`;
+  return line ? `${base}?line=${line}` : base;
+};
 
 function Stacks({ id, d }: Readonly<{ id: string; d: Detail }>) {
   if (d.stacks.length === 0 && d.flows.length === 0) return <p className="m-0 py-4 text-[14px] text-ink-3">No stacks or flows yet. They are files in this workspace's folder.</p>;
@@ -115,7 +118,7 @@ function Settings({ id, d, mine, onDeleted }: Readonly<{ id: string; d: Detail; 
               </button>
             </div>
           ) : (
-            <div role="group" aria-label={`Confirm deleting ${d.name}`} className="flex flex-col gap-2.5">
+            <fieldset aria-label={`Confirm deleting ${d.name}`} className="m-0 flex min-w-0 flex-col gap-2.5 border-0 p-0">
               <p className="m-0 text-[13px] leading-5 text-ink-2">Delete “{d.name}”?</p>
               {del.error && (
                 <p role="alert" className="m-0 text-[13px] text-critical">
@@ -143,7 +146,7 @@ function Settings({ id, d, mine, onDeleted }: Readonly<{ id: string; d: Detail; 
                   Cancel
                 </button>
               </div>
-            </div>
+            </fieldset>
           )}
         </section>
       )}
@@ -157,7 +160,7 @@ export function WorkspaceDetail({ id, onDeleted }: Readonly<{ id: string; onDele
   const git = useGitRepos();
   const [tab, setTab] = useState<Tab>("repos");
 
-  if (isPending) return <div role="status" aria-label="Loading workspace…" className="skeleton h-40 w-full" />;
+  if (isPending) return <output aria-label="Loading workspace…" className="skeleton block h-40 w-full" />;
   if (isError || !data) return <p className="m-0 text-ink-3">Could not load this workspace.</p>;
 
   const mine = data.source === "local";

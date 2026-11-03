@@ -108,13 +108,13 @@ export function RepoTable({ workspace, repos, git }: Readonly<{ workspace: strin
       </div>
 
       {attention > 0 && (
-        <p role="status" className="m-0 flex items-center gap-2 bg-fill px-3 py-2 text-[13px] text-ink-2">
+        <output className="m-0 flex items-center gap-2 bg-fill px-3 py-2 text-[13px] text-ink-2">
           <StatusMark level="warn" />
           <span className="flex-1">{attention === 1 ? "1 repository needs" : `${attention} repositories need`} a look at its remote or GitHub profile.</span>
           <Link to="/repos" className="font-medium text-ink underline underline-offset-2">
             Open Repositories
           </Link>
-        </p>
+        </output>
       )}
 
       {shown.length === 0 ? (

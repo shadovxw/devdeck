@@ -154,11 +154,11 @@ export function WorkspacesPage() {
       {showEmpty && item.empty && <EmptyState icon={Boxes} empty={item.empty} onCta={() => setAdding(true)} />}
 
       {isPending && (
-        <div role="status" aria-label="Loading workspaces…" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <output aria-label="Loading workspaces…" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[0, 1].map((i) => (
             <div key={i} className="skeleton h-40 w-full" />
           ))}
-        </div>
+        </output>
       )}
       {isError && <p className="mt-4 text-ink-3">Could not load workspaces.</p>}
 

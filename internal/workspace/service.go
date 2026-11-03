@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+// workspaceYAML is the name of the file a workspace is defined in.
+const workspaceYAML = "workspace.yaml"
+
 // Where a workspace comes from.
 const (
 	// SourceLocal workspaces are the user's own and can be created here.
@@ -194,7 +197,7 @@ func (s *Manager) Validate(k Kind, yamlText, workspaceID string) []Issue {
 				repoIDs[r.ID] = true
 			}
 			if k == KindWorkspace && d.Source != SourceExample {
-				_, issues := checkWorkspaceText("workspace.yaml", d.Folder, []byte(yamlText), Options{KnownPlugins: s.plugins(), CheckPaths: true})
+				_, issues := checkWorkspaceText(workspaceYAML, d.Folder, []byte(yamlText), Options{KnownPlugins: s.plugins(), CheckPaths: true})
 				return tidy(issues)
 			}
 		}
@@ -209,7 +212,7 @@ func (s *Manager) Create(yamlText string) (*Summary, []Issue, error) {
 	if s.Dir == "" {
 		return nil, nil, ErrNoDir
 	}
-	w, issues := checkWorkspaceText("workspace.yaml", "", []byte(yamlText), Options{})
+	w, issues := checkWorkspaceText(workspaceYAML, "", []byte(yamlText), Options{})
 	if w == nil || HasErrors(issues) {
 		return nil, tidy(issues), ErrInvalid
 	}
@@ -221,7 +224,7 @@ func (s *Manager) Create(yamlText string) (*Summary, []Issue, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, nil, err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "workspace.yaml"), []byte(yamlText), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, workspaceYAML), []byte(yamlText), 0o644); err != nil {
 		return nil, nil, fmt.Errorf("save workspace: %w", err)
 	}
 	d, err := s.Get(w.Name)
@@ -240,7 +243,7 @@ func (s *Manager) YAML(id string) (string, error) {
 	if !ok {
 		return "", ErrNotFound
 	}
-	b, err := os.ReadFile(filepath.Join(f[0], "workspace.yaml"))
+	b, err := os.ReadFile(filepath.Join(f[0], workspaceYAML))
 	if err != nil {
 		return "", err
 	}
@@ -263,14 +266,14 @@ func (s *Manager) Update(id, yamlText string) (*Summary, []Issue, error) {
 	if f[1] == SourceExample {
 		return nil, nil, ErrReadOnly
 	}
-	w, issues := checkWorkspaceText("workspace.yaml", "", []byte(yamlText), Options{})
+	w, issues := checkWorkspaceText(workspaceYAML, "", []byte(yamlText), Options{})
 	if w == nil || HasErrors(issues) {
 		return nil, tidy(issues), ErrInvalid
 	}
 	if w.Name != id {
 		return nil, nil, ErrRenameWorkspace
 	}
-	file := filepath.Join(f[0], "workspace.yaml")
+	file := filepath.Join(f[0], workspaceYAML)
 	if old, err := os.ReadFile(file); err == nil {
 		if err := os.WriteFile(file+".prev", old, 0o644); err != nil {
 			return nil, nil, fmt.Errorf("keep the old workspace.yaml: %w", err)
