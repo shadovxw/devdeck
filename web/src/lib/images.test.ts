@@ -11,7 +11,7 @@ const row = (over: Partial<ImageRow> = {}): ImageRow => ({
   repository: "acme/demo-api",
   dockerfile: "Dockerfile",
   context: ".",
-  platforms: ["linux/amd64"],
+  platforms: [],
   path: "/code/api",
   secrets: [],
   dirty: false,
@@ -36,9 +36,9 @@ describe("formatBytes", () => {
 describe("buildCommand", () => {
   it("is the buildx command for the tag, with each secret as an environment variable", () => {
     const r = row({ secrets: [{ id: "gh_token", from: "github" }] });
-    expect(buildCommand(r, "1.0.4")).toBe("cd /code/api\ndocker buildx build --platform linux/amd64 -t acme/demo-api:1.0.4 --secret id=gh_token,env=GH_TOKEN --push .");
+    expect(buildCommand(r, "1.0.4")).toBe("cd /code/api\ndocker buildx build -t acme/demo-api:1.0.4 --secret id=gh_token,env=GH_TOKEN --push .");
   });
-  it("names a Dockerfile that isn't the default, several platforms, and quotes paths with spaces", () => {
+  it("names a platform only when the workspace file sets one, and a Dockerfile that isn't the default, several platforms, and quotes paths with spaces", () => {
     const r = row({ path: "C:\\my code\\api", dockerfile: "docker/Dockerfile.prod", context: "..", platforms: ["linux/amd64", "linux/arm64"] });
     expect(buildCommand(r, "")).toBe('cd "C:\\my code\\api"\ndocker buildx build --platform linux/amd64,linux/arm64 -f docker/Dockerfile.prod -t acme/demo-api:<tag> --push ..');
   });

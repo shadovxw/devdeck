@@ -124,7 +124,7 @@ function Detail({ row, hub, onPick, now }: Readonly<{ row: ImageRow; hub: ImageT
           <dt className={label}>Context</dt>
           <dd className="m-0 break-all font-mono text-[12.5px] text-ink-2">{row.context}</dd>
           <dt className={label}>Platform</dt>
-          <dd className="m-0 font-mono text-[12.5px] text-ink-2">{row.platforms.join(", ")}</dd>
+          <dd className="m-0 font-mono text-[12.5px] text-ink-2">{row.platforms.length > 0 ? row.platforms.join(", ") : <span className="font-sans text-ink-3">this PC’s own (none set)</span>}</dd>
           <dt className={label}>Pushed with</dt>
           <dd className="m-0 text-ink-2">{row.account ?? "no account"}</dd>
           <dt className={label}>Secrets</dt>

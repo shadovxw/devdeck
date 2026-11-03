@@ -480,8 +480,8 @@ func imageRows(ctx context.Context, svc *dockerx.Service, m *workspace.Manager, 
 					Dockerfile: orStr(im.Dockerfile, "Dockerfile"), Context: orStr(im.Context, "."), Platforms: im.Platforms, Path: dir,
 					Secrets: []imageSecretRow{},
 				}
-				if len(row.Platforms) == 0 {
-					row.Platforms = []string{"linux/amd64"}
+				if row.Platforms == nil {
+					row.Platforms = []string{}
 				}
 				if a, err := svc.Resolve(im.Repository, im.Account); err != nil {
 					row.Problem = err.Error()

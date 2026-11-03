@@ -22,7 +22,8 @@ export function formatBytes(n: number | undefined): string {
 /** The equivalent `docker buildx build` for an image and a tag, to read or paste into a terminal. */
 export function buildCommand(row: Pick<ImageRow, "path" | "dockerfile" | "context" | "platforms" | "repository" | "secrets">, tag: string): string {
   const quote = (s: string) => (/[\s"']/.test(s) ? `"${s.replaceAll('"', '\\"')}"` : s);
-  const parts = ["docker buildx build", `--platform ${row.platforms.join(",")}`];
+  const parts = ["docker buildx build"];
+  if (row.platforms.length > 0) parts.push(`--platform ${row.platforms.join(",")}`);
   if (row.dockerfile !== "Dockerfile") parts.push(`-f ${quote(row.dockerfile)}`);
   parts.push(`-t ${row.repository}:${tag || "<tag>"}`);
   for (const s of row.secrets) parts.push(`--secret id=${s.id},env=${s.id.toUpperCase()}`);

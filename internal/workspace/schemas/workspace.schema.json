@@ -66,7 +66,7 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "enum": ["linux/amd64", "linux/arm64", "linux/arm/v7"] },
-          "description": "Default: linux/amd64."
+          "description": "What to build for, for example [linux/amd64]. Default: none, so docker builds for the platform of this machine."
         },
         "account": { "$ref": "#/$defs/id", "description": "A Docker account on this machine to push with, instead of the one that owns the namespace." },
         "secrets": {

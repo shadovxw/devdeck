@@ -17,7 +17,7 @@ repos:
         repository: acme/auth-service     # the Docker Hub repository, no tag
         # dockerfile: Dockerfile          # relative to the repo (default)
         # context: .                      # relative to the repo (default)
-        # platforms: [linux/amd64]        # default
+        # platforms: [linux/amd64]        # default: none; docker builds for this PC's own platform
         # account: work                   # only if two accounts own the namespace
         secrets:
           - id: gh_token                  # what the Dockerfile asks for

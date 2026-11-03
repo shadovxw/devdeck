@@ -23,7 +23,7 @@ const image = (over: Partial<ImageRow> = {}): ImageRow => ({
   repository: "acme/demo-api",
   dockerfile: "Dockerfile",
   context: ".",
-  platforms: ["linux/amd64"],
+  platforms: [],
   path: "C:/code/api",
   secrets: [],
   account: "work",
@@ -327,7 +327,7 @@ describe("the Images page", () => {
     expect(row.getByText("work")).toBeTruthy();
     const command = row.getByLabelText("Command").textContent ?? "";
     expect(command).toContain("cd C:/code/api");
-    expect(command).toContain("docker buildx build --platform linux/amd64 -t acme/demo-api:<tag> --secret id=gh_token,env=GH_TOKEN --secret id=npm_token,env=NPM_TOKEN --push .");
+    expect(command).toContain("docker buildx build -t acme/demo-api:<tag> --secret id=gh_token,env=GH_TOKEN --secret id=npm_token,env=NPM_TOKEN --push .");
     expect(row.getByRole("link", { name: /Open on Docker Hub/ }).getAttribute("href")).toBe("https://hub.docker.com/r/acme/demo-api/tags");
 
     // a click on a tag puts it in the box, and a secret that can't be found stops the build and says where to fix it

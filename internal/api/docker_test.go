@@ -335,7 +335,7 @@ func TestImagesList(t *testing.T) {
 	}
 
 	api := by["api"]
-	if api.Repository != "acme/demo-api" || api.Account != "work" || api.Problem != "" || api.Dockerfile != "Dockerfile" || api.Context != "." || api.Platforms[0] != "linux/amd64" || api.FolderMissing {
+	if api.Repository != "acme/demo-api" || api.Account != "work" || api.Problem != "" || api.Dockerfile != "Dockerfile" || api.Context != "." || len(api.Platforms) != 0 || api.FolderMissing {
 		t.Errorf("api = %+v", api)
 	}
 	if len(api.Secrets) != 1 || api.Secrets[0].Name != "npm-token" || !strings.Contains(api.Secrets[0].Problem, "no value is saved") {
