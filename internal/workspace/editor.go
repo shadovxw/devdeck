@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/shadovxw/devdeck/sdk/proc"
 )
 
 var (
@@ -105,10 +107,12 @@ func (s *Manager) GitInit(ctx context.Context, id, repoID string) error {
 	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
 		return ErrHasGit
 	}
-	cmd := exec.CommandContext(ctx, "git", "init")
-	cmd.Dir = dir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git init: %w: %s", err, strings.TrimSpace(string(out)))
+	res, err := proc.Run(ctx, proc.Cmd{Name: "git", Args: []string{"init"}, Dir: dir, Timeout: 30 * time.Second})
+	if err != nil {
+		return fmt.Errorf("git init: %w", err)
+	}
+	if !res.OK() {
+		return fmt.Errorf("git init: exit %d: %s", res.ExitCode, strings.TrimSpace(res.Stderr+res.Stdout))
 	}
 	return nil
 }
