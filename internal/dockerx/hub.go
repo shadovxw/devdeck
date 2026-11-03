@@ -126,6 +126,8 @@ type Tag struct {
 	Name string `json:"name"`
 	// PushedAt is when the tag was last pushed (RFC 3339), as Docker Hub says it.
 	PushedAt string `json:"pushed_at,omitempty"`
+	// Size is the compressed size in bytes, when Docker Hub says.
+	Size int64 `json:"size,omitempty"`
 }
 
 // Tags lists a repository's most recently pushed tags, newest first, at most limit (1 to 100).
@@ -142,6 +144,7 @@ func (h *Hub) Tags(ctx context.Context, jwt, repository string, limit int) ([]Ta
 			Name        string `json:"name"`
 			LastUpdated string `json:"last_updated"`
 			LastPushed  string `json:"tag_last_pushed"`
+			FullSize    int64  `json:"full_size"`
 		} `json:"results"`
 	}
 	path := fmt.Sprintf("/v2/repositories/%s/tags/?page_size=%d&ordering=last_updated", repository, min(limit*2, 100))
@@ -159,7 +162,7 @@ func (h *Hub) Tags(ctx context.Context, jwt, repository string, limit int) ([]Ta
 		if !ValidTag(r.Name) {
 			continue
 		}
-		tags = append(tags, Tag{Name: r.Name, PushedAt: cmp.Or(r.LastPushed, r.LastUpdated)})
+		tags = append(tags, Tag{Name: r.Name, PushedAt: cmp.Or(r.LastPushed, r.LastUpdated), Size: r.FullSize})
 	}
 	// RFC 3339 times in the same zone sort as text; newest first
 	slices.SortStableFunc(tags, func(a, b Tag) int { return strings.Compare(b.PushedAt, a.PushedAt) })

@@ -38,8 +38,10 @@ Built as one PR at the owner's request (the plan had D1 to D4 and T1 as separate
 - **`from: github` against a real `gh`**: the account lookup is the same code the git credential helper uses; the build path is tested only up to "no rule matches".
 - The deploy button after a build (it needs the Versions panel), Docker Hub tag listing, scans, other registries, and MCP tools for images (Claude can't reach these routes: the connector's allow-list doesn't include them).
 
-## 2026-11-03: recent tags
+## 2026-11-03: the Images page redesign
 
-- **`GET /api/v1/images/:ws/:repo/:image/tags?limit=10`** (1 to 50): the repository's most recently pushed tags on Docker Hub, newest first, read with the account that owns the namespace. `dockerx.Hub.Tags` asks for twice the limit, drops names that aren't valid tags, and sorts by the push time. A repository that doesn't exist yet has none.
-- **Images page**: **Recent tags** per image and **Show recent tags** for all; a click fills the tag box; **Next after the highest** (`nextTag` in `lib/docker.ts`). Asked for on demand, not on load, so the page makes no sign-in to Docker Hub until it is wanted.
-- Tests: Go (`TestHubTags`, `TestTheTagsOnDockerHubComeNewestFirst`) and web (`docker-pages.test.tsx`, `docker-tags.test.ts`).
+- **Page** (`web/src/pages/ImagesPage.tsx`, `web/src/pages/images/`): a summary (images, up to date, changed since last build, building now), a filter with chips, one row per image (source and commits since the last build, the latest tag on Docker Hub, the tag to push, Build & push), details per image (the last 10 tags with sizes, build settings, secrets, the command to build by hand), ticking several images to build them in a queue, and a Builds strip along the bottom. The confirmation before a build stays, and shows the command.
+- **Server**: `GET /api/v1/images/tags?limit=10` (the tags of every image's repository in one answer, one Docker Hub sign-in per account, `dockerx.Service.TagsFor`, `Hub.Tags` with sizes); each image row has `ahead` (commits since the last good build, `gitx.Git.CountSince`); the build output starts with the command that ran (never a secret's value).
+- **Web libraries**: `lib/images.ts` (filters, sort, summary, the command shown, sizes), `useAllImageTags` and `useBuildJobs` (a queue that builds one at a time) in `lib/docker.ts`, replacing `useImageBuild`.
+- Not built: a suggested next tag (asked not to), choosing the account or platform on the page, extra tags such as `latest`.
+- Tests: Go (`TestHubTags`, `TestAllTheTagsAtOnce`, `TestCountSince`, `TestBuildPrintsTheCommandFirstWithoutTheSecret`) and web (`docker-pages.test.tsx` Images section, `images.test.ts`).

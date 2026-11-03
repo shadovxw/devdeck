@@ -270,6 +270,19 @@ type imageRow struct {
 	// FolderMissing is true when the repository isn't on this machine.
 	FolderMissing bool           `json:"folder_missing"`
 	Last          *dockerx.Build `json:"last,omitempty"`
+	// Ahead is how many commits the repository has on top of the commit the last successful build here
+	// was made from. Absent when nothing was built here, the last build failed, or git can't say.
+	Ahead *int `json:"ahead,omitempty"`
+}
+
+// imageTagsRow is the tags Docker Hub has for one image's repository.
+type imageTagsRow struct {
+	Workspace  string        `json:"workspace"`
+	Repo       string        `json:"repo"`
+	Image      string        `json:"image"`
+	Repository string        `json:"repository"`
+	Tags       []dockerx.Tag `json:"tags"`
+	Error      string        `json:"error,omitempty"`
 }
 
 func registerImages(g *echo.Group, svc *dockerx.Service, m *workspace.Manager, git *gitx.Service) {
@@ -280,6 +293,23 @@ func registerImages(g *echo.Group, svc *dockerx.Service, m *workspace.Manager, g
 	ig.GET("", func(c echo.Context) error {
 		rows := imageRows(c.Request().Context(), svc, m, git)
 		return c.JSON(http.StatusOK, rows)
+	})
+
+	// GET /images/tags?limit=10 is the tags Docker Hub has for every image's repository, most recently
+	// pushed first, for choosing the next tag. It signs in once per account. An image that can't be
+	// read (no account, Docker Hub refused) has an error and the others are still answered.
+	ig.GET("/tags", func(c echo.Context) error {
+		limit := 10
+		if v := c.QueryParam("limit"); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 1 || n > 50 {
+				return echo.NewHTTPError(http.StatusBadRequest, "limit must be a number from 1 to 50")
+			}
+			limit = n
+		}
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 45*time.Second)
+		defer cancel()
+		return c.JSON(http.StatusOK, allImageTags(ctx, svc, m, limit))
 	})
 
 	// GET /images/builds is the history of finished builds, newest first.
@@ -303,38 +333,6 @@ func registerImages(g *echo.Group, svc *dockerx.Service, m *workspace.Manager, g
 			return dockerFail(c, err, "the build history couldn't be cleared")
 		}
 		return c.NoContent(http.StatusNoContent)
-	})
-
-	// GET /images/:ws/:repo/:image/tags?limit=10 lists the tags Docker Hub has for the image's repository,
-	// most recently pushed first, so the next tag can be chosen. It signs in with the account that owns
-	// the namespace.
-	ig.GET("/:ws/:repo/:image/tags", func(c echo.Context) error {
-		limit := 10
-		if v := c.QueryParam("limit"); v != "" {
-			n, err := strconv.Atoi(v)
-			if err != nil || n < 1 || n > 50 {
-				return echo.NewHTTPError(http.StatusBadRequest, "limit must be a number from 1 to 50")
-			}
-			limit = n
-		}
-		t, err := findImage(m, c.Param("ws"), c.Param("repo"), c.Param("image"))
-		if err != nil {
-			return err
-		}
-		acct, err := svc.Resolve(t.image.Repository, t.image.Account)
-		if err != nil {
-			return dockerFail(c, err, "the Docker account couldn't be chosen")
-		}
-		ctx, cancel := context.WithTimeout(c.Request().Context(), 30*time.Second)
-		defer cancel()
-		tags, err := svc.Tags(ctx, acct, t.image.Repository, limit)
-		if err != nil {
-			return dockerFail(c, err, "the tags couldn't be read from Docker Hub")
-		}
-		if tags == nil {
-			tags = []dockerx.Tag{}
-		}
-		return c.JSON(http.StatusOK, map[string]any{"repository": t.image.Repository, "tags": tags})
 	})
 
 	// POST /images/:ws/:repo/:image/build builds the image and pushes it as <repository>:<tag>.
@@ -542,6 +540,25 @@ func imageRows(ctx context.Context, svc *dockerx.Service, m *workspace.Manager, 
 		}()
 	}
 	wg.Wait()
+	// How far each repository has moved on since the commit its last good build was made from.
+	if git != nil {
+		for i := range rows {
+			b, s := rows[i].Last, stands[repoKey{rows[i].Workspace, rows[i].Repo}]
+			if b == nil || !b.OK || b.Revision == "" || s.missing {
+				continue
+			}
+			wg.Add(1)
+			slots <- struct{}{}
+			go func() {
+				defer wg.Done()
+				defer func() { <-slots }()
+				if n, err := git.Git.CountSince(ctx, dirs[repoKey{rows[i].Workspace, rows[i].Repo}], b.Revision); err == nil {
+					rows[i].Ahead = &n
+				}
+			}()
+		}
+		wg.Wait()
+	}
 	for i := range rows {
 		s := stands[repoKey{rows[i].Workspace, rows[i].Repo}]
 		rows[i].Branch, rows[i].Commit, rows[i].Dirty, rows[i].FolderMissing = s.branch, s.commit, s.dirty, s.missing
@@ -550,6 +567,39 @@ func imageRows(ctx context.Context, svc *dockerx.Service, m *workspace.Manager, 
 				rows[i].Secrets[j].Problem = "no GitHub account rule matches this repository's remote (" + orNoRemote(s.remote) + "): add a rule on the Connections page"
 			}
 		}
+	}
+	return rows
+}
+
+// allImageTags reads the tags of every image's repository, one entry per image.
+func allImageTags(ctx context.Context, svc *dockerx.Service, m *workspace.Manager, limit int) []imageTagsRow {
+	rows := []imageTagsRow{}
+	var wants []dockerx.TagWant
+	var at []int // which row each want answers
+	for _, sum := range m.List() {
+		if sum.Source != workspace.SourceLocal {
+			continue
+		}
+		d, err := m.Get(sum.ID)
+		if err != nil || d.Workspace == nil {
+			continue
+		}
+		for _, r := range d.Workspace.Repos {
+			for _, im := range r.Images {
+				row := imageTagsRow{Workspace: sum.ID, Repo: r.ID, Image: im.ID, Repository: im.Repository, Tags: []dockerx.Tag{}}
+				acct, err := svc.Resolve(im.Repository, im.Account)
+				if err != nil {
+					row.Error = err.Error()
+				} else {
+					wants = append(wants, dockerx.TagWant{Account: acct, Repository: im.Repository})
+					at = append(at, len(rows))
+				}
+				rows = append(rows, row)
+			}
+		}
+	}
+	for i, got := range svc.TagsFor(ctx, wants, limit) {
+		rows[at[i]].Tags, rows[at[i]].Error = got.Tags, got.Error
 	}
 	return rows
 }

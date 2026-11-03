@@ -71,7 +71,7 @@ type Server = {
   /** The remote hosts; the Deploy link after a build only shows when there is one. */
   hosts?: object[];
   /** The tags Docker Hub has, newest first; "fail" makes the request fail. */
-  tags?: Array<{ name: string; pushed_at?: string }> | "fail";
+  tags?: Array<{ name: string; pushed_at?: string; size?: number }> | "fail";
 };
 
 function mockServer(opts: Server = {}) {
@@ -126,9 +126,11 @@ function mockServer(opts: Server = {}) {
       }
 
       if (path === "/images" && method === "GET") return json(opts.images ?? [image()]);
-      if (path.startsWith("/images/demo/api/api/tags")) {
+      if (path === "/images/tags") {
         if (opts.tags === "fail") return json({ message: "the tags couldn't be read from Docker Hub" }, 500);
-        return json({ repository: "acme/demo-api", tags: opts.tags ?? [] });
+        return json(
+          (opts.images ?? [image()]).map((im) => ({ workspace: im.workspace, repo: im.repo, image: im.image, repository: im.repository, tags: opts.tags ?? [] })),
+        );
       }
       if (path === "/images/builds" && method === "GET") return json(builds);
       if (path === "/images/builds" && method === "DELETE") {
@@ -273,11 +275,34 @@ describe("the Docker Hub page", () => {
 });
 
 describe("the Images page", () => {
-  it("shows each image with its account, repository state, secrets and last build", async () => {
+  const hours = (n: number) => new Date(Date.now() - n * 3600_000).toISOString();
+  const rowOf = async (repository = "acme/demo-api") => within(await screen.findByRole("region", { name: `Image ${repository}` }));
+  const tagBox = (row: ReturnType<typeof within>) => row.getByPlaceholderText("tag, for example 1.0.4") as HTMLInputElement;
+
+  it("shows each image with where its source stands, and the latest tag on Docker Hub", async () => {
+    mockServer({
+      images: [image({ dirty: true, ahead: 3, last: build(1) })],
+      tags: [
+        { name: "1.0.95", pushed_at: hours(2), size: 412_000_000 },
+        { name: "1.0.94", pushed_at: hours(72) },
+      ],
+    });
+    renderAt("/images");
+    const row = await rowOf();
+    expect(row.getByText("demo-api".replace("demo-", "")).textContent).toBe("api");
+    expect(row.getByText(/main/)).toBeTruthy();
+    expect(row.getByText(/@ abcdef1/)).toBeTruthy();
+    expect(row.getByText("3 commits since last build")).toBeTruthy();
+    expect(row.getByText("uncommitted changes")).toBeTruthy();
+    expect(await row.findByText("1.0.95")).toBeTruthy(); // the latest tag, and how long ago
+    expect(row.getByText("2 h ago")).toBeTruthy();
+    expect(sent("GET", "/images/tags")[0].url).toContain("limit=10");
+  });
+
+  it("opens the details: the tags, the build settings, the secrets, the last build and the command", async () => {
     mockServer({
       images: [
         image({
-          dirty: true,
           secrets: [
             { id: "gh_token", from: "github" },
             { id: "npm_token", from: "keyring", name: "npm-token", problem: "no value is saved under the name npm-token" },
@@ -285,61 +310,90 @@ describe("the Images page", () => {
           last: build(1),
         }),
       ],
-    });
-    renderAt("/images");
-    const card = within(await screen.findByRole("region", { name: "Image acme/demo-api" }));
-    expect(card.getByText("Pushed with work")).toBeTruthy();
-    expect(card.getByText(/main at abcdef1/)).toBeTruthy();
-    expect(card.getByText(/uncommitted changes/)).toBeTruthy();
-    expect(card.getByText("gh_token from GitHub account")).toBeTruthy();
-    expect(card.getByText("npm_token from keychain (npm-token)")).toBeTruthy();
-    expect(card.getByText(/1\.0\.3 · 5 min ago · Pushed/)).toBeTruthy();
-    // a secret that can't be found stops the build, and says where to fix it
-    expect(card.getByText(/no value is saved under the name npm-token/)).toBeTruthy();
-    expect((card.getByRole("button", { name: "Build and push" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(card.getByRole("link", { name: "Docker Hub page" }).getAttribute("href")).toBe("/connections/docker");
-  });
-
-  it("shows the tags Docker Hub has, suggests the next one, and fills the box from a click", async () => {
-    mockServer({
       tags: [
-        { name: "1.0.95", pushed_at: new Date(Date.now() - 2 * 3600_000).toISOString() },
-        { name: "1.0.94", pushed_at: new Date(Date.now() - 3 * 86400_000).toISOString() },
-        { name: "latest" },
+        { name: "1.0.95", pushed_at: hours(2), size: 412_000_000 },
+        { name: "1.0.94", pushed_at: hours(72) },
       ],
     });
     renderAt("/images");
-    const card = within(await screen.findByRole("region", { name: "Image acme/demo-api" }));
-    expect(card.queryByRole("list", { name: "Tags of acme/demo-api" })).toBeNull(); // only when asked for
-    expect(sent("GET", "/tags")).toHaveLength(0);
+    const row = await rowOf();
+    fireEvent.click(row.getByRole("button", { name: "Details of acme/demo-api" }));
 
-    fireEvent.click(card.getByRole("button", { name: "Recent tags" }));
-    const list = within(await card.findByRole("list", { name: "Tags of acme/demo-api" }));
-    expect(list.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["1.0.952 h ago", "1.0.943 d ago", "latest"]);
-    expect(sent("GET", "/tags")[0].url).toContain("limit=10");
+    const list = within(await row.findByRole("list", { name: "Tags of acme/demo-api" }));
+    expect(list.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["1.0.95412 MB2 h ago", "1.0.943 d ago"]);
+    expect(row.getByText("gh_token from GitHub account")).toBeTruthy();
+    expect(row.getByText("npm_token from keychain (npm-token)")).toBeTruthy();
+    expect(row.getByText(/1\.0\.3 · 5 min ago · Pushed/)).toBeTruthy();
+    expect(row.getByText("work")).toBeTruthy();
+    const command = row.getByLabelText("Command").textContent ?? "";
+    expect(command).toContain("cd C:/code/api");
+    expect(command).toContain("docker buildx build --platform linux/amd64 -t acme/demo-api:<tag> --secret id=gh_token,env=GH_TOKEN --secret id=npm_token,env=NPM_TOKEN --push .");
+    expect(row.getByRole("link", { name: /Open on Docker Hub/ }).getAttribute("href")).toBe("https://hub.docker.com/r/acme/demo-api/tags");
 
-    // the suggestion is the next after the highest version, "latest" being ignored
-    fireEvent.click(card.getByRole("button", { name: "1.0.96" }));
-    expect((card.getByPlaceholderText("tag, for example 1.0.4") as HTMLInputElement).value).toBe("1.0.96");
+    // a click on a tag puts it in the box, and a secret that can't be found stops the build and says where to fix it
     fireEvent.click(list.getByRole("button", { name: /^1\.0\.94/ }));
-    expect((card.getByPlaceholderText("tag, for example 1.0.4") as HTMLInputElement).value).toBe("1.0.94");
+    expect(tagBox(row).disabled).toBe(true);
+    expect(row.getByText(/no value is saved under the name npm-token/)).toBeTruthy();
+    expect(row.getByRole("link", { name: "Docker Hub page" }).getAttribute("href")).toBe("/connections/docker");
+    expect((row.getByRole("button", { name: "Push over it" }) as HTMLButtonElement).disabled).toBe(true);
 
-    fireEvent.click(card.getByRole("button", { name: "Hide tags" }));
-    expect(card.queryByRole("list", { name: "Tags of acme/demo-api" })).toBeNull();
+    fireEvent.click(row.getByRole("button", { name: "Details of acme/demo-api" }));
+    expect(row.queryByRole("list", { name: "Tags of acme/demo-api" })).toBeNull();
   });
 
-  it("shows the tags of every image at once from the page's button, and says when there is none or it failed", async () => {
+  it("puts a clicked tag in the box and warns when the tag typed exists on Docker Hub", async () => {
+    mockServer({ tags: [{ name: "1.0.95", pushed_at: hours(2) }, { name: "1.0.94", pushed_at: hours(72) }] });
+    renderAt("/images");
+    const row = await rowOf();
+    fireEvent.click(row.getByRole("button", { name: "Details of acme/demo-api" }));
+    fireEvent.click(await row.findByRole("button", { name: /^1\.0\.94/ }));
+    expect(tagBox(row).value).toBe("1.0.94");
+    expect(row.getByText(/1\.0\.94 already exists on Docker Hub: pushing would replace it/)).toBeTruthy();
+    // the button says what it would do
+    expect((row.getByRole("button", { name: "Push over it" }) as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.change(tagBox(row), { target: { value: "1.0.96" } });
+    expect(row.queryByText(/already exists/)).toBeNull();
+    expect(row.getByRole("button", { name: "Build & push" })).toBeTruthy();
+  });
+
+  it("says when Docker Hub has no tag yet or can't be read", async () => {
     mockServer({ tags: [] });
     renderAt("/images");
-    fireEvent.click(await screen.findByRole("button", { name: "Show recent tags" }));
-    expect(await screen.findByText(/No tag on Docker Hub yet for acme\/demo-api/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Recent tags" })).toBeNull(); // the page's button covers every card
+    expect(await (await rowOf()).findByText("No tag yet")).toBeTruthy();
     cleanup();
 
     mockServer({ tags: "fail" });
     renderAt("/images");
-    fireEvent.click(await screen.findByRole("button", { name: "Show recent tags" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("The tags couldn’t be read from Docker Hub");
+    expect(await (await rowOf()).findByText("Couldn’t read Docker Hub")).toBeTruthy();
+  });
+
+  it("counts the images in the summary, and filters them by text and by chip", async () => {
+    const ok = build(1);
+    mockServer({
+      images: [
+        image({ image: "api", repository: "acme/api", ahead: 2, last: ok }),
+        image({ repo: "web", image: "web", repository: "acme/web", ahead: 0, last: ok, branch: "feature-x" }),
+        image({ repo: "docs", image: "docs", repository: "acme/docs", dirty: true }),
+      ],
+    });
+    renderAt("/images");
+    const summary = within(await screen.findByRole("region", { name: "Summary" }));
+    const num = (label: string) => summary.getByText(label).nextElementSibling?.textContent;
+    expect([num("Images"), num("Up to date"), num("Changed since last build")]).toEqual(["3", "1", "1"]);
+
+    // most commits since the last build first
+    expect(screen.getAllByRole("region", { name: /^Image / }).map((r) => r.getAttribute("aria-label"))).toEqual(["Image acme/api", "Image acme/docs", "Image acme/web"]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Uncommitted changes/ }));
+    expect(screen.getAllByRole("region", { name: /^Image / })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: /Never built here/ }));
+    expect(screen.getByRole("region", { name: "Image acme/docs" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^All/ }));
+    fireEvent.change(screen.getByLabelText("Filter images"), { target: { value: "feature" } });
+    expect(screen.getAllByRole("region", { name: /^Image / }).map((r) => r.getAttribute("aria-label"))).toEqual(["Image acme/web"]);
+    fireEvent.change(screen.getByLabelText("Filter images"), { target: { value: "zzz" } });
+    expect(screen.getByText("No image matches.")).toBeTruthy();
   });
 
   it("blocks an image with no account, or whose folder isn't here", async () => {
@@ -351,7 +405,6 @@ describe("the Images page", () => {
     });
     renderAt("/images");
     expect(await screen.findByText(/owns the namespace "other"/)).toBeTruthy();
-    expect(screen.getByText("No account")).toBeTruthy();
     expect(screen.getByText("The repository isn’t on this machine.")).toBeTruthy();
     for (const input of screen.getAllByPlaceholderText("tag, for example 1.0.4")) expect((input as HTMLInputElement).disabled).toBe(true);
   });
@@ -365,27 +418,37 @@ describe("the Images page", () => {
   it("only takes a tag docker accepts", async () => {
     mockServer();
     renderAt("/images");
-    const input = await screen.findByPlaceholderText("tag, for example 1.0.4");
-    const button = screen.getByRole("button", { name: "Build and push" }) as HTMLButtonElement;
+    const row = await rowOf();
+    const button = row.getByRole("button", { name: "Build & push" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     for (const bad of ["1.0:x", "a b", "-x", "x".repeat(129)]) {
-      fireEvent.change(input, { target: { value: bad } });
+      fireEvent.change(tagBox(row), { target: { value: bad } });
       expect(button.disabled, bad).toBe(true);
     }
-    fireEvent.change(input, { target: { value: "1.0.4" } });
+    fireEvent.change(tagBox(row), { target: { value: "1.0.4" } });
     expect(button.disabled).toBe(false);
   });
 
-  it("asks first, then builds and shows the output and the result", async () => {
+  async function startBuild(tag = "1.0.4") {
+    const row = await rowOf();
+    fireEvent.change(tagBox(row), { target: { value: tag } });
+    fireEvent.click(row.getByRole("button", { name: "Build & push" }));
+    fireEvent.click(within(screen.getByRole("group", { name: "Confirm the build" })).getByRole("button", { name: /^(Build and push|Push over it)$/ }));
+    return row;
+  }
+
+  it("asks first, shows the command, then builds and shows the output, the dock and the result", async () => {
     mockServer({ images: [image({ dirty: true })] });
     renderAt("/images");
-    fireEvent.change(await screen.findByPlaceholderText("tag, for example 1.0.4"), { target: { value: "1.0.4" } });
-    fireEvent.click(screen.getByRole("button", { name: "Build and push" }));
+    const row = await rowOf();
+    fireEvent.change(tagBox(row), { target: { value: "1.0.4" } });
+    fireEvent.click(row.getByRole("button", { name: "Build & push" }));
 
     const confirm = within(screen.getByRole("group", { name: "Confirm the build" }));
-    expect(confirm.getByText(/acme\/demo-api:1\.0\.4/)).toBeTruthy();
+    expect(confirm.getByText(/acme\/demo-api:1\.0\.4/, { selector: "span" })).toBeTruthy();
     expect(confirm.getByText(/main at abcdef1/)).toBeTruthy();
     expect(confirm.getByText(/uncommitted changes, and the image is built from them/)).toBeTruthy();
+    expect(confirm.getByLabelText("Command").textContent).toContain("-t acme/demo-api:1.0.4");
     expect(sent("POST", "/build")).toHaveLength(0);
 
     fireEvent.click(confirm.getByRole("button", { name: "Build and push" }));
@@ -394,24 +457,25 @@ describe("the Images page", () => {
     expect(await screen.findByText("Pushed acme/demo-api:1.0.4")).toBeTruthy();
     expect(sent("POST", "/build")[0].url).toBe("/api/v1/images/demo/api/api/build");
     expect(sent("POST", "/build")[0].body).toEqual({ tag: "1.0.4", overwrite: false });
+
+    // the dock lists it
+    const dock = within(screen.getByRole("region", { name: "Builds" }));
+    expect(dock.getByText(":1.0.4")).toBeTruthy();
+    expect(dock.getByText(/0 running · 0 queued · 1 done/)).toBeTruthy();
   });
 
   it("offers to deploy the pushed tag to a host, when there is one", async () => {
     mockServer({ hosts: [{ workspace: "demo", id: "dev-box", name: "Dev box", token_set: true, tunnel: { open: false, users: 0 } }] });
     renderAt("/images");
-    fireEvent.change(await screen.findByPlaceholderText("tag, for example 1.0.4"), { target: { value: "1.0.4" } });
-    fireEvent.click(screen.getByRole("button", { name: "Build and push" }));
-    fireEvent.click(within(screen.getByRole("group", { name: "Confirm the build" })).getByRole("button", { name: "Build and push" }));
+    await startBuild();
     const link = await screen.findByRole("link", { name: "Deploy 1.0.4 to a host" });
     expect(link.getAttribute("href")).toBe("/hosts?deploy=acme%2Fdemo-api%3A1.0.4");
   });
 
-  it("offers no deploy link without a host, or after a failed build", async () => {
+  it("offers no deploy link without a host", async () => {
     mockServer({ hosts: [] });
     renderAt("/images");
-    fireEvent.change(await screen.findByPlaceholderText("tag, for example 1.0.4"), { target: { value: "1.0.4" } });
-    fireEvent.click(screen.getByRole("button", { name: "Build and push" }));
-    fireEvent.click(within(screen.getByRole("group", { name: "Confirm the build" })).getByRole("button", { name: "Build and push" }));
+    await startBuild();
     expect(await screen.findByText("Pushed acme/demo-api:1.0.4")).toBeTruthy();
     expect(screen.queryByRole("link", { name: /Deploy 1\.0\.4/ })).toBeNull();
   });
@@ -419,8 +483,9 @@ describe("the Images page", () => {
   it("can be cancelled before anything is sent", async () => {
     mockServer();
     renderAt("/images");
-    fireEvent.change(await screen.findByPlaceholderText("tag, for example 1.0.4"), { target: { value: "1.0.4" } });
-    fireEvent.click(screen.getByRole("button", { name: "Build and push" }));
+    const row = await rowOf();
+    fireEvent.change(tagBox(row), { target: { value: "1.0.4" } });
+    fireEvent.click(row.getByRole("button", { name: "Build & push" }));
     fireEvent.click(within(screen.getByRole("group", { name: "Confirm the build" })).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("group", { name: "Confirm the build" })).toBeNull();
     expect(sent("POST", "/build")).toHaveLength(0);
@@ -434,12 +499,10 @@ describe("the Images page", () => {
           : Response.json({ message: "acme/demo-api:1.0.3 already exists on Docker Hub: building pushes over it.", exists: true }, { status: 409 }),
     });
     renderAt("/images");
-    fireEvent.change(await screen.findByPlaceholderText("tag, for example 1.0.4"), { target: { value: "1.0.3" } });
-    fireEvent.click(screen.getByRole("button", { name: "Build and push" }));
-    fireEvent.click(within(screen.getByRole("group", { name: "Confirm the build" })).getByRole("button", { name: "Build and push" }));
+    await startBuild("1.0.3");
 
     const exists = within(await screen.findByRole("group", { name: "The tag already exists" }));
-    expect(exists.getByText(/already exists on Docker Hub/)).toBeTruthy();
+    expect(screen.getAllByText(/already exists on Docker Hub/).length).toBeGreaterThan(0);
     expect(screen.queryByRole("log")).toBeNull();
     fireEvent.click(exists.getByRole("button", { name: "Push over it" }));
     expect(await screen.findByText("Pushed acme/demo-api:1.0.3")).toBeTruthy();
@@ -455,16 +518,58 @@ describe("the Images page", () => {
           : ndjson([{ line: "denied: requested access to the resource is denied" }, { done: true, ok: false, error: "Docker Hub refused the push: the account can’t write to this repository." }]),
     });
     renderAt("/images");
-    const run = async (tag: string) => {
-      fireEvent.change(await screen.findByPlaceholderText("tag, for example 1.0.4"), { target: { value: tag } });
-      fireEvent.click(screen.getByRole("button", { name: "Build and push" }));
-      fireEvent.click(within(screen.getByRole("group", { name: "Confirm the build" })).getByRole("button", { name: "Build and push" }));
-    };
-    await run("2.0");
+    await startBuild("2.0");
     expect(await screen.findByText(/no GitHub account rule matches/)).toBeTruthy();
-    await run("2.1");
+    await startBuild("2.1");
     expect(await screen.findByText(/Failed: Docker Hub refused the push/)).toBeTruthy();
     expect(screen.getByRole("log").textContent).toContain("denied: requested access");
+  });
+
+  it("builds the ticked images one after another, each with its own tag, after one confirmation", async () => {
+    mockServer({
+      images: [image(), image({ repo: "web", image: "web", repository: "acme/demo-web", path: "C:/code/web" })],
+      tags: [{ name: "1.0.0", pushed_at: hours(5) }],
+    });
+    renderAt("/images");
+    const api = await rowOf("acme/demo-api");
+    const web = await rowOf("acme/demo-web");
+    fireEvent.change(tagBox(api), { target: { value: "1.0.1" } });
+    fireEvent.change(tagBox(web), { target: { value: "2.0.0" } });
+    fireEvent.click(api.getByRole("checkbox", { name: "Select acme/demo-api" }));
+    fireEvent.click(web.getByRole("checkbox", { name: "Select acme/demo-web" }));
+
+    const bar = within(screen.getByRole("region", { name: "Selected images" }));
+    expect(bar.getByText("2 selected")).toBeTruthy();
+    fireEvent.click(bar.getByRole("button", { name: "Build & push selected" }));
+    const confirm = within(screen.getByRole("group", { name: "Confirm the builds" }));
+    expect(confirm.getByText("acme/demo-api:1.0.1")).toBeTruthy();
+    expect(confirm.getByText("acme/demo-web:2.0.0")).toBeTruthy();
+    expect(sent("POST", "/build")).toHaveLength(0);
+
+    fireEvent.click(confirm.getByRole("button", { name: "Build and push" }));
+    await waitFor(() => expect(sent("POST", "/build")).toHaveLength(2), { timeout: 8000 });
+    expect(sent("POST", "/build").map((c) => c.url)).toEqual(["/api/v1/images/demo/api/api/build", "/api/v1/images/demo/web/web/build"]);
+    expect(await screen.findByText(/0 running · 0 queued · 2 done/)).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Selected images" })).toBeNull(); // the ticks are cleared
+  });
+
+  it("leaves a ticked image out of the batch when it has no tag or the tag exists, and says why", async () => {
+    mockServer({
+      images: [image(), image({ repo: "web", image: "web", repository: "acme/demo-web" })],
+      tags: [{ name: "1.0.0", pushed_at: hours(5) }],
+    });
+    renderAt("/images");
+    const api = await rowOf("acme/demo-api");
+    const web = await rowOf("acme/demo-web");
+    fireEvent.change(tagBox(api), { target: { value: "1.0.0" } }); // exists on Docker Hub
+    fireEvent.click(api.getByRole("checkbox", { name: "Select acme/demo-api" }));
+    fireEvent.click(web.getByRole("checkbox", { name: "Select acme/demo-web" })); // no tag typed
+    const bar = within(screen.getByRole("region", { name: "Selected images" }));
+    expect(bar.getByText(/api:1\.0\.0 already exists on Docker Hub/)).toBeTruthy();
+    expect(bar.getByText(/web has no valid tag/)).toBeTruthy();
+    expect((bar.getByRole("button", { name: "Build & push selected" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(bar.getByRole("button", { name: "Clear" }));
+    expect(screen.queryByRole("region", { name: "Selected images" })).toBeNull();
   });
 
   it("lists the build history, and clears it after a second click", async () => {

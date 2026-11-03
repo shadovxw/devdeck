@@ -174,6 +174,19 @@ func (s Spec) plan() (*plan, error) {
 	return pl, nil
 }
 
+// displayCommand is a program and its arguments as one line to read, quoting what has a space or a quote.
+func displayCommand(name string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+	parts = append(parts, name)
+	for _, a := range args {
+		if a == "" || strings.ContainsAny(a, " \t\"'") {
+			a = `"` + strings.ReplaceAll(a, `"`, `\"`) + `"` // plain quotes: a Windows path keeps its backslashes
+		}
+		parts = append(parts, a)
+	}
+	return strings.Join(parts, " ")
+}
+
 func orDefault(v, def string) string {
 	if v == "" {
 		return def
@@ -204,6 +217,10 @@ func (b *Builder) Build(ctx context.Context, spec Spec, out func(string)) error 
 		return err
 	}
 	defer cfg.cleanup()
+
+	// The command, as the first line of the output, so what ran can be read and repeated. It holds names
+	// of variables, never a secret's value.
+	out("$ " + displayCommand("docker", pl.args) + "    (in " + spec.Dir + ")")
 
 	var red logs.Redactor
 	red.SetEnv(pl.maskEnv)

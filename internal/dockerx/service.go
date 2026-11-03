@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/shadovxw/devdeck/internal/secrets"
@@ -316,17 +317,69 @@ func (s *Service) BuildSecret(name string) (secrets.Value, error) {
 	return v, err
 }
 
-// Tags asks Docker Hub for the repository's most recent tags, signing in with the account.
-func (s *Service) Tags(ctx context.Context, a Account, repository string, limit int) ([]Tag, error) {
-	tok, err := s.Secrets.Get(SecretName(a.ID))
-	if err != nil {
-		return nil, err
+// TagWant is a repository to read the tags of, with the account to sign in with.
+type TagWant struct {
+	Account    Account
+	Repository string
+}
+
+// RepoTags is one repository's tags, or why they couldn't be read.
+type RepoTags struct {
+	Repository string `json:"repository"`
+	Tags       []Tag  `json:"tags"`
+	Error      string `json:"error,omitempty"`
+}
+
+// TagsFor reads the tags of several repositories at once (at most limit each), signing in once per
+// account and asking a few repositories at a time. The answer has one entry per want, in order; a
+// repository that can't be read has an Error and no tags, and the others are still answered.
+func (s *Service) TagsFor(ctx context.Context, wants []TagWant, limit int) []RepoTags {
+	type login struct {
+		once sync.Once
+		jwt  string
+		err  error
 	}
-	jwt, err := s.Hub.Login(ctx, a.Username, tok.Reveal())
-	if err != nil {
-		return nil, err
+	logins := map[string]*login{}
+	for _, w := range wants {
+		if logins[w.Account.ID] == nil {
+			logins[w.Account.ID] = &login{}
+		}
 	}
-	return s.Hub.Tags(ctx, jwt, repository, limit)
+	out := make([]RepoTags, len(wants))
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, 6)
+	for i, w := range wants {
+		wg.Add(1)
+		slots <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-slots }()
+			out[i] = RepoTags{Repository: w.Repository, Tags: []Tag{}}
+			l := logins[w.Account.ID]
+			l.once.Do(func() {
+				tok, err := s.Secrets.Get(SecretName(w.Account.ID))
+				if err != nil {
+					l.err = err
+					return
+				}
+				l.jwt, l.err = s.Hub.Login(ctx, w.Account.Username, tok.Reveal())
+			})
+			if l.err != nil {
+				out[i].Error = l.err.Error()
+				return
+			}
+			tags, err := s.Hub.Tags(ctx, l.jwt, w.Repository, limit)
+			if err != nil {
+				out[i].Error = err.Error()
+				return
+			}
+			if tags != nil {
+				out[i].Tags = tags
+			}
+		}()
+	}
+	wg.Wait()
+	return out
 }
 
 // TagExists asks Docker Hub whether the repository already has the tag, signing in with the account.

@@ -451,3 +451,31 @@ func TestNilHistoryKeepsNothingAndFailsNothing(t *testing.T) {
 		t.Errorf("Newest = %v %v", got, err)
 	}
 }
+
+func TestBuildPrintsTheCommandFirstWithoutTheSecret(t *testing.T) {
+	b := fakeBuilder(t)
+	dir := repoDir(t)
+	s := goodSpec(dir)
+	s.Secrets = []Secret{{ID: "gh_token", Value: secrets.NewValue("ghp_fake_value_1")}}
+
+	var lines []string
+	if err := b.Build(context.Background(), s, collect(&lines)); err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	first := lines[0]
+	for _, want := range []string{"$ docker buildx build --progress plain --platform linux/amd64", "-t acme/api:1.0.3", "--secret id=gh_token,env=DEVDECK_BUILD_SECRET_0", "--push", "(in " + dir + ")"} {
+		if !strings.Contains(first, want) {
+			t.Errorf("the first line is missing %q: %s", want, first)
+		}
+	}
+	if strings.Contains(first, "ghp_fake_value_1") {
+		t.Errorf("the secret is in the command line: %s", first)
+	}
+}
+
+func TestDisplayCommandQuotesWhatNeedsIt(t *testing.T) {
+	got := displayCommand("docker", []string{"buildx", "-f", `C:\my repo\Dockerfile`, "--label", "a=b", ""})
+	if want := `docker buildx -f "C:\my repo\Dockerfile" --label a=b ""`; got != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+}

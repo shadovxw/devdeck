@@ -576,38 +576,45 @@ func TestEditAWorkspace(t *testing.T) {
 	}
 }
 
-func TestTheTagsOnDockerHubComeNewestFirst(t *testing.T) {
+func TestAllTheTagsAtOnce(t *testing.T) {
 	d := dockerServer(t)
-	if rec := d.call(http.MethodGet, "/api/v1/images/demo/api/api/tags", ""); rec.Code != http.StatusConflict {
-		t.Errorf("with no account that owns the namespace = %d %s", rec.Code, rec.Body)
+	rec := d.call(http.MethodGet, "/api/v1/images/tags", "")
+	var rows []struct {
+		Repo, Image, Repository, Error string
+		Tags                           []dockerx.Tag
 	}
-	d.addAccount(t, "work", "ana-work", "dckr_pat_fake_value", "acme")
-
-	rec := d.call(http.MethodGet, "/api/v1/images/demo/api/api/tags", "")
-	var v struct {
-		Repository string
-		Tags       []dockerx.Tag
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil || rec.Code != http.StatusOK {
+	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil || rec.Code != http.StatusOK || len(rows) == 0 {
 		t.Fatalf("tags = %d %s", rec.Code, rec.Body)
 	}
-	var names []string
-	for _, tg := range v.Tags {
-		names = append(names, tg.Name)
-	}
-	if v.Repository != "acme/demo-api" || !slices.Equal(names, []string{"1.2", "1.1", "1.0"}) {
-		t.Errorf("tags = %v of %s, want newest first", names, v.Repository)
-	}
-
-	if rec := d.call(http.MethodGet, "/api/v1/images/demo/api/api/tags?limit=2", ""); !strings.Contains(rec.Body.String(), `"1.1"`) || strings.Contains(rec.Body.String(), `"1.0"`) {
-		t.Errorf("limit=2 = %s", rec.Body)
-	}
-	for _, bad := range []string{"limit=0", "limit=51", "limit=x"} {
-		if rec := d.call(http.MethodGet, "/api/v1/images/demo/api/api/tags?"+bad, ""); rec.Code != http.StatusBadRequest {
-			t.Errorf("%s = %d, want 400", bad, rec.Code)
+	for _, r := range rows {
+		if r.Error == "" {
+			t.Errorf("%s has no account yet but no error", r.Repository)
 		}
 	}
-	if rec := d.call(http.MethodGet, "/api/v1/images/demo/api/nope/tags", ""); rec.Code != http.StatusNotFound {
-		t.Errorf("an unknown image = %d", rec.Code)
+
+	d.addAccount(t, "work", "ana-work", "dckr_pat_fake_value", "acme")
+	rec = d.call(http.MethodGet, "/api/v1/images/tags?limit=2", "")
+	rows = nil
+	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("tags = %d %s", rec.Code, rec.Body)
+	}
+	byRepo := map[string][]string{}
+	errs := map[string]string{}
+	for _, r := range rows {
+		for _, tg := range r.Tags {
+			byRepo[r.Repository] = append(byRepo[r.Repository], tg.Name)
+		}
+		errs[r.Repository] = r.Error
+	}
+	// the one repository the fake Docker Hub knows, newest first and cut at the limit; another namespace has no
+	// account and says so, without stopping the rest
+	if !slices.Equal(byRepo["acme/demo-api"], []string{"1.2", "1.1"}) || errs["acme/demo-api"] != "" {
+		t.Errorf("acme/demo-api = %v (%q)", byRepo["acme/demo-api"], errs["acme/demo-api"])
+	}
+	if errs["other/demo-worker"] == "" {
+		t.Error("a namespace with no account should have an error")
+	}
+	if rec := d.call(http.MethodGet, "/api/v1/images/tags?limit=99", ""); rec.Code != http.StatusBadRequest {
+		t.Errorf("limit=99 = %d", rec.Code)
 	}
 }

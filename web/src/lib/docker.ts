@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "./api";
+import { imageKey } from "./images";
 
 /** A Docker Hub account on this machine. Its token is in the OS keychain: only whether it is saved shows here. */
 export type DockerAccount = { id: string; username: string; registry: string; namespaces: string[]; token_set: boolean };
@@ -54,6 +55,8 @@ export type ImageRow = {
   dirty: boolean;
   folder_missing: boolean;
   last?: BuildRecord;
+  /** Commits on top of the one the last good build here was made from; absent when unknown. */
+  ahead?: number;
 };
 
 const keys = {
@@ -144,44 +147,21 @@ export function useImages() {
   return useQuery({ queryKey: keys.images, queryFn: ({ signal }) => api.get<ImageRow[]>("/images", signal), refetchInterval: 20_000 });
 }
 
-/** A tag Docker Hub has for an image's repository, with when it was last pushed. */
-export type HubTag = { name: string; pushed_at?: string };
+/** A tag Docker Hub has for an image's repository, with when it was last pushed and how big it is. */
+export type HubTag = { name: string; pushed_at?: string; size?: number };
 
-/** The tags Docker Hub has for an image's repository, most recently pushed first (10 by default). Asked for on demand. */
-export function useImageTags(row: Pick<ImageRow, "workspace" | "repo" | "image">, enabled: boolean, limit = 10) {
-  const path = `/images/${encodeURIComponent(row.workspace)}/${encodeURIComponent(row.repo)}/${encodeURIComponent(row.image)}/tags?limit=${limit}`;
+/** The tags Docker Hub has for one image's repository, or why they couldn't be read. */
+export type ImageTags = { workspace: string; repo: string; image: string; repository: string; tags: HubTag[]; error?: string };
+
+/** The last tags of every image's repository, most recently pushed first, in one request. Kept a minute. */
+export function useAllImageTags() {
   return useQuery({
-    queryKey: ["images", "tags", row.workspace, row.repo, row.image, limit],
-    queryFn: ({ signal }) => api.get<{ repository: string; tags: HubTag[] }>(path, signal),
-    enabled,
+    queryKey: ["images", "tags"],
+    queryFn: ({ signal }) => api.get<ImageTags[]>("/images/tags?limit=10", signal),
     staleTime: 60_000,
     retry: false,
+    refetchOnWindowFocus: false,
   });
-}
-
-/**
- * The tag after the highest dotted number among `names` ("1.0.95" gives "1.0.96", "v2.3" gives "v2.4"). Tags
- * that aren't a plain version (latest, a branch name, a date with letters) are ignored; undefined when none is.
- */
-export function nextTag(names: string[]): string | undefined {
-  let best: { parts: number[]; prefix: string } | undefined;
-  for (const name of names) {
-    const m = /^(v?)(\d+(?:\.\d+)*)$/.exec(name);
-    if (!m) continue;
-    const parts = m[2].split(".").map(Number);
-    if (!best || compareParts(parts, best.parts) > 0) best = { parts, prefix: m[1] };
-  }
-  if (!best) return undefined;
-  const next = [...best.parts.slice(0, -1), best.parts[best.parts.length - 1] + 1];
-  return best.prefix + next.join(".");
-}
-
-function compareParts(a: number[], b: number[]): number {
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    const d = (a[i] ?? 0) - (b[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
 }
 
 export function useBuilds() {
@@ -195,18 +175,6 @@ export function useClearBuilds() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.images }),
   });
 }
-
-/** What the page shows of one build as it runs. */
-export type BuildState = {
-  tag: string;
-  running: boolean;
-  lines: string[];
-  result: { ok: boolean; error?: string } | null;
-  /** Set when Docker Hub already has the tag: what to ask the person before pushing over it. */
-  exists: string | null;
-};
-
-const idle: BuildState = { tag: "", running: false, lines: [], result: null, exists: null };
 
 /** The output kept on screen: the last lines, so a long build doesn't grow the page without end. */
 const maxLines = 400;
@@ -226,36 +194,85 @@ function splitLines(text: string): { lines: unknown[]; rest: string } {
   return { lines, rest };
 }
 
+export type JobState = "queued" | "running" | "ok" | "failed" | "exists";
+
+/** One build asked for on the page: waiting, running, or finished. */
+export type BuildJob = {
+  key: string;
+  row: Pick<ImageRow, "workspace" | "repo" | "image" | "repository">;
+  tag: string;
+  overwrite: boolean;
+  state: JobState;
+  lines: string[];
+  /** 1 while docker builds, 2 once it pushes. */
+  step: 1 | 2;
+  error?: string;
+  /** Set when Docker Hub already has the tag: what to ask before pushing over it. */
+  message?: string;
+  startedAt?: number;
+  finishedAt?: number;
+};
+
+const pushing = /\b(pushing|exporting to image|exporting layers)\b/i;
+
+const waiting = (j: BuildJob) => j.state === "running" || j.state === "queued";
+
 /**
- * Builds and pushes one image, showing docker's output as it arrives. The answer is a stream of
- * {"line"} objects and a last {"done":true,"ok":...}. A refusal before anything starts (no account,
- * a tag that exists) comes as an error status. The build runs to its end on the server even if the
- * page goes away, so a closed page never leaves a push half done.
+ * The builds asked for on the page, run one after another. Each shows docker's output as it arrives. The answer is
+ * a stream of {"line"} objects and a last {"done":true,"ok":...}. A refusal before anything starts (no account, a tag
+ * that exists) comes as an error status. A build runs to its end on the server even if the page goes away, so a
+ * closed page never leaves a push half done.
  */
-export function useImageBuild(row: Pick<ImageRow, "workspace" | "repo" | "image">) {
+export function useBuildJobs() {
   const qc = useQueryClient();
-  const [state, setState] = useState<BuildState>(idle);
+  const [jobs, setJobs] = useState<BuildJob[]>([]);
   const ctrl = useRef<AbortController | null>(null);
   useEffect(() => () => ctrl.current?.abort(), []);
 
+  const patch = useCallback((key: string, fn: (j: BuildJob) => BuildJob) => setJobs((js) => js.map((j) => (j.key === key ? fn(j) : j))), []);
+
+  /** Adds builds to the end of the queue. A finished build of the same image is replaced; one still waiting or running is kept. */
+  const enqueue = useCallback((items: Array<{ row: BuildJob["row"]; tag: string; overwrite?: boolean }>) => {
+    setJobs((js) => {
+      const added: BuildJob[] = [];
+      for (const { row, tag, overwrite } of items) {
+        const key = imageKey(row);
+        if (js.some((j) => j.key === key && waiting(j))) continue;
+        added.push({
+          key,
+          row: { workspace: row.workspace, repo: row.repo, image: row.image, repository: row.repository },
+          tag,
+          overwrite: overwrite === true,
+          state: "queued",
+          lines: [],
+          step: 1,
+        });
+      }
+      const replaced = new Set(added.map((j) => j.key));
+      return [...js.filter((j) => !replaced.has(j.key)), ...added];
+    });
+  }, []);
+
+  const dismiss = useCallback((key: string) => setJobs((js) => js.filter((j) => j.key !== key || waiting(j))), []);
+
   const run = useCallback(
-    async (tag: string, overwrite: boolean) => {
+    async (job: BuildJob) => {
       ctrl.current?.abort();
       const mine = new AbortController();
       ctrl.current = mine;
-      setState({ tag, running: true, lines: [], result: null, exists: null });
-      const finish = (result: { ok: boolean; error?: string }) => {
+      patch(job.key, (j) => ({ ...j, state: "running", startedAt: Date.now() }));
+      const finish = (state: "ok" | "failed", error?: string) => {
         if (mine.signal.aborted) return;
-        setState((s) => ({ ...s, running: false, result }));
+        patch(job.key, (j) => ({ ...j, state, error, finishedAt: Date.now() }));
         void qc.invalidateQueries({ queryKey: keys.images });
       };
       try {
-        const url = `/api/v1/images/${encodeURIComponent(row.workspace)}/${encodeURIComponent(row.repo)}/${encodeURIComponent(row.image)}/build`;
+        const url = `/api/v1/images/${encodeURIComponent(job.row.workspace)}/${encodeURIComponent(job.row.repo)}/${encodeURIComponent(job.row.image)}/build`;
         const res = await fetch(url, {
           method: "POST",
           signal: mine.signal,
           headers: { Accept: "application/x-ndjson", "Content-Type": "application/json" },
-          body: JSON.stringify({ tag, overwrite }),
+          body: JSON.stringify({ tag: job.tag, overwrite: job.overwrite }),
         });
         if (!res.ok || !res.body) {
           let message = res.statusText || `HTTP ${res.status}`;
@@ -268,8 +285,8 @@ export function useImageBuild(row: Pick<ImageRow, "workspace" | "repo" | "image"
             // not JSON: keep the status text
           }
           if (mine.signal.aborted) return;
-          if (exists) setState({ tag, running: false, lines: [], result: null, exists: message });
-          else finish({ ok: false, error: message });
+          if (exists) patch(job.key, (j) => ({ ...j, state: "exists", message, finishedAt: Date.now() }));
+          else finish("failed", message);
           return;
         }
         const reader = res.body.getReader();
@@ -284,20 +301,31 @@ export function useImageBuild(row: Pick<ImageRow, "workspace" | "repo" | "image"
           for (const l of lines as { line?: string; done?: boolean; ok?: boolean; error?: string }[]) {
             if (l.done) {
               ended = true;
-              finish({ ok: l.ok === true, error: l.error });
+              finish(l.ok === true ? "ok" : "failed", l.error);
             } else if (l.line !== undefined) {
-              setState((s) => ({ ...s, lines: [...s.lines, l.line ?? ""].slice(-maxLines) }));
+              const line = l.line;
+              patch(job.key, (j) => ({ ...j, lines: [...j.lines, line].slice(-maxLines), step: j.step === 2 || pushing.test(line) ? 2 : 1 }));
             }
           }
         }
-        if (!ended) finish({ ok: false, error: "the connection ended before the build did; it may still be running" });
+        if (!ended) finish("failed", "the connection ended before the build did; it may still be running");
       } catch (e) {
-        if (!mine.signal.aborted) finish({ ok: false, error: e instanceof Error ? e.message : "the build stopped" });
+        if (!mine.signal.aborted) finish("failed", e instanceof Error ? e.message : "the build stopped");
       }
     },
-    [qc, row.workspace, row.repo, row.image],
+    [qc, patch],
   );
 
-  const reset = useCallback(() => setState(idle), []);
-  return { state, run, reset };
+  // One build at a time: when none runs, the next waiting one starts.
+  const busy = jobs.some((j) => j.state === "running");
+  useEffect(() => {
+    if (busy) return;
+    const next = jobs.find((j) => j.state === "queued");
+    if (!next) return;
+    // a tick later, so the state it sets isn't set in the middle of this effect
+    const t = setTimeout(() => void run(next), 0);
+    return () => clearTimeout(t);
+  }, [jobs, busy, run]);
+
+  return { jobs, enqueue, dismiss };
 }

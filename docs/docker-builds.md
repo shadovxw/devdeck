@@ -31,11 +31,15 @@ repos:
 
 A repository can list several images (several Dockerfiles or several Docker Hub repositories).
 
-**3. Build** (Images and tags): each image has a field `acme/auth-service:` and you type the tag, for example `1.0.4`. devdeck shows what it is about to do (the branch and commit, the account, and whether the folder has uncommitted changes, which are built into the image) and asks before it starts. The output streams as it runs, and the result goes into the history.
+**3. Build** (Images and tags). The page lists every image with:
 
-If Docker Hub already has that tag, devdeck says so and asks before pushing over it.
+- **Source on this PC:** the branch and commit checked out, and how many commits are on top of the one the last good build here was made from (or "not built here yet"), and whether the folder has uncommitted changes (they are built into the image).
+- **Latest on Docker Hub:** the most recently pushed tag and how long ago. Open an image's details (the arrow) for the last 10 tags with their sizes, the build settings, the secrets, the last build here, and **the same build by hand**: the `docker buildx build` command devdeck runs, to read or paste.
+- **Tag to push:** type the tag, for example `1.0.4` (clicking a tag in the details puts it in the box). If Docker Hub already has it, the page says so and the button becomes **Push over it**.
 
-**Choosing the tag.** **Recent tags** on an image (or **Show recent tags** at the top, for every image) asks Docker Hub for the last 10 tags of its repository, newest first, with how long ago each was pushed. Click one to put it in the box. Under the list, **Next after the highest** offers the tag after the highest plain version (`1.0.95` gives `1.0.96`; `latest` and names that aren't a version are ignored). The list is read with the account that owns the namespace, only when you ask, and refreshes after a build.
+**Build & push** shows what it is about to do (the branch and commit, the account, the command) and asks before it starts. The output streams as it runs, with the command as its first line, and the result goes into the history. Several images can be ticked and built with **Build & push selected**: each uses the tag typed in its box, one confirmation covers them all, and they run one after another. The strip along the bottom (**Builds**) shows what runs, what waits and what just finished. Ticked images whose tag is empty, invalid or already on Docker Hub are left out, and the bar says which.
+
+The summary at the top counts the images, those whose last build is the current commit, those with commits since their last build, and the builds running now. The filter and the chips (changed since the last build, uncommitted changes, never built here) narrow the list; the images with the most commits since their last build come first.
 
 ## Which account pushes
 
@@ -77,4 +81,4 @@ A build runs `docker buildx build --push` with a **private, temporary** docker c
 | the build secret ... has no value saved | Save it on the Docker Hub page under the name the workspace file uses. |
 | the repository isn't on this machine | The folder in `workspace.yaml` doesn't exist here: clone it, or fix the path. |
 
-Not built yet: a vulnerability scan before the push, and registries other than Docker Hub.
+Not built yet: a suggested next tag, a choice of platform or account on the page, extra tags such as `latest`, a vulnerability scan before the push, and registries other than Docker Hub.
