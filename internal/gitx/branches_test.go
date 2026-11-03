@@ -70,7 +70,7 @@ func TestBranchQuestionsAgainstARealRepository(t *testing.T) {
 		t.Errorf("diffstat = %+v, %v (two files, three lines)", st, err)
 	}
 	commits, err := g.Commits(ctx, dir, "main", "plan/blob", 10)
-	if err != nil || len(commits) != 2 || commits[0].Subject != "change plan.md" {
+	if err != nil || len(commits) != 2 || commits[0].Subject != "change plan.md" || !strings.Contains(commits[0].Date, "T") || commits[0].Hash == "" {
 		t.Errorf("commits = %+v, %v (newest first)", commits, err)
 	}
 	if one, _ := g.Commits(ctx, dir, "main", "plan/blob", 1); len(one) != 1 {

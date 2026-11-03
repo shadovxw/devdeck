@@ -27,7 +27,7 @@ const workspaceUsage = `Usage:
 `
 
 // WorkspaceCommands are the words that start the offline commands.
-var WorkspaceCommands = []string{"workspace", "schema", "feature"}
+var WorkspaceCommands = []string{"workspace", "schema"}
 
 // Workspace runs `devdeck workspace ...` and returns the exit code: 0 done, 1 errors found,
 // 2 wrong usage. args excludes "workspace".

@@ -40,3 +40,36 @@ The Features page and its tabs (PR 2), the review runner, buttons and tools (PRs
 ### Not tried
 
 Nothing was run against GitHub or a real plans repository of the owner's. The `gh pr list` call and its JSON are tested with answers written from `gh`'s documented fields; the first real run may find a field that differs. The race detector can't run on the owner's Windows PC (see `2026-10-31-next-steps.md`); the live state reads each repo in its own goroutine and the test fakes are guarded, so CI's `-race` run is the real check.
+
+## PR 2: the Features page (2026-11-03)
+
+What was built, and why. The plan's §9 PR 2. The page reads what PR 1 built; nothing here writes to a plan.
+
+### Added
+
+- **The page** (`web/src/pages/features/`, `web/src/lib/features.ts`): **Code, Features** replaces the "Work items" placeholder. A list of features at `/features`, and one feature at `/features/:workspace/:name` with Overview, Activity, Files and Terminal tabs. Overview is Progress, Next up, one PR-by-layer grid per repo, and the selected PR's panel (track, branch and base, next action, steps with commits and layers, size against the budget, commits, GitHub checks and a link to GitHub). **Refresh** asks GitHub again; **Next for Claude** copies a prompt that hands the next PR to Claude Code.
+- **`devdeck feature list` and `devdeck feature status [-w <workspace>] [name]`** (`internal/cli/feature_online.go`). They ask the running server, like `up` and `status`. `feature check` stays offline and is reached through the same word.
+- **`GET /features/:workspace/:name/status`**: the feature as plain text (`feature.Render`), used by the CLI and the Terminal tab, so the two can't drift apart.
+- The feature detail now carries each repo's layers (`repo_layers`: the grid's columns), and every commit its date (`gitx.Commit.Date`, for Activity).
+- `docs/features.md` covers the page and the two commands.
+
+### Decisions made while building, and why
+
+- **One page with an id in the path, not a list in the sidebar.** The sidebar is built from a fixed list of pages, and features come and go with branches of a repository. A list page leads to each feature instead.
+- **Statuses are a dot and a word, the grid is squares.** As everywhere in devdeck, never colour alone: each square has a screen-reader text ("a2 changes Handlers"), and a planned PR is an empty ring, like a stopped service.
+- **GitHub links are only drawn for `https://github.com/` addresses**, whatever `gh` answers. The answer is data, not something to put in an `href` unchecked.
+- **Activity is commits and merges only.** `changes.md` entries and review runs are not parsed yet: they arrive with the review tools (PR 3 on) and the GitHub snapshots (PR 9). The page says so under the list.
+- **The Terminal tab asks the server for the text** instead of drawing it again in TypeScript, so there is one formatter.
+- **"Next for Claude" tells Claude to stop after each step and give you the git commands**, as you work. It is greyed out when no PR is waiting to be started.
+
+### Found by looking at it
+
+I ran the real server on another port with a sample plans repository, a code repo with stacked branches and the built web app, and looked at the list, the four tabs, a wide window and a phone-width window. Real git gave the sizes (+240 and +300 lines) and the states; the GitHub calls failed because the sample repos aren't on GitHub, and the page showed that as a problem and kept going. Nothing needed changing after that look.
+
+### Not done in this PR
+
+The review runner, the Run buttons and the Reviews and checks tab (PR 3 on), New feature and creating a worktree (PR 7), the connector tools (PR 8), and the GitHub snapshots (PR 9). The layer grid doesn't yet compare a branch's changed files with the layers' `paths` (PR 8).
+
+### Not tried
+
+The page has not been used on a real plans repository of the owner's, with real PRs: GitHub's side (checks, review decisions, merged times) is only tested from answers written from `gh`'s documented fields. Slow GitHub answers show the loading skeleton for a few seconds, as the detail waits for every repo.

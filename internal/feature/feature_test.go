@@ -345,3 +345,41 @@ func TestSummaryOf(t *testing.T) {
 		t.Errorf("a plan with a broken file still has a summary: %+v", broken)
 	}
 }
+
+func TestRender(t *testing.T) {
+	f := demoPlan(t)
+	g := &fakeGit{
+		set:   gitx.BranchSet{Local: map[string]bool{"acme": true, "acme-a2-x": true, "acme-a3-x": true}, Remote: map[string]bool{}},
+		stats: map[string]gitx.DiffStat{"acme...acme-a2-x": {Files: 6, Added: 300, Deleted: 20}},
+	}
+	gh := &fakeGH{pulls: map[string][]gitx.PullRequest{"acme/demo-api": {
+		{Number: 212, Head: "acme-a1-x", State: "merged"},
+		{Number: 214, Head: "acme-a2-x", State: "open", Decision: "changes_requested"},
+	}}}
+	s := &Service{Git: g, GH: gh}
+	p := &Plan{Workspace: "demo", Name: "demo", Branch: "plan/demo", ReadOnly: true, File: f, Issues: []workspace.Issue{}}
+	d := s.Detail(context.Background(), demoEnv(), p, false)
+	d.Problems = append(d.Problems, "demo-worker: the folder isn't on this machine")
+	out := Render(d)
+
+	// The table is aligned with spaces, so the text is compared with runs of spaces squeezed to one.
+	squeezed := strings.Join(strings.Fields(out), " ")
+	for _, want := range []string{
+		"Demo acme -> dev",
+		"plan/demo (read-only: no worktree)",
+		"6 PRs: 1 merged, 1 changes requested, 1 coding, 1 waiting, 2 planned",
+		"demo-api a2 handler,config changes requested #214 +300 -20 2/2 lines",
+		"demo-api a1 config merged #212",
+		"demo-worker w1 db waiting - - 0/1",
+		"next a2 Fix the requested changes, then ask for review again (claude) a3 Claude is on step 2: Wire the thing (claude)",
+		"hand to Claude next: a4",
+		"problems demo-worker: the folder isn't on this machine",
+	} {
+		if !strings.Contains(squeezed, want) {
+			t.Errorf("the text has no %q:\n%s", want, out)
+		}
+	}
+	if StateWord("unknown") != "unknown" || StateWord(StateChanges) != "changes requested" {
+		t.Errorf("StateWord")
+	}
+}

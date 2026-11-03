@@ -2,7 +2,7 @@
 
 A **feature** is one piece of work split into small stacked PRs, in one repo or several. Its plan lives in a private **plans repository**, one branch per plan. devdeck reads that, adds what git and GitHub say, and works out the state of every PR. Claude Code writes the plan and keeps it current; you decide and merge.
 
-> This guide covers the plan format, the check and the read-only routes. The Features page, the review buttons and the GitHub snapshots come in the next PRs of [`dev-plans/2026-11-03-features/`](https://github.com/shadovxw/devdeck/blob/main/dev-plans/2026-11-03-features/plan.md).
+> This guide covers the plan format, the Features page, the commands and the read-only routes. The review buttons, New feature and the GitHub snapshots come in the next PRs of [`dev-plans/2026-11-03-features/`](https://github.com/shadovxw/devdeck/blob/main/dev-plans/2026-11-03-features/plan.md).
 
 ## The plans repository
 
@@ -102,6 +102,31 @@ Nothing below is written in the file. It is read from git and GitHub each time (
 
 For each PR you also get its size (git's, from `base...branch`; GitHub's if the branch isn't here), whether it is over the budget, its commits, and what happens next and who does it. **Next up** lists what is waiting on someone: changes requested first, then approved (merge it), draft, coding, in review.
 
+## The Features page
+
+**Code, Features** lists every plan of your workspaces that have a `plans_repo`. Open one to see:
+
+- **Progress**: one segment per PR in the colour of its state, and how many PRs are in each state.
+- **Next up**: what is waiting on someone (Claude, you or the reviewers), most urgent first. A click opens that PR.
+- **Each repo as a grid**: its PRs down the side and its layers across the top. A square means the PR changes that layer: filled once it has a branch, an empty ring while it is only planned. Each row also shows the state, the size (`+added −deleted`, marked **over** when it passes the budget) and how many steps are done.
+- **The PR you picked** (right, or below on a narrow window): where it is on the track from Planned to Merged, its branch and base, the next action, its steps with their commit ids and layers, its size against the budget, its commits, and its GitHub checks with **Open on GitHub ↗**. Reviews and comments stay on GitHub.
+- **Activity**: the commits on each PR's branch and the PRs that merged, newest first.
+- **Files**: the plan's files (`plan.md`, `feature.yaml`, `changes.md`) read-only. Claude edits them, and so do you, in your editor.
+- **Terminal**: the same text `devdeck feature status` prints.
+
+**Refresh** asks GitHub again now (its answer is otherwise kept for a minute). **Next for Claude** copies a prompt that hands the next PR to Claude Code: the first planned PR that isn't waiting and whose PR below already has a branch. It tells Claude to stop after each step and give you the git commands. It is greyed out when no PR is waiting to be started.
+
+A repo whose folder isn't on this machine, or whose pull requests can't be read (`gh` not installed or not signed in, a repo GitHub doesn't know), is listed at the top, and the other repos are still shown.
+
+## In a terminal
+
+```bash
+devdeck feature list
+devdeck feature status [-w <workspace>] [name]
+```
+
+`list` shows every feature, one line each. `status` prints one feature as text: its PRs with layers, state, `#`, size and steps, then what is next and the PR to hand Claude. With one feature the name can be left out. Both ask the running devdeck, so start it first.
+
 ## Checking a file
 
 ```bash
@@ -120,6 +145,7 @@ For tools and the page that comes next. They only read, and Claude's connector c
 
 - `GET /api/v1/features`: every plan of each workspace that has `plans_repo`, without calling GitHub.
 - `GET /api/v1/features/<workspace>/<name>`: one feature with the live state of every PR (`?refresh=1` skips the minute's cache).
-- `GET /api/v1/features/<workspace>/<name>/files/<path>`: one file of the plan, as text.
+- `GET /api/v1/features/<workspace>/<name>/status`: the same feature as plain text, for a terminal.
+- `GET /api/v1/features/<workspace>/<name>/files/<path>`: one file of the plan, as JSON with its text.
 
 A problem with one repo (its folder isn't on this machine, `gh` isn't installed) is listed under `problems`, and the rest is still shown.
