@@ -22,6 +22,7 @@ const (
 	KindWorkspace Kind = "workspace"
 	KindStack     Kind = "stack"
 	KindFlow      Kind = "flow"
+	KindFeature   Kind = "feature"
 )
 
 //go:embed schemas/*.json
@@ -42,7 +43,7 @@ func schemas() (map[Kind]*jsonschema.Schema, error) {
 	schemaOnce.Do(func() {
 		schemaSet = map[Kind]*jsonschema.Schema{}
 		c := jsonschema.NewCompiler()
-		for _, k := range []Kind{KindWorkspace, KindStack, KindFlow} {
+		for _, k := range []Kind{KindWorkspace, KindStack, KindFlow, KindFeature} {
 			raw, err := SchemaJSON(k)
 			if err != nil {
 				schemaErr = err
@@ -196,7 +197,12 @@ func (p *parsed) fromUnit(u jsonschema.OutputUnit) []Issue {
 	case *kind.Enum:
 		return []Issue{p.issue(ptr, fmt.Sprintf("%v isn't allowed here. Use one of: %s.", k.Got, joinAny(k.Want)))}
 	case *kind.Type:
-		return []Issue{p.issue(ptr, fmt.Sprintf("This should be %s, not %s.", article(strings.Join(k.Want, " or ")), article(k.Got)))}
+		msg := fmt.Sprintf("This should be %s, not %s.", article(strings.Join(k.Want, " or ")), article(k.Got))
+		if strings.HasSuffix(ptr, "/commit") {
+			// A hash made only of digits (or like 1e45) is read as a number, and a leading zero is lost.
+			msg += ` Put quotes around the commit id, like commit: "1234567".`
+		}
+		return []Issue{p.issue(ptr, msg)}
 	case *kind.Const:
 		return []Issue{p.issue(ptr, fmt.Sprintf("This must be %v.", k.Want))}
 	}

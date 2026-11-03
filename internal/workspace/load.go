@@ -155,8 +155,10 @@ func Check(k Kind, file string, data []byte, repoIDs map[string]bool, opts Optio
 		_, issues = checkStackText(file, data, repoIDs)
 	case KindFlow:
 		_, issues = checkFlowText(file, data, opts)
+	case KindFeature:
+		_, issues = checkFeatureText(file, data, opts.Repos)
 	default:
-		issues = []Issue{{File: file, Severity: SeverityError, Message: fmt.Sprintf("Unknown kind %q: use workspace, stack or flow.", k)}}
+		issues = []Issue{{File: file, Severity: SeverityError, Message: fmt.Sprintf("Unknown kind %q: use workspace, stack, flow or feature.", k)}}
 	}
 	return tidy(issues)
 }

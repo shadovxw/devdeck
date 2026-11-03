@@ -19,7 +19,17 @@
     "repos": { "type": "array", "items": { "$ref": "#/$defs/repo" } },
     "connections": { "type": "array", "items": { "$ref": "#/$defs/connection" } },
     "account_rules": { "type": "array", "items": { "$ref": "#/$defs/accountRule" } },
-    "hosts": { "type": "array", "items": { "$ref": "#/$defs/host" }, "description": "Remote machines that run devdeck's agent." }
+    "hosts": { "type": "array", "items": { "$ref": "#/$defs/host" }, "description": "Remote machines that run devdeck's agent." },
+    "plans_repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "description": "The private git repository that holds the plans: one branch plan/<name> per feature.",
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "description": "The repository's folder. Absolute, starting with ~, or relative to this file." },
+        "worktrees": { "type": "string", "minLength": 1, "description": "Where each plan branch is checked out as its own worktree (same kinds of path)." }
+      }
+    }
   },
   "$defs": {
     "id": {
@@ -45,7 +55,22 @@
           "type": "array",
           "description": "Docker images built from this repository.",
           "items": { "$ref": "#/$defs/image" }
+        },
+        "layers": {
+          "type": "array",
+          "description": "The parts of this repository a change can touch (db, model, handlers...). A feature's steps name them.",
+          "items": { "$ref": "#/$defs/layer" }
         }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "maxLength": 60, "description": "What the page shows (the id when empty)." },
+        "paths": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Globs, relative to the repository, of the files in this layer." }
       }
     },
     "image": {

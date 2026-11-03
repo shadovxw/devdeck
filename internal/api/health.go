@@ -84,6 +84,7 @@ func Register(e *echo.Echo, d Deps) {
 		registerStackFiles(v1, d.Workspaces, d.Supervisor)
 		if d.GitX != nil {
 			registerGit(v1, d.GitX, d.Workspaces)
+			registerFeatures(v1, d.Workspaces, d.GitX)
 		}
 		registerLogFilters(v1, d.Workspaces)
 		if d.Docker != nil {

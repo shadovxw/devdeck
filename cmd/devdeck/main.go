@@ -100,10 +100,13 @@ func main() {
 		os.Exit(0)
 	}
 
-	// devdeck workspace check | schema read files and exit: no server needed.
+	// devdeck workspace check | feature check | schema read files and exit: no server needed.
 	if len(os.Args) > 1 && slices.Contains(cli.WorkspaceCommands, os.Args[1]) {
 		if os.Args[1] == "schema" {
 			os.Exit(cli.Schema(os.Args[2:], os.Stdout, os.Stderr))
+		}
+		if os.Args[1] == "feature" {
+			os.Exit(cli.Feature(os.Args[2:], os.Getenv, os.Stdout, os.Stderr))
 		}
 		os.Exit(cli.Workspace(os.Args[2:], os.Getenv, os.Stdout, os.Stderr))
 	}

@@ -455,7 +455,7 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
   - 4.4.1 Status scan (branch, dirty files, ahead/behind) with fsnotify refresh
   - 4.4.2 Fetch/pull/push/branch/commit; bulk "pull all"
   - 4.4.3 Clone workspace onto a new PC (from the workspace YAML)
-  - 4.4.4 PR list + checks via the GitHub API (go-github)
+  - 4.4.4 PR list + checks, through `gh` with the repo's account (planned in [`2026-11-03-features/`](2026-11-03-features/plan.md), per feature rather than per repo)
 - **4.5 UI**
   - 4.5.1 Repos table with account chips, filters, bulk actions
   - 4.5.2 Repo detail: changes, commits (lane graph), PRs, settings
@@ -572,6 +572,8 @@ Each phase ends with a **demo checkpoint** and a short `dev-plans/NN-<phase>.md`
 ---
 
 ### Phase 10: Work items, Claude and PRs (XL)
+> Planned in detail as **Features** in [`2026-11-03-features/plan.md`](2026-11-03-features/plan.md): a work item is a `dev-plans` folder with a `feature.yaml`, a feature can span several repos, each repo has layers, and each PR branch can be reviewed with local and online tools from the page. Where that plan differs from the items below, that plan wins.
+
 - **10.1 Work items**
   - 10.1.1 Create: name, type, repos, base branch → branches in each repo + `dev-plans/<date>-<name>/` (plan.md, changes.md)
   - 10.1.2 Stage machine: plan → code → checks → review → PR (auto-advance on flow results)

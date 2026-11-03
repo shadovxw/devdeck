@@ -31,6 +31,24 @@ type WorkspaceFile struct {
 	Connections       []Connection  `yaml:"connections,omitempty" json:"connections,omitempty"`
 	AccountRules      []AccountRule `yaml:"account_rules,omitempty" json:"account_rules,omitempty"`
 	Hosts             []Host        `yaml:"hosts,omitempty" json:"hosts,omitempty"`
+	// PlansRepo is the private git repository that holds the plans and records of the work done on this workspace.
+	PlansRepo *PlansRepo `yaml:"plans_repo,omitempty" json:"plans_repo,omitempty"`
+}
+
+// PlansRepo says where the plans repository is. Each feature is a branch plan/<name> in it, and each
+// branch can be checked out as its own git worktree under Worktrees. Both paths are resolved like the
+// workspace root: absolute, starting with ~, or relative to the workspace folder.
+type PlansRepo struct {
+	Path      string `yaml:"path" json:"path"`
+	Worktrees string `yaml:"worktrees,omitempty" json:"worktrees,omitempty"`
+}
+
+// Layer is one layer of a repository (DB, model, handlers, ...). A step of a feature names the layers
+// it changes; Paths say which files belong to the layer.
+type Layer struct {
+	ID    string   `yaml:"id" json:"id"`
+	Name  string   `yaml:"name,omitempty" json:"name,omitempty"`
+	Paths []string `yaml:"paths,omitempty" json:"paths,omitempty"`
 }
 
 // Host is a remote machine that runs `devdeck agent`, reached through a tunnel.
@@ -65,6 +83,8 @@ type Repo struct {
 	LocalOnly bool `yaml:"local_only,omitempty" json:"local_only,omitempty"`
 	// Images are the Docker images built from this repository.
 	Images []Image `yaml:"images,omitempty" json:"images,omitempty"`
+	// Layers are the parts of the code a change can touch, so a feature can show which are done.
+	Layers []Layer `yaml:"layers,omitempty" json:"layers,omitempty"`
 }
 
 // Image is one Docker image built from a repository and pushed to a Docker Hub repository.

@@ -63,7 +63,7 @@ type conflictResponse struct {
 }
 
 // schemaKinds are the files that have a JSON Schema to serve (the editor's suggestions and checks).
-var schemaKinds = map[string]bool{"workspace": true, "stack": true, "flow": true, "log-filters": true}
+var schemaKinds = map[string]bool{"workspace": true, "stack": true, "flow": true, "feature": true, "log-filters": true}
 
 type invalidResponse struct {
 	Message string            `json:"message"`
