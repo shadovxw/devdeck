@@ -176,8 +176,8 @@ export function useClearBuilds() {
   });
 }
 
-/** The output kept on screen: the last lines, so a long build doesn't grow the page without end. */
-const maxLines = 400;
+/** The output kept: every line of an ordinary build, and the last ones of a very long one, so the page can not grow without end. */
+const maxLines = 20_000;
 
 function splitLines(text: string): { lines: unknown[]; rest: string } {
   const parts = text.split("\n");
