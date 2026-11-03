@@ -173,7 +173,9 @@ func (s *Manager) Get(id string) (*Detail, error) {
 }
 
 // Validate checks YAML text without saving it. workspaceID (optional) names the
-// workspace a stack or flow belongs to, so its repo ids can be checked.
+// workspace a stack or flow belongs to, so its repo ids can be checked. For the text of
+// a workspace's own workspace.yaml it also looks at the folders on disk, the way a saved
+// workspace is checked, so the editor shows the same warnings (and fixes) before saving.
 func (s *Manager) Validate(k Kind, yamlText, workspaceID string) []Issue {
 	var repoIDs map[string]bool
 	if workspaceID != "" {
@@ -181,6 +183,10 @@ func (s *Manager) Validate(k Kind, yamlText, workspaceID string) []Issue {
 			repoIDs = map[string]bool{}
 			for _, r := range d.Workspace.Repos {
 				repoIDs[r.ID] = true
+			}
+			if k == KindWorkspace && d.Source != SourceExample {
+				_, issues := checkWorkspaceText("workspace.yaml", d.Folder, []byte(yamlText), Options{KnownPlugins: s.plugins(), CheckPaths: true})
+				return tidy(issues)
 			}
 		}
 	}

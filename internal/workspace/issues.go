@@ -24,7 +24,35 @@ type Issue struct {
 	Line     int      `json:"line,omitempty"`
 	Severity Severity `json:"severity"`
 	Message  string   `json:"message"`
+	// Code names the kind of problem ("repo-not-git"), for the ones that have a fix. Empty otherwise.
+	Code string `json:"code,omitempty"`
+	// Fixes are what the editor can offer for this problem.
+	Fixes []Fix `json:"fixes,omitempty"`
 }
+
+// FixKind says how a fix is applied.
+type FixKind string
+
+const (
+	// FixEdit is a change to the file's text, made in the editor and saved like any other edit.
+	FixEdit FixKind = "edit"
+	// FixAction does something outside the file (such as running git init) and is confirmed first.
+	FixAction FixKind = "action"
+)
+
+// Fix is one thing the editor can offer for an Issue.
+type Fix struct {
+	ID    string  `json:"id"`
+	Label string  `json:"label"`
+	Kind  FixKind `json:"kind"`
+}
+
+var (
+	// FixMarkLocalOnly adds local_only: true to the repo.
+	FixMarkLocalOnly = Fix{ID: "mark-local-only", Label: "Mark local_only: true", Kind: FixEdit}
+	// FixGitInit runs git init in the repo's folder.
+	FixGitInit = Fix{ID: "git-init", Label: "Run git init", Kind: FixAction}
+)
 
 // Count returns how many issues have the given severity.
 func Count(issues []Issue, s Severity) int {

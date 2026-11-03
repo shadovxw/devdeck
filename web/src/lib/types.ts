@@ -42,9 +42,15 @@ export type Issue = {
   line?: number;
   severity: Severity;
   message: string;
+  /** Names the kind of problem, for the ones the editor can fix ("repo-not-git"). */
+  code?: string;
+  fixes?: IssueFix[];
 };
 
-export type Repo = { id: string; path: string; type?: string; remote?: string; connection?: string };
+/** What the editor can offer for a problem: an edit to the text, or an action that is confirmed first. */
+export type IssueFix = { id: string; label: string; kind: "edit" | "action" };
+
+export type Repo = { id: string; path: string; type?: string; remote?: string; connection?: string; local_only?: boolean };
 
 export type WorkspaceSummary = {
   id: string;

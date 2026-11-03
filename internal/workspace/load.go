@@ -89,10 +89,10 @@ func checkPaths(p *parsed, w *WorkspaceFile, dir string) []Issue {
 		st, err := os.Stat(repo)
 		switch {
 		case err != nil || !st.IsDir():
-			out = append(out, p.warn(path, fmt.Sprintf("The folder %s isn't there.", filepath.ToSlash(repo))))
+			out = append(out, p.warnWith(path, fmt.Sprintf("The folder %s isn't there.", filepath.ToSlash(repo)), "repo-folder-missing"))
 		default:
-			if _, err := os.Stat(filepath.Join(repo, ".git")); err != nil {
-				out = append(out, p.warn(path, "This folder isn't a git repository (no .git inside)."))
+			if _, err := os.Stat(filepath.Join(repo, ".git")); err != nil && !r.LocalOnly {
+				out = append(out, p.warnWith(path, "This folder isn't a git repository (no .git inside).", "repo-not-git", FixMarkLocalOnly, FixGitInit))
 			}
 		}
 	}

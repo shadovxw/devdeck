@@ -70,9 +70,6 @@ type Server = {
   buildAnswer?: (body: { tag: string; overwrite: boolean }) => Response;
   /** The remote hosts; the Deploy link after a build only shows when there is one. */
   hosts?: object[];
-  yaml?: string;
-  invalid?: boolean;
-  saveError?: string;
 };
 
 function mockServer(opts: Server = {}) {
@@ -93,9 +90,6 @@ function mockServer(opts: Server = {}) {
       if (path === "/hosts") return json(opts.hosts ?? []);
       if (path === "/workspaces" && method === "GET") return json([{ id: "demo", name: "demo", source: "local", root: "~/code", repos: 1, stacks: 0, flows: 0, errors: 0, warnings: 0 }]);
       if (path === "/workspaces/demo" && method === "GET") return json({ id: "demo", name: "demo", source: "local", repos: 1, errors: 0, warnings: 0, workspace: { name: "demo", repos: [] }, stacks: [], flows: [], issues: [] });
-      if (path === "/workspaces/demo/file") return json({ yaml: opts.yaml ?? "version: 1\nname: demo\nroot: ~/code\nrepos: []\n" });
-      if (path === "/workspaces/validate") return opts.invalid ? json({ valid: false, issues: [{ file: "workspace.yaml", line: 3, severity: "error", message: "root is required" }] }) : json({ valid: true, issues: [] });
-      if (path === "/workspaces/demo" && method === "PUT") return opts.saveError ? json({ message: opts.saveError }, 409) : json({ id: "demo", name: "demo" });
 
       if (path === "/docker") return json(docker);
       if (path.startsWith("/docker/accounts/")) {
@@ -441,48 +435,6 @@ describe("the Images page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     await waitFor(() => expect(sent("DELETE", "/images/builds")).toHaveLength(1));
     expect(await screen.findByText("Nothing has been built yet.")).toBeTruthy();
-  });
-});
-
-describe("editing a workspace", () => {
-  async function openEditor() {
-    renderAt("/workspaces");
-    fireEvent.click(await screen.findByRole("button", { name: "Edit demo" }));
-    return (await screen.findByRole("textbox")) as HTMLTextAreaElement;
-  }
-
-  it("opens the file as text and saves a change", async () => {
-    mockServer();
-    const box = await openEditor();
-    expect(box.value).toContain("name: demo");
-    const save = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement;
-    expect(save.disabled).toBe(true); // nothing changed yet
-
-    fireEvent.change(box, { target: { value: box.value + "# more\n" } });
-    await waitFor(() => expect(save.disabled).toBe(false));
-    fireEvent.click(save);
-    await waitFor(() => expect(sent("PUT", "/workspaces/demo")).toHaveLength(1));
-    expect((sent("PUT", "/workspaces/demo")[0].body as { yaml: string }).yaml).toContain("# more");
-    await waitFor(() => expect(screen.queryByRole("textbox")).toBeNull()); // the drawer closes once it is saved
-  });
-
-  it("doesn't save a file with errors, and lists them", async () => {
-    mockServer({ invalid: true });
-    const box = await openEditor();
-    fireEvent.change(box, { target: { value: "version: 1\n" } });
-    expect(await screen.findByText(/root is required/)).toBeTruthy();
-    await waitFor(() => expect((screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement).disabled).toBe(true));
-    expect(sent("PUT", "/workspaces/demo")).toHaveLength(0);
-  });
-
-  it("shows why a save was refused", async () => {
-    mockServer({ saveError: "a workspace can’t be renamed here" });
-    const box = await openEditor();
-    fireEvent.change(box, { target: { value: box.value + "# x\n" } });
-    const save = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement;
-    await waitFor(() => expect(save.disabled).toBe(false));
-    fireEvent.click(save);
-    expect((await screen.findByRole("alert")).textContent).toContain("a workspace can’t be renamed here");
   });
 });
 

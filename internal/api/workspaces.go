@@ -44,7 +44,26 @@ type scanRequest struct {
 
 type createRequest struct {
 	YAML string `json:"yaml"`
+	// BaseHash is the hash of the file the editor started from (from GET .../file). When it is set and the
+	// file has changed since, an update is refused with a 409 and the file as it is now.
+	BaseHash string `json:"base_hash,omitempty"`
 }
+
+// savedResponse is a workspace after an update, with the hash of the file as it was written.
+type savedResponse struct {
+	workspace.Summary
+	Hash string `json:"hash"`
+}
+
+// conflictResponse is the answer to an update over a file that changed: the file as it is now.
+type conflictResponse struct {
+	Message string `json:"message"`
+	YAML    string `json:"yaml"`
+	Hash    string `json:"hash"`
+}
+
+// schemaKinds are the files that have a JSON Schema to serve (the editor's suggestions and checks).
+var schemaKinds = map[string]bool{"workspace": true, "stack": true, "flow": true, "log-filters": true}
 
 type invalidResponse struct {
 	Message string            `json:"message"`
@@ -117,8 +136,9 @@ func registerWorkspaces(g *echo.Group, m *workspace.Manager, sup *supervisor.Sup
 	})
 
 	// GET /:id/file is workspace.yaml as text, for the editor.
+	// GET /:id/file is workspace.yaml for the editor: the text, a hash that says which version it is, and its path.
 	ws.GET("/:id/file", func(c echo.Context) error {
-		text, err := m.YAML(c.Param("id"))
+		file, err := m.File(c.Param("id"))
 		switch {
 		case errors.Is(err, workspace.ErrNotFound):
 			return echo.NewHTTPError(http.StatusNotFound, "no such workspace")
@@ -126,18 +146,59 @@ func registerWorkspaces(g *echo.Group, m *workspace.Manager, sup *supervisor.Sup
 			c.Logger().Error(err)
 			return echo.NewHTTPError(http.StatusInternalServerError, "the workspace couldn't be read")
 		}
-		return c.JSON(http.StatusOK, map[string]string{"yaml": text})
+		return c.JSON(http.StatusOK, file)
+	})
+
+	// GET /api/v1/schema/:kind is the JSON Schema of a kind of file, the same one the checks use. It is what
+	// gives the editor its suggestions, and what VS Code reads from a "yaml-language-server" comment.
+	g.GET("/schema/:kind", func(c echo.Context) error {
+		kind := c.Param("kind")
+		if !schemaKinds[kind] {
+			return echo.NewHTTPError(http.StatusNotFound, "no such schema")
+		}
+		raw, err := workspace.SchemaJSON(workspace.Kind(kind))
+		if err != nil {
+			c.Logger().Error(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "the schema couldn't be read")
+		}
+		return c.Blob(http.StatusOK, "application/schema+json", raw)
+	})
+
+	// POST /:id/repos/:repo/git-init runs git init in a repo's folder (the fix for "isn't a git repository").
+	ws.POST("/:id/repos/:repo/git-init", func(c echo.Context) error {
+		err := m.GitInit(c.Request().Context(), c.Param("id"), c.Param("repo"))
+		switch {
+		case errors.Is(err, workspace.ErrNotFound), errors.Is(err, workspace.ErrNoRepo):
+			return echo.NewHTTPError(http.StatusNotFound, "no such workspace or repo")
+		case errors.Is(err, workspace.ErrReadOnly):
+			return echo.NewHTTPError(http.StatusForbidden, err.Error())
+		case errors.Is(err, workspace.ErrNoFolder):
+			return echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error())
+		case errors.Is(err, workspace.ErrHasGit):
+			return echo.NewHTTPError(http.StatusConflict, err.Error())
+		case err != nil:
+			c.Logger().Error(oneLine(err))
+			return echo.NewHTTPError(http.StatusInternalServerError, "git init didn't work")
+		}
+		return c.NoContent(http.StatusNoContent)
 	})
 
 	// PUT /:id replaces the workspace's workspace.yaml with new text. The text is checked first;
 	// the name can't change; a sample can't be changed. The old file is kept as workspace.yaml.prev.
+	// With a base_hash, a file that changed since is not overwritten: 409 with the file as it is now.
 	ws.PUT("/:id", func(c echo.Context) error {
 		var req createRequest
 		if err := c.Bind(&req); err != nil {
 			return bindError(err)
 		}
-		sum, issues, err := m.Update(c.Param("id"), req.YAML)
+		sum, hash, issues, err := m.UpdateIf(c.Param("id"), req.YAML, req.BaseHash)
 		switch {
+		case errors.Is(err, workspace.ErrConflict):
+			now, ferr := m.File(c.Param("id"))
+			if ferr != nil {
+				return echo.NewHTTPError(http.StatusConflict, err.Error())
+			}
+			return c.JSON(http.StatusConflict, conflictResponse{Message: err.Error(), YAML: now.YAML, Hash: now.Hash})
 		case errors.Is(err, workspace.ErrInvalid):
 			return c.JSON(http.StatusUnprocessableEntity, invalidResponse{Message: err.Error(), Issues: issues})
 		case errors.Is(err, workspace.ErrNotFound):
@@ -150,7 +211,7 @@ func registerWorkspaces(g *echo.Group, m *workspace.Manager, sup *supervisor.Sup
 			c.Logger().Error(err)
 			return echo.NewHTTPError(http.StatusInternalServerError, "the workspace couldn't be saved")
 		}
-		return c.JSON(http.StatusOK, sum)
+		return c.JSON(http.StatusOK, savedResponse{Summary: *sum, Hash: hash})
 	})
 
 	ws.GET("/:id", func(c echo.Context) error {

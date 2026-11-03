@@ -21,6 +21,7 @@
   --color-on-accent: var(--on-accent);
   --color-link: var(--link);
   --color-selected: var(--selected);
+  --color-scrim: var(--scrim);
   --color-primary-hover: var(--primary-hover);
   --color-good: var(--good);
   --color-warning: var(--warning);

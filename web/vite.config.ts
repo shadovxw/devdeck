@@ -25,6 +25,8 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     css: false,
     testTimeout: 15_000,
+    // codemirror-json-schema ships ES modules with extensionless imports, which Node can't load; Vite can.
+    server: { deps: { inline: ["codemirror-json-schema"] } },
     // `npm run test:coverage` writes coverage/lcov.info, which the Sonar workflow reads.
     // Not counted: tests themselves, the copied shadcn components, the entry file.
     coverage: {

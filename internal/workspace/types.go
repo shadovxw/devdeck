@@ -61,6 +61,8 @@ type Repo struct {
 	Remote        string `yaml:"remote,omitempty" json:"remote,omitempty"`
 	Connection    string `yaml:"connection,omitempty" json:"connection,omitempty"`
 	DefaultBranch string `yaml:"default_branch,omitempty" json:"default_branch,omitempty"`
+	// LocalOnly says the folder is not meant to be a git repository: no warning about a missing .git.
+	LocalOnly bool `yaml:"local_only,omitempty" json:"local_only,omitempty"`
 	// Images are the Docker images built from this repository.
 	Images []Image `yaml:"images,omitempty" json:"images,omitempty"`
 }
