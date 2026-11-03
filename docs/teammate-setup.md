@@ -1,5 +1,7 @@
 # Setting devdeck up on your own machine
 
+> Short version for your own Claude Code (connect it and learn what it can do): [`claude-quickstart.md`](claude-quickstart.md).
+
 This is for someone who has been given the devdeck installer and wants to use it with their own accounts. It also holds a **prompt you can give to your own Claude Code**, which writes the configuration files for you.
 
 Everything personal stays on your PC: your Docker Hub accounts and tokens, your GitHub accounts, your AWS profile and your agent token are in your own OS keychain and your own devdeck data folder (`%AppData%\devdeck`). Nothing is shared between people except what you put in a workspace file, and a workspace file holds no secret.

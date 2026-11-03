@@ -10,6 +10,7 @@ import { ImagesPage } from "../pages/ImagesPage";
 import { ConnectionsPage } from "../pages/ConnectionsPage";
 import { GitHubConnectionPage } from "../pages/GitHubConnectionPage";
 import { DoctorPage } from "../pages/DoctorPage";
+import { DocsPage } from "../pages/DocsPage";
 import { HomePage } from "../pages/HomePage";
 import { LogsPage } from "../pages/LogsPage";
 import { Placeholder } from "../pages/Placeholder";
@@ -39,6 +40,7 @@ const built: Record<string, ReactElement> = {
   "/claude": <ClaudePage />,
   "/images": <ImagesPage />,
   "/connections/docker": <DockerHubPage />,
+  "/docs": <DocsPage />,
   "/settings": <SettingsPage />,
 };
 
@@ -73,6 +75,7 @@ export const routes: RouteObject[] = [
             element: built[item.path] ?? <Placeholder item={item} />,
           })),
           { path: "/workspaces/:id/edit", element: <WorkspaceEditPage /> },
+          { path: "/docs/:id", element: <DocsPage /> },
           { path: "*", element: <NotFound /> },
         ],
       },
