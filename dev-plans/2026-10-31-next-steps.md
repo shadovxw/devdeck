@@ -11,7 +11,7 @@ A new session reads this file first, then [`CLAUDE.md`](../CLAUDE.md), then the 
 | Docker accounts and builds | Several Docker Hub accounts, `images:` and build secrets in `workspace.yaml`, build and push by tag, editing a workspace. Guide: [`docs/docker-builds.md`](../docs/docker-builds.md) | merged (#36) |
 | Versions and Deploy | Agent versions (read, change, apply, roll back, history), the Versions tab, named agent tokens, Deploy after a build, neutral test names. Guide: [`docs/remote-versions.md`](../docs/remote-versions.md); what changed: [`2026-10-24-remote-agent/changes.md`](2026-10-24-remote-agent/changes.md) | built; **check whether it is merged** (`git log`, `gh pr list`) |
 | Teammate setup | [`docs/teammate-setup.md`](../docs/teammate-setup.md), with a prompt for a teammate's own Claude | written (in the last PR) |
-| Features (PR stacks) | One `dev-plans` folder per feature with `feature.yaml`, per-repo layers, review tools per branch. Plan: [`2026-11-03-features/`](2026-11-03-features/plan.md) | planned; waiting for the owner's answers in its §10 |
+| Features (PR stacks) | A private plans repo with one `plan/<name>` branch per feature (`feature.yaml`), per-repo layers, review tools per branch. Plan: [`2026-11-03-features/`](2026-11-03-features/plan.md) | PR 1 of 10 built (the format, live state, `devdeck feature check`, read-only routes; see its `changes.md`); next is PR 2, the page |
 
 Run `git log --oneline -10` and `gh pr list --state all --limit 10` first: this table may be behind.
 

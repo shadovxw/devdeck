@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devdeck.local/schemas/feature.schema.json",
+  "title": "devdeck feature",
+  "description": "feature.yaml: one piece of work split into small stacked PRs, across one or more repositories. Claude keeps it current; devdeck adds the live state from git and GitHub.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "feature", "repos", "prs"],
+  "properties": {
+    "version": { "const": 1, "description": "Schema version. Always 1 for now." },
+    "feature": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,59}$",
+      "description": "The feature branch, cut from base in every repo. Every PR branch starts with it."
+    },
+    "title": { "type": "string", "maxLength": 120 },
+    "kind": { "enum": ["feature", "fix", "task", "spike"], "description": "What sort of work this is (feature when left out). A fix is a plan with one PR." },
+    "base": { "$ref": "#/$defs/ref", "description": "The branch the feature branch is cut from and finally merged into (dev when left out)." },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The size a PR should stay under. devdeck warns above it.",
+      "properties": {
+        "files": { "type": "integer", "minimum": 1 },
+        "lines": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "repos": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" },
+      "description": "Ids of the workspace's repos this feature changes."
+    },
+    "prs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/pr" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,39}$" },
+    "prId": { "type": "string", "pattern": "^[a-z][a-z0-9]{0,11}$" },
+    "ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$" },
+    "pr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "repo", "slug", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/prId", "description": "Short id: a1, b2, w10." },
+        "repo": { "$ref": "#/$defs/id" },
+        "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,59}$", "description": "Ends the branch name: <feature>-<id>-<slug>." },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "branch": { "$ref": "#/$defs/ref", "description": "Overrides the derived branch name." },
+        "base": { "$ref": "#/$defs/ref", "description": "Overrides the derived base: the PR below in the same repo, or the feature branch." },
+        "after": { "type": "array", "items": { "$ref": "#/$defs/prId" }, "description": "PRs (in any repo) that must be merged first." },
+        "pr": { "type": "integer", "minimum": 1, "description": "The GitHub PR number, when devdeck can't find the PR by its branch." },
+        "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" }, "description": "One step is one commit." }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "layer": {
+          "oneOf": [
+            { "$ref": "#/$defs/id" },
+            { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+          ],
+          "description": "The layer or layers of the repo this step changes."
+        },
+        "status": { "enum": ["todo", "doing", "done"], "description": "todo when left out." },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$", "description": "The commit that did this step." }
+      }
+    }
+  }
+}

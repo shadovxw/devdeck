@@ -20,12 +20,14 @@ const workspaceUsage = `Usage:
                               check a workspace's files the way devdeck does and list the
                               problems with file and line (exit 1 when there are errors).
                               A name is a folder in your workspaces folder.
-  devdeck schema <workspace|stack|flow>
+  devdeck schema <workspace|stack|flow|feature>
                               print the JSON Schema of one kind of file
+  devdeck feature check [--json] [--workspace <name>] <feature.yaml or plan folder>
+                              check a feature file and list the problems with line numbers
 `
 
 // WorkspaceCommands are the words that start the offline commands.
-var WorkspaceCommands = []string{"workspace", "schema"}
+var WorkspaceCommands = []string{"workspace", "schema", "feature"}
 
 // Workspace runs `devdeck workspace ...` and returns the exit code: 0 done, 1 errors found,
 // 2 wrong usage. args excludes "workspace".
@@ -77,17 +79,7 @@ func Workspace(args []string, getenv func(string) string, stdout, stderr io.Writ
 		}, "", "  ")
 		_, _ = fmt.Fprintln(stdout, string(b))
 	} else {
-		for _, is := range l.Issues {
-			at := is.File
-			if is.Line > 0 {
-				at = fmt.Sprintf("%s:%d", is.File, is.Line)
-			}
-			path := ""
-			if is.Path != "" {
-				path = " (" + is.Path + ")"
-			}
-			_, _ = fmt.Fprintf(stdout, "%s %s: %s%s\n", is.Severity, at, is.Message, path)
-		}
+		printIssues(stdout, l.Issues)
 		_, _ = fmt.Fprintf(stdout, "%s: %d stacks, %d flows, %d errors, %d warnings\n", dir, len(l.Stacks), len(l.Flows),
 			workspace.Count(l.Issues, workspace.SeverityError), workspace.Count(l.Issues, workspace.SeverityWarning))
 	}
@@ -125,7 +117,7 @@ func Schema(args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 	switch k := workspace.Kind(args[0]); k {
-	case workspace.KindWorkspace, workspace.KindStack, workspace.KindFlow:
+	case workspace.KindWorkspace, workspace.KindStack, workspace.KindFlow, workspace.KindFeature:
 		b, err := workspace.SchemaJSON(k)
 		if err != nil {
 			_, _ = fmt.Fprintln(stderr, "devdeck: the schema can't be read:", err)
@@ -134,6 +126,6 @@ func Schema(args []string, stdout, stderr io.Writer) int {
 		_, _ = stdout.Write(b)
 		return exitOK
 	}
-	_, _ = fmt.Fprintf(stderr, "devdeck: no schema for %q: use workspace, stack or flow\n", args[0])
+	_, _ = fmt.Fprintf(stderr, "devdeck: no schema for %q: use workspace, stack, flow or feature\n", args[0])
 	return exitUsage
 }

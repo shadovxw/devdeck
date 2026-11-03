@@ -19,6 +19,9 @@ type Options struct {
 	// KnownPlugins are the installed plugin ids. A flow step that names another
 	// plugin gets a warning. Nil skips the check.
 	KnownPlugins []string
+	// Repos are the workspace's repos, for checking that a feature file names real repos and layers.
+	// Nil skips those checks.
+	Repos []Repo
 }
 
 func (p *parsed) warn(path, msg string) Issue {
@@ -122,6 +125,13 @@ func checkWorkspace(p *parsed, w *WorkspaceFile) []Issue {
 			missingConn(path+"/connection", r.Connection)
 		}
 		out = append(out, checkImages(p, path, r.Images)...)
+		layerIDs := map[string]bool{}
+		for j, l := range r.Layers {
+			if layerIDs[l.ID] {
+				out = append(out, p.issue(fmt.Sprintf("%s/layers/%d/id", path, j), fmt.Sprintf("Layer id %q is used more than once in this repo.", l.ID)))
+			}
+			layerIDs[l.ID] = true
+		}
 		switch {
 		case urlCreds.MatchString(r.Remote):
 			out = append(out, p.issue(path+"/remote", "Remove the user name or token from the remote. Write host/owner/repo; credentials belong in a connection."))
