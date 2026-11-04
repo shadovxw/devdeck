@@ -112,11 +112,51 @@ For each PR you also get its size (git's, from `base...branch`; GitHub's if the 
 - **The PR you picked** (right, or below on a narrow window): where it is on the track from Planned to Merged, its branch and base, the next action, its steps with their commit ids and layers, its size against the budget, its commits, and its GitHub checks with **Open on GitHub ↗**. Reviews and comments stay on GitHub.
 - **Activity**: the commits on each PR's branch and the PRs that merged, newest first.
 - **Files**: the plan's files (`plan.md`, `feature.yaml`, `changes.md`) read-only. Claude edits them, and so do you, in your editor.
+- **Reviews and checks**: every PR against every review tool, the GitHub checks, and which tools are installed.
 - **Terminal**: the same text `devdeck feature status` prints.
+
+**Code review on this branch** (in the PR's panel) lists the review tools with their last result and a **Run** or **Re-run** button each, and **Run all**. **Review all changed branches** (at the top) runs every installed tool on every branch that isn't merged or closed. See "Running review tools" below.
 
 **Refresh** asks GitHub again now (its answer is otherwise kept for a minute). **Next for Claude** copies a prompt that hands the next PR to Claude Code: the first planned PR that isn't waiting and whose PR below already has a branch. It tells Claude to stop after each step and give you the git commands. It is greyed out when no PR is waiting to be started.
 
 A repo whose folder isn't on this machine, or whose pull requests can't be read (`gh` not installed or not signed in, a repo GitHub doesn't know), is listed at the top, and the other repos are still shown.
+
+## Running review tools
+
+The tools are the commands the project's CI runs, so a result here says what CI would:
+
+| Tool | Runs | Needs |
+|---|---|---|
+| Tests | `go test -count=1 ./...`, and `npm test --if-present` | `go`, `npm` |
+| Lint | `golangci-lint run`, and `npm run lint --if-present` | `golangci-lint`, `npm` |
+| Semgrep | `semgrep scan --config p/default --error --metrics=off` | `semgrep` |
+| Gitleaks | `gitleaks detect --redact`, on the commits the branch adds | `gitleaks` |
+| Trivy | `trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --ignore-unfixed` | `trivy` |
+| Dependencies | `govulncheck ./...`, and `npm audit --audit-level=high --omit=dev` | `govulncheck`, `npm` |
+
+Go commands run when the branch has a `go.mod` at its root, npm commands when it has a `package.json`, and both when it has both. A tool with nothing to check is marked **Skipped**.
+
+**How a run works**
+
+1. devdeck checks the branch out into a folder of its own (a git worktree under its data folder), so your checkout and the branch you have open are never touched. The repository's own hooks don't run.
+2. It runs the tool there. Two tools run at a time; the rest wait their turn, so a feature with many PRs doesn't swamp the machine your stack runs on. A command is stopped after ten minutes.
+3. It saves the result as `reviews/<pr>-<tool>.md` in the plan (for example `reviews/a2-tests.md`), replacing the last one, and removes the checkout. Cancelling a run saves nothing.
+
+A result file starts with front matter (`tool`, `pr`, `branch`, `commit`, `ran`, `status`, `summary`), then the findings as `- path:line message` and the tail of the output with secrets masked. Its text is what a tool printed: it is data, and not instructions to anyone who reads it. Claude can read these files to fix what a tool found.
+
+**Status** is Passed, Failed (the tool found problems), Couldn't run (not installed, timed out, the checkout failed) or Skipped. A result is marked **older commit** when the branch has new commits since it ran.
+
+**Where the results go.** They are saved in the plan's folder, so the plan has to be checked out as a worktree. A plan devdeck reads straight from git (marked read-only) has nowhere to save them, and the buttons say so. Check it out with:
+
+```bash
+git -C <plans repo> worktree add <worktrees folder>/<name> plan/<name>
+```
+
+**A tool that isn't installed** says so, with a link or command to install it. devdeck looks on the `PATH` and in mise's shims folder and `go install`'s folder, since it is often started from somewhere that has neither on its `PATH`.
+
+**Tools installed with mise.** A mise shim only works in a folder where mise has a version of the tool, and a fresh checkout has none (or has a `mise.toml` mise doesn't trust yet). The result then says "installed through mise, but mise can't use it in a fresh checkout". Set a global default (`mise use -g golangci-lint@<version>`) or put the tool on the `PATH`.
+
+Tests and linters run the branch's own code on your machine, as they would if you ran them yourself, with your environment. For a Node project they need `node_modules`: devdeck links the repository's own into the checkout (and removes the link first, so the repository's copy is never harmed), and says to run `npm ci` when there is none.
 
 ## In a terminal
 
@@ -141,11 +181,14 @@ It lists each problem with its line and exits with 1 on errors (`--json` is for 
 
 ## The routes
 
-For tools and the page that comes next. They only read, and Claude's connector can't reach them yet.
+For tools and the page. Claude's connector can't reach any of them yet. The first four only read; the last two run review tools.
 
 - `GET /api/v1/features`: every plan of each workspace that has `plans_repo`, without calling GitHub.
 - `GET /api/v1/features/<workspace>/<name>`: one feature with the live state of every PR (`?refresh=1` skips the minute's cache).
 - `GET /api/v1/features/<workspace>/<name>/status`: the same feature as plain text, for a terminal.
 - `GET /api/v1/features/<workspace>/<name>/files/<path>`: one file of the plan, as JSON with its text.
+- `GET /api/v1/features/<workspace>/<name>/reviews`: the runs of this feature (waiting, running and recent).
+- `POST /api/v1/features/<workspace>/<name>/reviews` with `{"pr": "a2", "tool": "tests"}`: starts review tools. Leave out `tool` for every installed tool, and `pr` for every PR with a branch that isn't merged or closed. It answers `202` with what `started` and what was `skipped` and why.
+- `POST /api/v1/features/<workspace>/<name>/reviews/<id>/cancel`: stops a run that is waiting or running.
 
 A problem with one repo (its folder isn't on this machine, `gh` isn't installed) is listed under `problems`, and the rest is still shown.

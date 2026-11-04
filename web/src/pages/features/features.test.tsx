@@ -5,7 +5,7 @@ import { RouterProvider } from "react-router/dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { routes } from "../../app/routes";
-import type { FeatureDetail, FeatureList, FeaturePr, FeatureSummary } from "../../lib/features";
+import { describeStart, type FeatureDetail, type FeatureList, type FeaturePr, type FeatureSummary, type ReviewRun, type ReviewStarted, type ToolInfo } from "../../lib/features";
 import { useUi } from "../../store/ui";
 
 const summary = (over: Partial<FeatureSummary> = {}): FeatureSummary => ({
@@ -29,12 +29,22 @@ const prs: FeaturePr[] = [
     steps: [{ title: "Handler", layers: ["handler"], status: "done", commit: "5f0c8e7" }, { title: "Wiring", layers: ["config"], status: "doing" }],
     next: { text: "Fix the requested changes, then ask for review again", who: "claude" },
     github: { number: 214, title: "blob.get", head: "acme-a2-x", base: "acme", state: "open", draft: false, decision: "changes_requested", url: "https://github.com/acme/demo-api/pull/214", additions: 400, deletions: 150, changed_files: 12, checks: [{ name: "CI passed", state: "pass" }, { name: "CodeQL passed", state: "pending" }, { name: "Security passed", state: "fail" }] },
-    local: { exists: true, pushed: true, commits: [{ hash: "abc1234", date: "2026-11-03T09:00:00Z", subject: "wire the handler" }] },
+    local: { exists: true, pushed: true, head: "aaaa1111", commits: [{ hash: "abc1234", date: "2026-11-03T09:00:00Z", subject: "wire the handler" }] },
     size: { files: 12, added: 400, deleted: 150 }, over: ["lines", "files"],
+    reviews: {
+      tests: { status: "fail", summary: "2 problems, the first at internal/x.go:12", ran: "2026-11-04T09:00:00Z", commit: "aaaa1111", stale: false, file: "reviews/a2-tests.md" },
+      lint: { status: "pass", summary: "No problems found", ran: "2026-11-04T08:00:00Z", commit: "old00000", stale: true, file: "reviews/a2-lint.md" },
+    },
   }),
   pr({ id: "a3", title: "Wire it", state: "planned", layers: ["handler"], below: "a2", steps: [{ title: "Do it", layers: ["handler"] }] }),
   pr({ id: "w1", repo: "demo-worker", title: "Archive columns", state: "waiting", after: ["a3"], layers: ["db"], steps: [{ title: "012.sql", layers: ["db"] }] }),
 ];
+
+const tool = (id: string, name: string, usable = true): ToolInfo => ({
+  id, name, about: `${name} on the branch`, usable,
+  programs: [{ name: id, found: usable, hint: usable ? undefined : `Install ${name}: https://example.com/${id}` }],
+});
+const tools: ToolInfo[] = [tool("tests", "Tests"), tool("lint", "Lint"), tool("semgrep", "Semgrep", false), tool("gitleaks", "Gitleaks"), tool("trivy", "Trivy"), tool("deps", "Dependencies")];
 
 const detail = (over: Partial<FeatureDetail> = {}): FeatureDetail => ({
   ...summary(), budget: { files: 10, lines: 500 }, pr_list: prs,
@@ -44,26 +54,43 @@ const detail = (over: Partial<FeatureDetail> = {}): FeatureDetail => ({
     { id: "demo-api", layers: [{ id: "config", name: "Config" }, { id: "handler", name: "Handlers" }] },
     { id: "demo-worker", layers: [{ id: "db", name: "DB / migrations" }] },
   ],
-  problems: [], files: ["feature.yaml", "plan.md", "reviews/a1-claude.md"], issues: [], ...over,
+  problems: [], files: ["feature.yaml", "plan.md", "reviews/a1-claude.md", "reviews/a2-tests.md"], tools, issues: [], ...over,
 });
 
-type Call = { method: string; url: string };
+type Call = { method: string; url: string; body?: unknown };
 const calls: Call[] = [];
 
-type Server = { list?: FeatureList; detail?: FeatureDetail | "missing"; status?: string };
+type Server = {
+  list?: FeatureList;
+  detail?: FeatureDetail | "missing";
+  status?: string;
+  runs?: ReviewRun[];
+  /** What starting reviews answers with: a body, or a refusal. */
+  start?: ReviewStarted | { error: string; status: number };
+};
+
+const run = (over: Partial<ReviewRun> = {}): ReviewRun => ({
+  id: "run-1", workspace: "demo", feature: "blob", pr: "a2", repo: "demo-api", tool: "tests", state: "running", queued: "2026-11-04T10:00:00Z", ...over,
+});
 
 function mockServer(opts: Server = {}) {
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      calls.push({ method, url });
+      calls.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const path = url.replace("/api/v1", "");
       const json = (v: unknown, status = 200) => Promise.resolve(Response.json(v, { status }));
       if (path === "/health") return json({ status: "ok", version: "test" });
       if (path === "/workspaces") return json([]);
       if (path === "/runs") return json([]);
       if (path === "/features") return json(opts.list ?? { features: [summary()], problems: [], no_plans_repo: [] });
+      if (path === "/features/demo/blob/reviews" && method === "GET") return json({ runs: opts.runs ?? [] });
+      if (path === "/features/demo/blob/reviews" && method === "POST") {
+        const s = opts.start ?? { started: [run()], skipped: [] };
+        return "error" in s ? json({ message: s.error }, s.status) : json(s, 202);
+      }
+      if (path.startsWith("/features/demo/blob/reviews/") && path.endsWith("/cancel")) return Promise.resolve(new Response(null, { status: 204 }));
       if (path.startsWith("/features/demo/blob/status")) return Promise.resolve(new Response(opts.status ?? "Move data   acme -> dev\n", { status: 200 }));
       if (path.startsWith("/features/demo/blob/files/")) {
         const file = decodeURIComponent(path.replace("/features/demo/blob/files/", ""));
@@ -271,5 +298,134 @@ describe("one feature", () => {
     renderAt("/features/demo/blob");
     expect(await screen.findByRole("heading", { name: "No such feature" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Back to Features/ }).getAttribute("href")).toBe("/features");
+  });
+});
+
+const started = () => calls.find((c) => c.method === "POST" && c.url.endsWith("/features/demo/blob/reviews"));
+
+async function reviewPanel() {
+  const panel = within(await screen.findByRole("complementary", { name: "PR a2" }));
+  return within(panel.getByRole("region", { name: "Code review on this branch" }));
+}
+
+// The review tests need a plan that is checked out, so results can be saved.
+const writable = { detail: detail({ read_only: false }) };
+
+describe("code review on a branch", () => {
+  it("shows each tool with what it said last, and what each can do", async () => {
+    mockServer(writable);
+    renderAt("/features/demo/blob");
+    const tools = within((await reviewPanel()).getByRole("list", { name: "Review tools" }));
+
+    expect(tools.getByText(/2 problems, the first at internal\/x\.go:12/)).toBeTruthy();
+    expect(tools.getByRole("button", { name: "Re-run Tests" })).toBeTruthy();
+    expect(tools.getByRole("button", { name: "reviews/a2-tests.md" })).toBeTruthy();
+    // it ran on an older commit
+    expect(tools.getByText(/older commit/)).toBeTruthy();
+    // never run
+    expect(tools.getByRole("button", { name: "Run Gitleaks" })).toBeTruthy();
+    // not installed: no button, and how to get it
+    expect(tools.getByText(/Not installed\. Install Semgrep: https:\/\/example\.com\/semgrep/)).toBeTruthy();
+    expect(tools.queryByRole("button", { name: /Semgrep/ })).toBeNull();
+  });
+
+  it("runs one tool on this branch", async () => {
+    mockServer(writable);
+    renderAt("/features/demo/blob");
+    const section = await reviewPanel();
+    fireEvent.click(section.getByRole("button", { name: "Run Gitleaks" }));
+    await waitFor(() => expect(started()).toBeTruthy());
+    expect(started()?.body).toEqual({ pr: "a2", tool: "gitleaks" });
+    expect(await screen.findByText("Started 1 run.")).toBeTruthy();
+  });
+
+  it("runs every tool on this branch, or on every branch", async () => {
+    mockServer(writable);
+    renderAt("/features/demo/blob");
+    fireEvent.click((await reviewPanel()).getByRole("button", { name: "Run all" }));
+    await waitFor(() => expect(started()?.body).toEqual({ pr: "a2" }));
+
+    calls.length = 0;
+    fireEvent.click(screen.getByRole("button", { name: "Review all changed branches" }));
+    await waitFor(() => expect(started()).toBeTruthy());
+    expect(started()?.body).toEqual({});
+  });
+
+  it("says what was skipped, and why a refusal happened", async () => {
+    mockServer({ ...writable, start: { started: [run()], skipped: [{ pr: "a2", tool: "semgrep", reason: "already running, or waiting its turn" }] } });
+    renderAt("/features/demo/blob");
+    fireEvent.click((await reviewPanel()).getByRole("button", { name: "Run all" }));
+    expect(await screen.findByText("Started 1 run. Skipped 1: a2 semgrep: already running, or waiting its turn.")).toBeTruthy();
+
+    cleanup();
+    calls.length = 0;
+    mockServer({ ...writable, start: { error: "PR a2 has no branch yet, so there is nothing to review", status: 409 } });
+    renderAt("/features/demo/blob");
+    fireEvent.click((await reviewPanel()).getByRole("button", { name: "Run all" }));
+    expect(await screen.findByText("PR a2 has no branch yet, so there is nothing to review")).toBeTruthy();
+  });
+
+  it("can't run anything for a plan that isn't checked out", async () => {
+    mockServer({ detail: detail({ read_only: true }) });
+    renderAt("/features/demo/blob");
+    const section = await reviewPanel();
+    expect(section.getByText(/This plan isn’t checked out/)).toBeTruthy();
+    expect((section.getByRole("button", { name: "Run all" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((section.getByRole("button", { name: "Run Gitleaks" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Review all changed branches" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("follows a run that is waiting or running, and can cancel it", async () => {
+    mockServer({ ...writable, runs: [run({ id: "run-1", tool: "tests", state: "running" }), run({ id: "run-2", tool: "lint", state: "queued" })] });
+    renderAt("/features/demo/blob");
+    const section = await reviewPanel();
+    expect(await section.findByText("Running on the branch…")).toBeTruthy();
+    expect(section.getByText("Waiting for its turn…")).toBeTruthy();
+    // a tool that is running can't be started again; it can be cancelled
+    expect(section.queryByRole("button", { name: "Re-run Tests" })).toBeNull();
+    const cancel = section.getAllByRole("button", { name: "Cancel" });
+    expect(cancel).toHaveLength(2);
+    fireEvent.click(cancel[0]);
+    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/reviews/run-1/cancel"))).toBe(true));
+  });
+
+  it("opens a result file in the Files tab", async () => {
+    mockServer(writable);
+    renderAt("/features/demo/blob");
+    fireEvent.click((await reviewPanel()).getByRole("button", { name: "reviews/a2-tests.md" }));
+    expect(await screen.findByText(/contents of reviews\/a2-tests\.md/)).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Files/ }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("has no review section for a PR that is merged", async () => {
+    mockServer(writable);
+    renderAt("/features/demo/blob");
+    await reviewPanel();
+    fireEvent.click(screen.getByRole("button", { name: /Transfer bucket/ }));
+    const merged = within(screen.getByRole("complementary", { name: "PR a1" }));
+    expect(merged.queryByRole("region", { name: "Code review on this branch" })).toBeNull();
+  });
+
+  it("lists every PR against every tool on the Reviews and checks tab", async () => {
+    mockServer(writable);
+    renderAt("/features/demo/blob");
+    fireEvent.click(await screen.findByRole("tab", { name: "Reviews and checks" }));
+    const table = within(await screen.findByRole("table", { name: "Reviews of every PR" }));
+    const row = within(table.getByText("a2").closest("tr") as HTMLElement);
+    expect(row.getByRole("button", { name: /Failed/ })).toBeTruthy();
+    expect(row.getByRole("button", { name: /Passed/ })).toBeTruthy();
+    expect(row.getByText("1 of 3")).toBeTruthy();
+
+    const tools = within(screen.getByRole("region", { name: "Review tools" }));
+    expect(tools.getByText("Not installed")).toBeTruthy();
+    expect(tools.getByText(/Missing: semgrep\. Install Semgrep/)).toBeTruthy();
+
+    fireEvent.click(row.getByRole("button", { name: /Failed/ }));
+    expect(await screen.findByText(/contents of reviews\/a2-tests\.md/)).toBeTruthy();
+  });
+
+  it("describes what was started", () => {
+    expect(describeStart({ started: [run(), run()], skipped: [] })).toBe("Started 2 runs.");
+    expect(describeStart({ started: [], skipped: [{ pr: "a1", reason: "the branch isn't in the repository" }] })).toBe("Started 0 runs. Skipped 1: a1: the branch isn't in the repository.");
   });
 });

@@ -10,12 +10,13 @@ import { PageHeader } from "../../design/PageHeader";
 import { StatusMark } from "../../design/StatusMark";
 import { Tabs } from "../../design/Tabs";
 import { ApiError } from "../../lib/api";
-import { useFeature, useRefreshFeature, type FeatureDetail } from "../../lib/features";
+import { useFeature, useRefreshFeature, useReviews, type FeatureDetail } from "../../lib/features";
 import { activityOf, claudePrompt } from "./state";
 import { Overview } from "./Overview";
+import { ChecksTab, ReviewAllButton } from "./Reviews";
 import { ActivityTab, FilesTab, TerminalTab } from "./Tabs";
 
-type Tab = "overview" | "activity" | "files" | "terminal";
+type Tab = "overview" | "checks" | "activity" | "files" | "terminal";
 
 /** Copies the prompt that hands the next PR to Claude Code. */
 function ClaudeButton({ d }: Readonly<{ d: FeatureDetail }>) {
@@ -45,6 +46,11 @@ export function FeaturePage() {
   const { data: d, isPending, error } = useFeature(workspace, name);
   const refresh = useRefreshFeature(workspace, name);
   const [tab, setTab] = useState<Tab>("overview");
+  const [filePath, setFilePath] = useState<string>();
+  const reviews = useReviews(workspace, name, (path) => {
+    setFilePath(path);
+    setTab("files");
+  });
 
   const header = (title: string, extra?: Partial<Parameters<typeof PageHeader>[0]>) => (
     <PageHeader title={title} group={item.group} parent={item.label} parentTo="/features" {...extra} />
@@ -83,12 +89,16 @@ export function FeaturePage() {
               <RotateCw size={14} aria-hidden className={refresh.isPending ? "animate-spin" : ""} />
               Refresh
             </button>
+            <ReviewAllButton d={d} c={reviews} />
             <ClaudeButton d={d} />
           </div>
         ),
       })}
 
       <div className="mt-4 flex flex-col gap-4">
+        {reviews.message && (
+          <output className="m-0 block bg-inset px-4 py-3 text-[13.5px] text-ink-2">{reviews.message}</output>
+        )}
         {d.issues.length > 0 && (
           <section aria-label="Problems in feature.yaml" className="bg-inset p-4">
             <IssueList issues={d.issues} />
@@ -113,15 +123,17 @@ export function FeaturePage() {
           onChange={setTab}
           items={[
             { value: "overview", label: "Overview" },
+            { value: "checks", label: "Reviews and checks" },
             { value: "activity", label: "Activity", count: activityOf(d).length },
             { value: "files", label: "Files", count: d.files.length },
             { value: "terminal", label: "Terminal" },
           ]}
         />
         <div role="tabpanel" aria-label={tab}>
-          {tab === "overview" && (d.pr_list.length > 0 ? <Overview d={d} /> : <p className="m-0 text-[14px] text-ink-3">feature.yaml has errors, so its PRs can’t be shown. Fix the problems above.</p>)}
+          {tab === "overview" && (d.pr_list.length > 0 ? <Overview d={d} c={reviews} /> : <p className="m-0 text-[14px] text-ink-3">feature.yaml has errors, so its PRs can’t be shown. Fix the problems above.</p>)}
+          {tab === "checks" && <ChecksTab d={d} c={reviews} />}
           {tab === "activity" && <ActivityTab d={d} />}
-          {tab === "files" && <FilesTab d={d} />}
+          {tab === "files" && <FilesTab d={d} path={filePath} onPath={setFilePath} />}
           {tab === "terminal" && <TerminalTab d={d} />}
         </div>
       </div>

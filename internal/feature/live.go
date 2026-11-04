@@ -28,6 +28,8 @@ type Service struct {
 	TTL time.Duration
 	// Now is the clock, for tests.
 	Now func() time.Time
+	// Locate finds a program, to say which review tools are usable (review.Locate when nil).
+	Locate func(string) (string, bool)
 
 	mu    sync.Mutex
 	cache map[string]cachedPRs
@@ -96,9 +98,11 @@ type Detail struct {
 	RepoLayers []RepoLayers `json:"repo_layers"`
 	// Problems are things that kept some of the live state from being read (a repo missing on this
 	// machine, gh not installed). What could be read is still shown.
-	Problems []string          `json:"problems"`
-	Files    []string          `json:"files"`
-	Issues   []workspace.Issue `json:"issues"`
+	Problems []string `json:"problems"`
+	Files    []string `json:"files"`
+	// Tools are the review tools and whether their programs are installed here.
+	Tools  []ToolInfo        `json:"tools"`
+	Issues []workspace.Issue `json:"issues"`
 }
 
 // RepoLayers is one repo of a feature with the layers the workspace defines for it.
@@ -110,7 +114,7 @@ type RepoLayers struct {
 // Detail reads a plan's PRs from git and GitHub. A problem with one repository is reported in
 // Problems and doesn't stop the rest. refresh skips the cached pull request lists.
 func (s *Service) Detail(ctx context.Context, env Env, p *Plan, refresh bool) Detail {
-	d := Detail{Summary: SummaryOf(p), PRs: []PR{}, NextUp: []NextItem{}, Counts: map[string]int{}, Problems: []string{}, RepoLayers: []RepoLayers{}, Issues: p.Issues}
+	d := Detail{Summary: SummaryOf(p), PRs: []PR{}, NextUp: []NextItem{}, Counts: map[string]int{}, Problems: []string{}, RepoLayers: []RepoLayers{}, Tools: ToolInfos(s.Locate), Issues: p.Issues}
 	d.Files = Files(ctx, s.Git, env, p)
 	f := p.File
 	if f == nil {
@@ -159,6 +163,7 @@ func (s *Service) Detail(ctx context.Context, env Env, p *Plan, refresh bool) De
 
 	SetStates(prs)
 	d.PRs = prs
+	s.loadReviews(ctx, env, p, &d)
 	d.NextUp = NextUp(prs)
 	d.Pick = Pick(prs)
 	for _, pr := range prs {
@@ -226,6 +231,9 @@ func (s *Service) readBranch(ctx context.Context, dir string, set gitx.BranchSet
 	l := &Local{Exists: true, Pushed: set.Remote[pr.Branch]}
 	pr.Local = l
 	ref, baseRef := set.Ref(pr.Branch), set.Ref(pr.Base)
+	if head, err := s.Git.Rev(ctx, dir, ref); err == nil {
+		l.Head = head
+	}
 	if baseRef == "" {
 		l.BaseMissing = true
 		return

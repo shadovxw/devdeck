@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { StatusDot, toneColor } from "../../design/StatusDot";
-import type { FeatureDetail, FeaturePr } from "../../lib/features";
+import type { FeatureDetail, FeaturePr, ReviewControls } from "../../lib/features";
 import { PrPanel } from "./PrPanel";
 import { StateChip } from "./StateChip";
 import { hasBranch, layerName, overBudget, STATE_LABEL, STATE_ORDER, STATE_TONE } from "./state";
@@ -160,7 +160,7 @@ function RepoGrid({ d, repo, selected, onPick }: Readonly<{ d: FeatureDetail; re
 }
 
 /** The overview: progress, what is next, every repo's PRs against its layers, and the PR you picked. */
-export function Overview({ d }: Readonly<{ d: FeatureDetail }>) {
+export function Overview({ d, c }: Readonly<{ d: FeatureDetail; c: ReviewControls }>) {
   const [picked, setPicked] = useState<string | undefined>(d.next_up[0]?.pr ?? d.pr_list[0]?.id);
   const selected = d.pr_list.find((p) => p.id === picked) ?? d.pr_list[0];
 
@@ -174,7 +174,7 @@ export function Overview({ d }: Readonly<{ d: FeatureDetail }>) {
         ))}
         <p className="m-0 text-[12px] text-ink-3">A square means the PR changes that layer: filled once it has a branch, an empty ring while it is only planned.</p>
       </div>
-      {selected && <PrPanel d={d} pr={selected} />}
+      {selected && <PrPanel d={d} pr={selected} c={c} />}
     </div>
   );
 }

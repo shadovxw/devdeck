@@ -73,3 +73,44 @@ The review runner, the Run buttons and the Reviews and checks tab (PR 3 on), New
 ### Not tried
 
 The page has not been used on a real plans repository of the owner's, with real PRs: GitHub's side (checks, review decisions, merged times) is only tested from answers written from `gh`'s documented fields. Slow GitHub answers show the loading skeleton for a few seconds, as the detail waits for every repo.
+
+## PR 3: the review runner and the Run buttons (2026-11-04)
+
+What was built, and why. The plan's §9 PR 3, with the local tools. Claude review, SonarQube and CodeRabbit are PRs 4 to 6.
+
+### Added
+
+- **`internal/review`**: the six local tools (tests, lint, semgrep, gitleaks, trivy, dependencies) as the same commands the project's CI runs, and a runner. A run checks the branch out into a git worktree under the data folder, runs the tool there, writes `reviews/<pr>-<tool>.md` in the plan, and removes the checkout. Two tools run at a time; the rest wait. A run can be cancelled (nothing is saved for it).
+- **The result file**: front matter (`tool`, `pr`, `repo`, `branch`, `base`, `commit`, `ran`, `duration`, `status`, `summary`), a line saying the text is data and not instructions, the findings as `- path:line message`, and the tail of the output with secrets masked (`internal/logs`'s redactor). Written to a temporary file and renamed, so a reader never sees half a file.
+- **`internal/gitx`**: `Rev`, `WorktreeAdd` (detached, with the repository's hooks switched off) and `WorktreeRemove` (prunes a stale entry when the folder is already gone).
+- **The feature detail** now carries each PR's saved results (`reviews`, with `stale` when the branch has new commits), the branch's full head hash, and the tools with which of their programs are installed.
+- **Routes**: `GET /features/:workspace/:name/reviews` (the runs), `POST …/reviews` (`{pr?, tool?}`: one tool on one PR, every tool on a PR, or everything), `POST …/reviews/:id/cancel`. The runner is an optional `Deps.Reviews`, so tests run fake tools.
+- **The page**: a **Code review on this branch** section in the PR panel (a result and a Run, Re-run or Cancel button per tool, and **Run all**), **Review all changed branches** at the top, the **Reviews and checks** tab (every PR against every tool, the GitHub checks, which tools are installed), and a result opens in the Files tab. The page follows runs once a second while any is waiting or running.
+- `docs/features.md` has a "Running review tools" section.
+
+### Decisions made while building, and why
+
+- **Results are saved in the plan's worktree, so a read-only plan can't run reviews.** The buttons are disabled and say how to check the plan out. Saving into a plan read through `git show` would mean committing for the owner.
+- **The ecosystem comes from the checkout's files, not from the repo's `type`.** A `go.mod` means Go commands, a `package.json` means npm commands, both mean both. devdeck's own repo has both.
+- **Two at a time.** Eight PRs with six tools each would otherwise start 48 processes on the machine the dev stack runs on.
+- **"Review everything" skips tools that aren't installed** and says so, instead of writing an "error" file for each; running one tool that isn't installed is a refusal that says how to install it.
+- **A node project's `node_modules` is linked in from the repository** (a junction on Windows), and the link is removed before the checkout, so removing the checkout can't touch the repository's copy. A test checks that.
+- **A tool's own failure and its not being set up are different results.** Exit code 0 is Passed, non-zero is Failed; "couldn't start", a timeout, a missing program and a mise shim that can't resolve are Couldn't run.
+- **The message after starting runs is shown at the top of the page**, not in the PR panel, so the header button gives feedback where you pressed it.
+- **Polling, not events.** The page asks for the runs every second while one is active, and once more when the last ends, to show the new result files. A push channel can come when something else needs one.
+- **Not done:** the runner doesn't call tools the CI runs with `-race` (it needs a C compiler Windows lacks), and `npm ci` is never run for the owner.
+
+### Found by running it
+
+I ran the real server with the real tools on a sample plan and code repo, from the page. `go test` failed on a branch with invalid Go and the finding came out as `internal/put1.go:1 expected 'package', found 1`; the checkouts were removed and the repository's branch didn't move. Two things were wrong:
+
+- **mise shims.** `golangci-lint` and `gitleaks` are installed here through mise. In a fresh checkout their shim prints "mise ERROR No version is set for shim" and exits non-zero, which the runner reported as a **failed** tool with that line as its summary. It is now **Couldn't run**, with the reason and the fix (`mise use -g <tool>@<version>`, or put the tool on the `PATH`). This means that, with mise, the lint and gitleaks buttons only work once the tool has a global default.
+- **No feedback at the top.** The "Started 8 runs." line was in the PR panel, far below the button that started it. It is now at the top of the page.
+
+### Not done in this PR
+
+The Claude review (PR 4), SonarQube (PR 5), CodeRabbit (PR 6), New feature and creating a worktree for a read-only plan (PR 7), the connector tools (PR 8) and GitHub snapshots (PR 9). There is no `devdeck feature review` command yet: reviews start from the page. The Reviews and checks tab doesn't offer to re-run from a cell, only to read the result.
+
+### Not tried
+
+Semgrep, Trivy and govulncheck were not installed on the machine this was run on, so only their "not installed" path ran, and their command lines are the CI's, not tried. Lint and gitleaks only reached the mise error. `npm test` and `npm audit` ran against fakes, not a real node project (the `node_modules` link was tested against real git and a real junction). A branch whose base doesn't exist yet skips gitleaks' commit range and scans the files instead.

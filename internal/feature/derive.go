@@ -54,6 +54,8 @@ type PR struct {
 	// Size is the PR's change, from git or, failing that, from GitHub. Over says which budget it is over.
 	Size *gitx.DiffStat `json:"size,omitempty"`
 	Over []string       `json:"over,omitempty"`
+	// Reviews are the last result of each review tool on this PR, by tool id, from the plan's reviews/ folder.
+	Reviews map[string]ReviewView `json:"reviews,omitempty"`
 
 	number int
 }
@@ -61,7 +63,9 @@ type PR struct {
 // Local is what git says about a PR's branch.
 type Local struct {
 	// Exists is true when the branch is on this machine or was fetched from origin.
-	Exists  bool          `json:"exists"`
+	Exists bool `json:"exists"`
+	// Head is the full hash of the commit the branch points at, to tell a result that is out of date.
+	Head    string        `json:"head,omitempty"`
 	Pushed  bool          `json:"pushed"`
 	Commits []gitx.Commit `json:"commits,omitempty"`
 	// BaseMissing is set when the branch it targets doesn't exist yet, so no size can be worked out.

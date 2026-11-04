@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 
 import { api, ApiError } from "./api";
 import type { Issue } from "./types";
@@ -75,12 +76,59 @@ export type FeaturePr = {
   steps_done: number;
   state: PrState;
   next?: { text: string; who: "claude" | "you" | "reviewers" };
-  local?: { exists: boolean; pushed: boolean; commits?: Commit[]; base_missing?: boolean };
+  local?: { exists: boolean; pushed: boolean; head?: string; commits?: Commit[]; base_missing?: boolean };
   github?: GithubPr;
   size?: DiffSize;
   /** "files" and/or "lines": which budget the PR is over. */
   over?: string[];
+  /** The last result of each review tool on this PR, by tool id. */
+  reviews?: Record<string, ReviewView>;
 };
+
+export type ReviewStatus = "pass" | "warn" | "fail" | "error" | "skip";
+
+/** What a review tool said last time, read from the plan's reviews/ folder. */
+export type ReviewView = {
+  status: ReviewStatus;
+  summary: string;
+  ran: string;
+  commit?: string;
+  /** The branch has moved on since this ran. */
+  stale: boolean;
+  /** Where the result is inside the plan. */
+  file: string;
+};
+
+export type ToolInfo = {
+  id: string;
+  name: string;
+  about: string;
+  programs: { name: string; found: boolean; hint?: string }[];
+  /** False when none of its programs is installed here. */
+  usable: boolean;
+};
+
+export type RunState = "queued" | "running" | "done" | "cancelled";
+
+/** One run of a tool on a PR's branch. Runs live in memory on the server; the result file is the record. */
+export type ReviewRun = {
+  id: string;
+  workspace: string;
+  feature: string;
+  pr: string;
+  repo: string;
+  tool: string;
+  state: RunState;
+  status?: ReviewStatus;
+  summary?: string;
+  commit?: string;
+  file?: string;
+  queued: string;
+  started?: string;
+  finished?: string;
+};
+
+export type ReviewStarted = { started: ReviewRun[]; skipped: { pr: string; tool?: string; reason: string }[] };
 
 export type Layer = { id: string; name?: string; paths?: string[] };
 
@@ -95,6 +143,8 @@ export type FeatureDetail = FeatureSummary & {
   /** What kept some of the live state from being read; the rest is still shown. */
   problems: string[];
   files: string[];
+  /** The review tools, and whether their programs are installed here. */
+  tools: ToolInfo[];
   issues: Issue[];
 };
 
@@ -103,6 +153,7 @@ export const featureKeys = {
   one: (ws: string, name: string) => ["features", ws, name] as const,
   text: (ws: string, name: string) => ["features", ws, name, "status"] as const,
   file: (ws: string, name: string, path: string) => ["features", ws, name, "file", path] as const,
+  runs: (ws: string, name: string) => ["features", ws, name, "runs"] as const,
 };
 
 const root = (ws: string, name: string) => `/features/${encodeURIComponent(ws)}/${encodeURIComponent(name)}`;
@@ -168,4 +219,89 @@ export function useFeatureFile(ws: string, name: string, path: string | undefine
       api.get<{ path: string; text: string }>(`${root(ws, name)}/files/${(path ?? "").split("/").map(encodeURIComponent).join("/")}`, signal),
     enabled: Boolean(path),
   });
+}
+
+const isActive = (r: ReviewRun) => r.state === "queued" || r.state === "running";
+
+/** The runs of this feature. Asked once a second while any is waiting or running, and once more when the last one ends, so the saved results show. */
+export function useReviewRuns(ws: string, name: string) {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: featureKeys.runs(ws, name),
+    queryFn: ({ signal }) => api.get<{ runs: ReviewRun[] }>(`${root(ws, name)}/reviews`, signal),
+    refetchInterval: (q) => (q.state.data?.runs.some(isActive) ? 1000 : false),
+  });
+  const active = query.data?.runs.filter(isActive).length ?? 0;
+  const seen = useRef(0);
+  useEffect(() => {
+    // Fewer active runs than a moment ago: one ended, and its result file is new.
+    if (active < seen.current) void qc.invalidateQueries({ queryKey: featureKeys.one(ws, name) });
+    seen.current = active;
+  }, [active, qc, ws, name]);
+  return query;
+}
+
+/** Starts review tools: one tool on one PR, or (with nothing given) every installed tool on every PR that has a branch. */
+export function useStartReviews(ws: string, name: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { pr?: string; tool?: string }) => api.post<ReviewStarted>(`${root(ws, name)}/reviews`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: featureKeys.runs(ws, name) }),
+  });
+}
+
+export function useCancelRun(ws: string, name: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<void>(`${root(ws, name)}/reviews/${encodeURIComponent(id)}/cancel`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: featureKeys.runs(ws, name) }),
+  });
+}
+
+/** What the page needs to run reviews and follow them. */
+export type ReviewControls = {
+  runs: ReviewRun[];
+  /** Starts a tool on a PR; with no tool, every tool on that PR; with neither, everything. */
+  start: (pr?: string, tool?: string) => void;
+  cancel: (id: string) => void;
+  /** True while a request to start is on its way. */
+  starting: boolean;
+  /** What the server said when it refused, or what was started and skipped last time. */
+  message?: string;
+  /** Opens a file of the plan in the Files tab. */
+  openFile: (path: string) => void;
+};
+
+/** The run that is waiting or running for a tool on a PR, if there is one. */
+export const activeRun = (runs: ReviewRun[], pr: string, tool: string) => runs.find((r) => r.pr === pr && r.tool === tool && isActive(r));
+
+/** What happened when reviews were started, in a sentence. */
+export function describeStart(r: ReviewStarted): string {
+  const started = `Started ${r.started.length} ${r.started.length === 1 ? "run" : "runs"}.`;
+  if (r.skipped.length === 0) return started;
+  const why = r.skipped.map((s) => `${[s.pr, s.tool].filter(Boolean).join(" ")}: ${s.reason}`).join("; ");
+  return `${started} Skipped ${r.skipped.length}: ${why}.`;
+}
+
+/** The runs of a feature, with what starts and stops them, for the page to share between its parts. */
+export function useReviews(ws: string, name: string, openFile: (path: string) => void): ReviewControls {
+  const runs = useReviewRuns(ws, name);
+  const start = useStartReviews(ws, name);
+  const cancel = useCancelRun(ws, name);
+  const [message, setMessage] = useState<string>();
+  return {
+    runs: runs.data?.runs ?? [],
+    start: (pr, tool) =>
+      start.mutate(
+        { pr, tool },
+        {
+          onSuccess: (r) => setMessage(describeStart(r)),
+          onError: (e) => setMessage(e instanceof ApiError ? e.message : "The review couldn’t be started."),
+        },
+      ),
+    cancel: (id) => cancel.mutate(id),
+    starting: start.isPending,
+    message,
+    openFile,
+  };
 }
