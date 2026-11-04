@@ -279,7 +279,7 @@ export const activeRun = (runs: ReviewRun[], pr: string, tool: string) => runs.f
 export function describeStart(r: ReviewStarted): string {
   const started = `Started ${r.started.length} ${r.started.length === 1 ? "run" : "runs"}.`;
   if (r.skipped.length === 0) return started;
-  const why = r.skipped.map((s) => `${s.pr}${s.tool ? ` ${s.tool}` : ""}: ${s.reason}`).join("; ");
+  const why = r.skipped.map((s) => `${[s.pr, s.tool].filter(Boolean).join(" ")}: ${s.reason}`).join("; ");
   return `${started} Skipped ${r.skipped.length}: ${why}.`;
 }
 

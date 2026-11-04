@@ -97,9 +97,7 @@ export function FeaturePage() {
 
       <div className="mt-4 flex flex-col gap-4">
         {reviews.message && (
-          <p role="status" className="m-0 bg-inset px-4 py-3 text-[13.5px] text-ink-2">
-            {reviews.message}
-          </p>
+          <output className="m-0 block bg-inset px-4 py-3 text-[13.5px] text-ink-2">{reviews.message}</output>
         )}
         {d.issues.length > 0 && (
           <section aria-label="Problems in feature.yaml" className="bg-inset p-4">

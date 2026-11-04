@@ -1,6 +1,6 @@
 import { StatusDot, type Tone } from "../../design/StatusDot";
 import { pill, pillSmall } from "../../design/pills";
-import { activeRun, type FeatureDetail, type FeaturePr, type ReviewControls, type ReviewStatus, type ToolInfo } from "../../lib/features";
+import { activeRun, type FeatureDetail, type FeaturePr, type ReviewControls, type ReviewRun, type ReviewStatus, type ReviewView, type ToolInfo } from "../../lib/features";
 import { ago } from "../../lib/time";
 import { useNow } from "../../lib/use-now";
 import { StateChip } from "./StateChip";
@@ -20,65 +20,72 @@ export function cannotRun(d: FeatureDetail): string {
   return "";
 }
 
-/** One tool on one PR: its last result or its run, and the button for it. */
-function ToolRow({ d, pr, tool, c, now }: Readonly<{ d: FeatureDetail; pr: FeaturePr; tool: ToolInfo; c: ReviewControls; now: number }>) {
-  const run = activeRun(c.runs, pr.id, tool.id);
-  const saved = pr.reviews?.[tool.id];
-  const blocked = Boolean(cannotRun(d));
+type RowProps = Readonly<{ d: FeatureDetail; pr: FeaturePr; tool: ToolInfo; c: ReviewControls }>;
 
-  let mark = <StatusDot tone="neutral" size={7} />;
-  let line: React.ReactNode = <span className="text-ink-3">Not run yet</span>;
-  if (run) {
-    mark = <StatusDot tone="primary" spin size={7} />;
-    line = <span className="text-primary">{run.state === "queued" ? "Waiting for its turn…" : "Running on the branch…"}</span>;
-  } else if (saved) {
-    mark = <StatusDot tone={TONE[saved.status]} ring={saved.status === "skip"} size={7} />;
-    line = (
+/** The dot at the start of a tool's row: spinning while it runs, else the colour of its last result. */
+function ToolMark({ run, saved }: Readonly<{ run?: ReviewRun; saved?: ReviewView }>) {
+  if (run) return <StatusDot tone="primary" spin size={7} />;
+  if (saved) return <StatusDot tone={TONE[saved.status]} ring={saved.status === "skip"} size={7} />;
+  return <StatusDot tone="neutral" size={7} />;
+}
+
+/** What a tool's row says: its run, its last result, that it isn't installed, or that it hasn't run. */
+function ToolLine({ run, saved, tool, c, now }: Readonly<{ run?: ReviewRun; saved?: ReviewView; tool: ToolInfo; c: ReviewControls; now: number }>) {
+  if (run) return <span className="text-primary">{run.state === "queued" ? "Waiting for its turn…" : "Running on the branch…"}</span>;
+  if (saved) {
+    return (
       <>
         <span className="sr-only">{WORD[saved.status]}: </span>
         <span className="text-ink-2">{saved.summary || WORD[saved.status]}</span>
         <span className="text-ink-3"> · {ago(saved.ran, now)}</span>
-        {saved.stale && (
-          <span className="text-warning" title="The branch has new commits since this ran"> · older commit</span>
-        )}{" "}
+        {saved.stale && <span className="text-warning" title="The branch has new commits since this ran"> · older commit</span>}{" "}
         <button type="button" onClick={() => c.openFile(saved.file)} className="text-link hover:underline" title={`Open ${saved.file}`}>
           {saved.file}
         </button>
       </>
     );
-  } else if (!tool.usable) {
-    line = (
-      <span className="text-ink-3">
-        Not installed. {missingHint(tool)}
-      </span>
+  }
+  if (!tool.usable) return <span className="text-ink-3">Not installed. {missingHint(tool)}</span>;
+  return <span className="text-ink-3">Not run yet</span>;
+}
+
+/** The button at the end of a row: Cancel while it runs, Run or Re-run when it can, nothing when the tool isn't installed. */
+function ToolButton({ d, pr, tool, c, run, rerun }: RowProps & Readonly<{ run?: ReviewRun; rerun: boolean }>) {
+  if (run) {
+    return (
+      <button type="button" onClick={() => c.cancel(run.id)} className={pillSmall}>
+        Cancel
+      </button>
     );
   }
+  if (!tool.usable) return null;
+  const why = cannotRun(d);
+  const word = rerun ? "Re-run" : "Run";
+  return (
+    <button type="button" disabled={Boolean(why) || c.starting} onClick={() => c.start(pr.id, tool.id)} className={pillSmall} aria-label={`${word} ${tool.name}`} title={why || tool.about}>
+      {word}
+    </button>
+  );
+}
 
+/** One tool on one PR: its last result or its run, and the button for it. */
+function ToolRow({ d, pr, tool, c, now }: RowProps & Readonly<{ now: number }>) {
+  const run = activeRun(c.runs, pr.id, tool.id);
+  const saved = pr.reviews?.[tool.id];
   return (
     <li className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-0.5 bg-bg px-2.5 py-2">
-      <span className="mt-[5px]">{mark}</span>
+      <span className="mt-[5px]">
+        <ToolMark run={run} saved={saved} />
+      </span>
       <span className="flex min-w-0 flex-col text-[13px]">
         <span className="text-ink" title={tool.about}>
           {tool.name}
         </span>
-        <span className="min-w-0 break-words text-[12px] leading-snug">{line}</span>
+        <span className="min-w-0 break-words text-[12px] leading-snug">
+          <ToolLine run={run} saved={saved} tool={tool} c={c} now={now} />
+        </span>
       </span>
-      {run ? (
-        <button type="button" onClick={() => c.cancel(run.id)} className={pillSmall}>
-          Cancel
-        </button>
-      ) : tool.usable ? (
-        <button
-          type="button"
-          disabled={blocked || c.starting}
-          onClick={() => c.start(pr.id, tool.id)}
-          className={pillSmall}
-          aria-label={`${saved ? "Re-run" : "Run"} ${tool.name}`}
-          title={blocked ? cannotRun(d) : tool.about}
-        >
-          {saved ? "Re-run" : "Run"}
-        </button>
-      ) : null}
+      <ToolButton d={d} pr={pr} tool={tool} c={c} run={run} rerun={Boolean(saved)} />
     </li>
   );
 }
@@ -121,18 +128,44 @@ export function ReviewAllButton({ d, c }: Readonly<{ d: FeatureDetail; c: Review
   );
 }
 
+/** The colour of a PR's GitHub checks: any failure, else any still running, else all passed. */
+function checksTone(fail: number, pending: number): Tone {
+  if (fail > 0) return "critical";
+  return pending > 0 ? "warning" : "good";
+}
+
 function ChecksCell({ pr }: Readonly<{ pr: FeaturePr }>) {
   const checks = pr.github?.checks ?? [];
   if (checks.length === 0) return <span className="text-ink-3">—</span>;
   const pass = checks.filter((x) => x.state === "pass").length;
   const fail = checks.filter((x) => x.state === "fail").length;
   const pending = checks.length - pass - fail;
-  const tone: Tone = fail > 0 ? "critical" : pending > 0 ? "warning" : "good";
+  const tone = checksTone(fail, pending);
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-ink-2" title={`${pass} passed, ${fail} failed, ${pending} running`}>
       <StatusDot tone={tone} spin={fail === 0 && pending > 0} size={7} />
       {pass} of {checks.length}
     </span>
+  );
+}
+
+/** One tool's cell in the matrix: its run, its last result (a button that opens it), or nothing. */
+function ResultCell({ run, saved, c, now }: Readonly<{ run?: ReviewRun; saved?: ReviewView; c: ReviewControls; now: number }>) {
+  if (run) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-primary">
+        <StatusDot tone="primary" spin size={7} />
+        {run.state === "queued" ? "Waiting" : "Running"}
+      </span>
+    );
+  }
+  if (!saved) return <span className="text-ink-3">—</span>;
+  return (
+    <button type="button" onClick={() => c.openFile(saved.file)} title={`${saved.summary} · ${ago(saved.ran, now)}${saved.stale ? " · older commit" : ""}`} className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-ink hover:underline">
+      <StatusDot tone={TONE[saved.status]} ring={saved.status === "skip"} size={7} />
+      {WORD[saved.status]}
+      {saved.stale && <span className="text-warning">·</span>}
+    </button>
   );
 }
 
@@ -164,28 +197,11 @@ export function ChecksTab({ d, c }: Readonly<{ d: FeatureDetail; c: ReviewContro
                 <td className="px-2 py-2">
                   <StateChip state={pr.state} />
                 </td>
-                {d.tools.map((t) => {
-                  const run = activeRun(c.runs, pr.id, t.id);
-                  const saved = pr.reviews?.[t.id];
-                  return (
-                    <td key={t.id} className="px-2 py-2">
-                      {run ? (
-                        <span className="inline-flex items-center gap-1.5 text-primary">
-                          <StatusDot tone="primary" spin size={7} />
-                          {run.state === "queued" ? "Waiting" : "Running"}
-                        </span>
-                      ) : saved ? (
-                        <button type="button" onClick={() => c.openFile(saved.file)} title={`${saved.summary} · ${ago(saved.ran, now)}${saved.stale ? " · older commit" : ""}`} className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-ink hover:underline">
-                          <StatusDot tone={TONE[saved.status]} ring={saved.status === "skip"} size={7} />
-                          {WORD[saved.status]}
-                          {saved.stale && <span className="text-warning">·</span>}
-                        </button>
-                      ) : (
-                        <span className="text-ink-3">—</span>
-                      )}
-                    </td>
-                  );
-                })}
+                {d.tools.map((t) => (
+                  <td key={t.id} className="px-2 py-2">
+                    <ResultCell run={activeRun(c.runs, pr.id, t.id)} saved={pr.reviews?.[t.id]} c={c} now={now} />
+                  </td>
+                ))}
                 <td className="px-2 py-2">
                   <ChecksCell pr={pr} />
                 </td>

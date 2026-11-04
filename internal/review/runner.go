@@ -405,11 +405,20 @@ func linkDir(link, target string) error {
 	if runtime.GOOS != "windows" {
 		return os.Symlink(target, link)
 	}
-	cmd := exec.Command("cmd", "/c", "mklink", "/J", link, target) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- both paths are folders devdeck made or the workspace names
+	cmd := exec.Command(cmdExe(), "/c", "mklink", "/J", link, target) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- both paths are folders devdeck made or the workspace names
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("mklink: %s", strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// cmdExe is Windows's own command interpreter by its full path, so no folder on the PATH can stand in for it.
+func cmdExe() string {
+	root := os.Getenv("SystemRoot")
+	if root == "" {
+		root = `C:\Windows`
+	}
+	return filepath.Join(root, "System32", "cmd.exe")
 }
 
 // maxOutputLines is how much of a tool's output a result file keeps (the end, where the failure is).

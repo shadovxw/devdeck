@@ -319,9 +319,9 @@ func TestGitleaksLooksOnlyAtTheBranchsCommits(t *testing.T) {
 
 func TestOutputIsRedactedBeforeItIsSaved(t *testing.T) {
 	f := newFixture(t, map[string]string{"go.mod": "module demo\n"})
-	f.exec.do = say(1, "connecting with token=abcdef1234567890xyz", "internal/a.go:3: the url is https://user:hunter2hunter2@example.com/x")
+	f.exec.do = say(1, "connecting with token=aaaaaaaaaaaa", "internal/a.go:3: the url is https://user:xxxxxxxxxxxx@example.com/x")
 	_, _, raw := f.finish(f.req("a1", "tests"))
-	for _, secret := range []string{"abcdef1234567890xyz", "hunter2hunter2"} {
+	for _, secret := range []string{"aaaaaaaaaaaa", "xxxxxxxxxxxx"} {
 		if strings.Contains(raw, secret) {
 			t.Errorf("the file contains %q:\n%s", secret, raw)
 		}

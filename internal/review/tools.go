@@ -10,6 +10,9 @@ import (
 	"runtime"
 )
 
+// golangciLint is the name of the Go linter program.
+const golangciLint = "golangci-lint"
+
 // Step is one command of a tool.
 type Step struct {
 	Program string
@@ -60,11 +63,11 @@ var Tools = []Tool{
 	},
 	{
 		ID: "lint", Name: "Lint", About: "golangci-lint, or the project's npm lint script",
-		Programs: []string{"golangci-lint", "npm"}, modules: true,
+		Programs: []string{golangciLint, "npm"}, modules: true,
 		steps: func(c Context) []Step {
 			var s []Step
 			if c.Go {
-				s = append(s, Step{"golangci-lint", []string{"run"}})
+				s = append(s, Step{golangciLint, []string{"run"}})
 			}
 			if c.Node {
 				s = append(s, Step{"npm", []string{"run", "lint", "--if-present"}})
@@ -127,13 +130,13 @@ func ToolByID(id string) (Tool, bool) {
 
 // hints say where to get a program that isn't installed.
 var hints = map[string]string{
-	"go":            "Install Go: https://go.dev/dl/",
-	"npm":           "Install Node.js, which brings npm: https://nodejs.org/",
-	"golangci-lint": "Install golangci-lint: https://golangci-lint.run/welcome/install/",
-	"semgrep":       "Install Semgrep: https://semgrep.dev/docs/getting-started/",
-	"gitleaks":      "Install Gitleaks: https://github.com/gitleaks/gitleaks#installing",
-	"trivy":         "Install Trivy: https://trivy.dev/latest/getting-started/installation/",
-	"govulncheck":   "Install govulncheck: go install golang.org/x/vuln/cmd/govulncheck@latest",
+	"go":          "Install Go: https://go.dev/dl/",
+	"npm":         "Install Node.js, which brings npm: https://nodejs.org/",
+	golangciLint:  "Install golangci-lint: https://golangci-lint.run/welcome/install/",
+	"semgrep":     "Install Semgrep: https://semgrep.dev/docs/getting-started/",
+	"gitleaks":    "Install Gitleaks: https://github.com/gitleaks/gitleaks#installing",
+	"trivy":       "Install Trivy: https://trivy.dev/latest/getting-started/installation/",
+	"govulncheck": "Install govulncheck: go install golang.org/x/vuln/cmd/govulncheck@latest",
 }
 
 // Hint says how to install a program ("" when unknown).
