@@ -104,7 +104,9 @@ func (g Git) DiffStat(ctx context.Context, dir, base, branch string) (DiffStat, 
 
 // Commit is one commit of a branch.
 type Commit struct {
-	Hash    string `json:"hash"`
+	Hash string `json:"hash"`
+	// Date is when it was committed, as an ISO 8601 time (2026-11-03T15:00:24+00:00).
+	Date    string `json:"date"`
 	Subject string `json:"subject"`
 }
 
@@ -113,14 +115,14 @@ func (g Git) Commits(ctx context.Context, dir, base, branch string, limit int) (
 	if !SafeRef(base) || !SafeRef(branch) {
 		return nil, fmt.Errorf("%q or %q isn't a branch name", base, branch)
 	}
-	out, code, err := g.run(ctx, dir, "log", "--format=%h%x09%s", "-n", strconv.Itoa(limit), base+".."+branch)
+	out, code, err := g.run(ctx, dir, "log", "--format=%h%x09%cI%x09%s", "-n", strconv.Itoa(limit), base+".."+branch)
 	if err != nil || code != 0 {
 		return nil, fmt.Errorf("git couldn't list the commits of %s", branch)
 	}
 	var list []Commit
 	for _, line := range strings.Split(out, "\n") {
-		if hash, subject, ok := strings.Cut(strings.TrimSpace(line), "\t"); ok {
-			list = append(list, Commit{Hash: hash, Subject: subject})
+		if f := strings.SplitN(strings.TrimSpace(line), "\t", 3); len(f) == 3 {
+			list = append(list, Commit{Hash: f[0], Date: f[1], Subject: f[2]})
 		}
 	}
 	return list, nil

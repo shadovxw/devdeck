@@ -132,6 +132,16 @@ func registerFeatures(g *echo.Group, m *workspace.Manager, svc *gitx.Service) {
 		return c.JSON(http.StatusOK, fs.Detail(c.Request().Context(), e, p, c.QueryParam("refresh") == "1"))
 	})
 
+	// GET /features/:workspace/:name/status is the same feature as plain text for a terminal: what
+	// `devdeck feature status` prints and the page's Terminal tab shows.
+	ff.GET("/:workspace/:name/status", func(c echo.Context) error {
+		e, p, err := find(c)
+		if err != nil {
+			return err
+		}
+		return c.String(http.StatusOK, feature.Render(fs.Detail(c.Request().Context(), e, p, c.QueryParam("refresh") == "1")))
+	})
+
 	// GET /features/:workspace/:name/files/* is one file of the plan, as text.
 	ff.GET("/:workspace/:name/files/*", func(c echo.Context) error {
 		e, p, err := find(c)

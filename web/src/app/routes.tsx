@@ -11,6 +11,8 @@ import { ConnectionsPage } from "../pages/ConnectionsPage";
 import { GitHubConnectionPage } from "../pages/GitHubConnectionPage";
 import { DoctorPage } from "../pages/DoctorPage";
 import { DocsPage } from "../pages/DocsPage";
+import { FeaturePage } from "../pages/features/FeaturePage";
+import { FeaturesPage } from "../pages/features/FeaturesPage";
 import { HomePage } from "../pages/HomePage";
 import { LogsPage } from "../pages/LogsPage";
 import { Placeholder } from "../pages/Placeholder";
@@ -42,6 +44,7 @@ const built: Record<string, ReactElement> = {
   "/connections/docker": <DockerHubPage />,
   "/docs": <DocsPage />,
   "/settings": <SettingsPage />,
+  "/features": <FeaturesPage />,
 };
 
 function NotFound() {
@@ -75,6 +78,7 @@ export const routes: RouteObject[] = [
             element: built[item.path] ?? <Placeholder item={item} />,
           })),
           { path: "/workspaces/:id/edit", element: <WorkspaceEditPage /> },
+          { path: "/features/:workspace/:name", element: <FeaturePage /> },
           { path: "/docs/:id", element: <DocsPage /> },
           { path: "*", element: <NotFound /> },
         ],

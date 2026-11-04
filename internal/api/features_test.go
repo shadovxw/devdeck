@@ -217,3 +217,20 @@ func TestFeatureSchemaIsServed(t *testing.T) {
 		t.Errorf("schema = %d %s", rec.Code, rec.Body.String()[:min(80, rec.Body.Len())])
 	}
 }
+
+func TestFeatureStatusAsText(t *testing.T) {
+	h, _ := featuresServer(t, "")
+	rec := do(h, http.MethodGet, "/api/v1/features/demo/blob/status")
+	if rec.Code != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/plain") {
+		t.Fatalf("status = %d %s", rec.Code, rec.Header().Get("Content-Type"))
+	}
+	squeezed := strings.Join(strings.Fields(rec.Body.String()), " ")
+	for _, want := range []string{"Demo feature acme -> dev", "plan/blob (read-only: no worktree)", "api a1 - merged #7", "hand to Claude next: a2"} {
+		if !strings.Contains(squeezed, want) {
+			t.Errorf("no %q in:\n%s", want, rec.Body)
+		}
+	}
+	if rec := do(h, http.MethodGet, "/api/v1/features/demo/nothing/status"); rec.Code != http.StatusNotFound {
+		t.Errorf("an unknown feature = %d", rec.Code)
+	}
+}

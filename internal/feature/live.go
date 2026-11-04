@@ -92,6 +92,8 @@ type Detail struct {
 	Pick string `json:"pick,omitempty"`
 	// Counts is how many PRs are in each state.
 	Counts map[string]int `json:"counts"`
+	// RepoLayers are the feature's repos with their layers: the columns of the layer grid.
+	RepoLayers []RepoLayers `json:"repo_layers"`
 	// Problems are things that kept some of the live state from being read (a repo missing on this
 	// machine, gh not installed). What could be read is still shown.
 	Problems []string          `json:"problems"`
@@ -99,10 +101,16 @@ type Detail struct {
 	Issues   []workspace.Issue `json:"issues"`
 }
 
+// RepoLayers is one repo of a feature with the layers the workspace defines for it.
+type RepoLayers struct {
+	ID     string            `json:"id"`
+	Layers []workspace.Layer `json:"layers"`
+}
+
 // Detail reads a plan's PRs from git and GitHub. A problem with one repository is reported in
 // Problems and doesn't stop the rest. refresh skips the cached pull request lists.
 func (s *Service) Detail(ctx context.Context, env Env, p *Plan, refresh bool) Detail {
-	d := Detail{Summary: SummaryOf(p), PRs: []PR{}, NextUp: []NextItem{}, Counts: map[string]int{}, Problems: []string{}, Issues: p.Issues}
+	d := Detail{Summary: SummaryOf(p), PRs: []PR{}, NextUp: []NextItem{}, Counts: map[string]int{}, Problems: []string{}, RepoLayers: []RepoLayers{}, Issues: p.Issues}
 	d.Files = Files(ctx, s.Git, env, p)
 	f := p.File
 	if f == nil {
@@ -111,6 +119,16 @@ func (s *Service) Detail(ctx context.Context, env Env, p *Plan, refresh bool) De
 	d.Budget = workspace.FeatureBudget{Files: workspace.DefaultBudgetFiles, Lines: workspace.DefaultBudgetLines}
 	if f.Budget != nil {
 		d.Budget.Files, d.Budget.Lines = cmp.Or(f.Budget.Files, d.Budget.Files), cmp.Or(f.Budget.Lines, d.Budget.Lines)
+	}
+
+	for _, id := range f.Repos {
+		rl := RepoLayers{ID: id, Layers: []workspace.Layer{}}
+		for _, r := range env.Repos {
+			if r.ID == id && r.Layers != nil {
+				rl.Layers = r.Layers
+			}
+		}
+		d.RepoLayers = append(d.RepoLayers, rl)
 	}
 
 	prs := Derive(f)

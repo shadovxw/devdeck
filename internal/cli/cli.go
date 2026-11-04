@@ -30,7 +30,7 @@ const (
 )
 
 // Commands are the words the program treats as the command line instead of the server.
-var Commands = []string{"up", "down", "status", "help"}
+var Commands = []string{"up", "down", "status", "feature", "help"}
 
 const usage = `Usage:
   devdeck                         run the server
@@ -43,9 +43,12 @@ Flags for up and down:
 Flags for up:
   --detach                        don't wait for the stack to be ready
 
+  devdeck feature list            every feature of your workspaces
+  devdeck feature status [name]   one feature: its PRs, their state and what is next (-w <workspace>)
+
 The commands talk to the running server (DEVDECK_ADDR, default 127.0.0.1:7070).
 
-These two read files and don't need the server:
+These read files and do not need the server:
   devdeck workspace check <folder or name>   check a workspace's files (--json for machines)
   devdeck schema <workspace|stack|flow|feature>  print the JSON Schema of one kind of file
   devdeck feature check <file or folder>     check a feature.yaml (--json, --workspace <name>)
@@ -109,6 +112,8 @@ func Run(ctx context.Context, args []string, env Env) int {
 		return a.down(ctx, args[1:])
 	case "status":
 		return a.status(ctx, args[1:])
+	case "feature":
+		return a.feature(ctx, args[1:])
 	}
 	a.errorf("unknown command %q\n\n%s", args[0], usage)
 	return exitUsage
