@@ -7,3 +7,6 @@
 # Fake x-api-key value in a test of the log redactor (commit bce773b, since changed to a low-entropy one); it is only there to be masked.
 bce773b96c3e4649944aab3e5f42e61cd7f5c99a:internal/logs/redact_test.go:generic-api-key:29
 bce773b96c3e4649944aab3e5f42e61cd7f5c99a:internal/logs/redact_test.go:generic-api-key:23
+
+# Fake token=... sample in the review runner's redaction test (commit d2c7a59, changed to a low-entropy one in the next commit); it is only there to be masked.
+d2c7a59d2a0829fec052cc4128968545fee40d57:internal/review/runner_test.go:generic-api-key:322
