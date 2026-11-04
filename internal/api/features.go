@@ -3,12 +3,14 @@ package api
 import (
 	"errors"
 	"net/http"
+	"path/filepath"
 	"sort"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/shadovxw/devdeck/internal/feature"
 	"github.com/shadovxw/devdeck/internal/gitx"
+	"github.com/shadovxw/devdeck/internal/review"
 	"github.com/shadovxw/devdeck/internal/workspace"
 )
 
@@ -33,10 +35,14 @@ type featureFileResponse struct {
 }
 
 // registerFeatures adds the routes for features: a plan is a branch plan/<name> of a workspace's plans
-// repository, and its PRs are read from git and GitHub. Everything here only reads.
-func registerFeatures(g *echo.Group, m *workspace.Manager, svc *gitx.Service) {
+// repository, and its PRs are read from git and GitHub. Reading changes nothing; the only thing a route
+// does is run a review tool on a branch, which saves its result in the plan's reviews/ folder.
+func registerFeatures(g *echo.Group, m *workspace.Manager, svc *gitx.Service, runner *review.Runner) {
+	if runner == nil {
+		runner = &review.Runner{Git: svc.Git, WorkDir: filepath.Join(svc.Store.Dir, "review-work")}
+	}
 	fs := &feature.Service{
-		Git: svc.Git,
+		Git: svc.Git, Locate: runner.Find,
 		// The account a repository's rule picks, as on the Repositories page.
 		Account: func(rm gitx.Remote) string {
 			cfg, err := svc.Store.Load()
@@ -155,4 +161,6 @@ func registerFeatures(g *echo.Group, m *workspace.Manager, svc *gitx.Service) {
 		}
 		return c.JSON(http.StatusOK, featureFileResponse{Path: rel, Text: text})
 	})
+
+	registerFeatureReviews(ff, fs, runner, find)
 }

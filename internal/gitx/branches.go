@@ -3,6 +3,7 @@ package gitx
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -196,4 +197,46 @@ func (g Git) Show(ctx context.Context, dir, rev, path string) (string, error) {
 		return res.Stdout[:maxFileBytes], nil
 	}
 	return res.Stdout, nil
+}
+
+// Rev is the full commit hash a branch or revision points at.
+func (g Git) Rev(ctx context.Context, dir, ref string) (string, error) {
+	if !SafeRef(ref) {
+		return "", fmt.Errorf("%q isn't a branch name", ref)
+	}
+	out, code, err := g.run(ctx, dir, "rev-parse", "--verify", "--quiet", ref+"^{commit}")
+	if err != nil || code != 0 || out == "" {
+		return "", fmt.Errorf("git couldn't find %s", ref)
+	}
+	return out, nil
+}
+
+// noHooks stops a checkout from running the repository's hooks (a post-checkout hook is the owner's code
+// running on a folder devdeck made for a tool).
+var noHooks = []string{"-c", "core.hooksPath=" + os.DevNull}
+
+// WorktreeAdd checks ref out into a new folder, with no branch of its own (a detached head), so it never
+// clashes with a branch that is checked out somewhere else. path must not exist.
+func (g Git) WorktreeAdd(ctx context.Context, dir, path, ref string) error {
+	if !SafeRef(ref) {
+		return fmt.Errorf("%q isn't a branch name", ref)
+	}
+	args := append([]string{"-C", dir}, noHooks...)
+	_, err := g.exec(ctx, "worktree add", 2*time.Minute, append(args, "worktree", "add", "--detach", "--quiet", path, ref)...)
+	return err
+}
+
+// WorktreeRemove deletes a folder made by WorktreeAdd and forgets it, even when files in it changed.
+func (g Git) WorktreeRemove(ctx context.Context, dir, path string) error {
+	_, err := g.exec(ctx, "worktree remove", 2*time.Minute, "-C", dir, "worktree", "remove", "--force", path)
+	if err == nil {
+		return nil
+	}
+	// The folder may be gone already or held by a program; clear what git still lists.
+	_ = os.RemoveAll(path)
+	_, pruneErr := g.exec(ctx, "worktree prune", time.Minute, "-C", dir, "worktree", "prune")
+	if pruneErr != nil {
+		return err
+	}
+	return nil
 }

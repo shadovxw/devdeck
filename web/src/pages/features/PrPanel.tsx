@@ -1,7 +1,8 @@
 import { StatusDot, toneColor } from "../../design/StatusDot";
-import type { FeatureDetail, FeaturePr, PrCheck } from "../../lib/features";
+import type { FeatureDetail, FeaturePr, PrCheck, ReviewControls } from "../../lib/features";
 import { ago } from "../../lib/time";
 import { useNow } from "../../lib/use-now";
+import { ReviewSection, reviewable } from "./Reviews";
 import { githubUrl, StateChip } from "./StateChip";
 import { layerName, overBudget, STAGES, stageOf, STATE_TONE } from "./state";
 
@@ -51,7 +52,7 @@ function Check({ c }: Readonly<{ c: PrCheck }>) {
 }
 
 /** One PR in full: where it is, what is next, its steps and commits, how big it is and its GitHub checks. */
-export function PrPanel({ d, pr }: Readonly<{ d: FeatureDetail; pr: FeaturePr }>) {
+export function PrPanel({ d, pr, c }: Readonly<{ d: FeatureDetail; pr: FeaturePr; c: ReviewControls }>) {
   const now = useNow(true, 30_000);
   const layers = d.repo_layers.find((r) => r.id === pr.repo)?.layers ?? [];
   const stage = stageOf(pr.state);
@@ -113,6 +114,8 @@ export function PrPanel({ d, pr }: Readonly<{ d: FeatureDetail; pr: FeaturePr }>
           Waits for {(pr.after ?? []).join(", ")} to be merged.
         </div>
       )}
+
+      {reviewable(pr) && <ReviewSection d={d} pr={pr} c={c} />}
 
       <Section title="Steps" aside={`${pr.steps_done} of ${pr.steps.length} · one commit each`}>
         <ol className="m-0 flex list-none flex-col gap-0.5 p-0">

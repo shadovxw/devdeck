@@ -188,6 +188,9 @@ func (f *fakeGit) DiffStat(_ context.Context, _ string, base, branch string) (gi
 func (f *fakeGit) Commits(_ context.Context, _ string, base, branch string, _ int) ([]gitx.Commit, error) {
 	return []gitx.Commit{{Hash: "abc1234", Subject: "step"}}, nil
 }
+func (f *fakeGit) Rev(_ context.Context, _ string, ref string) (string, error) {
+	return "0123456789abcdef0123456789abcdef01234567", nil
+}
 func (f *fakeGit) Files(context.Context, string, string) ([]string, error) { return nil, nil }
 func (f *fakeGit) Show(context.Context, string, string, string) (string, error) {
 	return "", errors.New("no")

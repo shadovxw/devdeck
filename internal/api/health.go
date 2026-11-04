@@ -11,6 +11,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/gitx"
 	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/remote"
+	"github.com/shadovxw/devdeck/internal/review"
 	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/sdk"
@@ -40,6 +41,9 @@ type Deps struct {
 	// GitX is optional: it adds the routes for git accounts (connections, rules, the
 	// credential helper setup, each repository's account). It needs Workspaces.
 	GitX *gitx.Service
+	// Reviews is optional: it runs the review tools of the Features page. Without it a runner is made that
+	// runs the real tools, in a folder of the data directory.
+	Reviews *review.Runner
 	// FolderPicker is optional: it adds the route that opens the system's folder dialog.
 	FolderPicker FolderPicker
 	// Hosts is optional: it adds the routes for remote hosts (machines that run devdeck's
@@ -84,7 +88,7 @@ func Register(e *echo.Echo, d Deps) {
 		registerStackFiles(v1, d.Workspaces, d.Supervisor)
 		if d.GitX != nil {
 			registerGit(v1, d.GitX, d.Workspaces)
-			registerFeatures(v1, d.Workspaces, d.GitX)
+			registerFeatures(v1, d.Workspaces, d.GitX, d.Reviews)
 		}
 		registerLogFilters(v1, d.Workspaces)
 		if d.Docker != nil {

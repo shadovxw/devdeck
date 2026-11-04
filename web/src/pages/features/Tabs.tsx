@@ -35,9 +35,10 @@ export function ActivityTab({ d }: Readonly<{ d: FeatureDetail }>) {
 }
 
 /** The plan's files: pick one on the left, read it on the right. Edited by Claude and in your editor, not here. */
-export function FilesTab({ d }: Readonly<{ d: FeatureDetail }>) {
+export function FilesTab({ d, path: chosen, onPath }: Readonly<{ d: FeatureDetail; path?: string; onPath: (path: string) => void }>) {
   const first = d.files.includes("plan.md") ? "plan.md" : d.files.includes("feature.yaml") ? "feature.yaml" : d.files[0];
-  const [path, setPath] = useState<string | undefined>(first);
+  const path = chosen ?? first;
+  const setPath = onPath;
   const file = useFeatureFile(d.workspace, d.name, path);
   return (
     <div className="grid items-start gap-4 md:grid-cols-[260px_minmax(0,1fr)]">

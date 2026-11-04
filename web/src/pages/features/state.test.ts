@@ -10,7 +10,7 @@ const pr = (over: Partial<FeaturePr> = {}): FeaturePr => ({
 
 const detail = (prs: FeaturePr[], over: Partial<FeatureDetail> = {}): FeatureDetail => ({
   workspace: "demo", name: "blob", branch: "plan/blob", title: "Move data", kind: "feature", repos: ["demo-api"], prs: prs.length, steps: 0, steps_done: 0, read_only: false,
-  errors: 0, warnings: 0, budget: { files: 10, lines: 500 }, pr_list: prs, next_up: [], counts: {}, repo_layers: [], problems: [], files: [], issues: [], ...over,
+  errors: 0, warnings: 0, budget: { files: 10, lines: 500 }, pr_list: prs, next_up: [], counts: {}, repo_layers: [], problems: [], files: [], tools: [], issues: [], ...over,
 });
 
 describe("states", () => {

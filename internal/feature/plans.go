@@ -32,6 +32,7 @@ type Git interface {
 	Worktrees(ctx context.Context, dir string) ([]gitx.Worktree, error)
 	DiffStat(ctx context.Context, dir, base, branch string) (gitx.DiffStat, error)
 	Commits(ctx context.Context, dir, base, branch string, limit int) ([]gitx.Commit, error)
+	Rev(ctx context.Context, dir, ref string) (string, error)
 	Files(ctx context.Context, dir, rev string) ([]string, error)
 	Show(ctx context.Context, dir, rev, path string) (string, error)
 }
