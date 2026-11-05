@@ -12,6 +12,9 @@ const WORD: Record<ReviewStatus, string> = { pass: "Passed", warn: "Warning", fa
 export const reviewable = (pr: FeaturePr) => Boolean(pr.local?.exists) && pr.state !== "merged" && pr.state !== "closed";
 
 /** The first hint for a program of the tool that is missing. */
+/** Whether "Run all" would start this tool: it is installed and has no usage limit of its own. */
+const runsWithAll = (t: ToolInfo) => t.usable && !t.manual;
+
 const missingHint = (t: ToolInfo) => t.programs.find((p) => !p.found)?.hint ?? "";
 
 /** Why reviews can't run from this page right now, or "" when they can. */
@@ -94,12 +97,12 @@ function ToolRow({ d, pr, tool, c, now }: RowProps & Readonly<{ now: number }>) 
 export function ReviewSection({ d, pr, c }: Readonly<{ d: FeatureDetail; pr: FeaturePr; c: ReviewControls }>) {
   const now = useNow(true, 30_000);
   const why = cannotRun(d);
-  const anyUsable = d.tools.some((t) => t.usable);
+  const anyUsable = d.tools.some(runsWithAll);
   return (
     <section aria-label="Code review on this branch" className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="m-0 text-[12px] font-medium uppercase tracking-wide text-ink-3">Code review on this branch</h3>
-        <button type="button" disabled={Boolean(why) || !anyUsable || c.starting} onClick={() => c.start(pr.id)} className={pillSmall} title={why || "Runs every installed tool on this branch"}>
+        <button type="button" disabled={Boolean(why) || !anyUsable || c.starting} onClick={() => c.start(pr.id)} className={pillSmall} title={why || "Runs every installed tool on this branch, except the Claude review, which has its own button"}>
           Run all
         </button>
       </div>
@@ -119,8 +122,8 @@ export function ReviewSection({ d, pr, c }: Readonly<{ d: FeatureDetail; pr: Fea
 /** The header button: every installed tool on every branch that isn't merged or closed. */
 export function ReviewAllButton({ d, c }: Readonly<{ d: FeatureDetail; c: ReviewControls }>) {
   const why = cannotRun(d);
-  const any = d.pr_list.some(reviewable) && d.tools.some((t) => t.usable);
-  const title = why || (any ? "Runs every installed tool on every branch that isn’t merged or closed" : "No PR has a branch to review yet");
+  const any = d.pr_list.some(reviewable) && d.tools.some(runsWithAll);
+  const title = why || (any ? "Runs every installed tool on every branch that isn’t merged or closed (not the Claude review, which has its own button)" : "No PR has a branch to review yet");
   return (
     <button type="button" disabled={Boolean(why) || !any || c.starting} onClick={() => c.start()} className={pill} title={title}>
       Review all changed branches

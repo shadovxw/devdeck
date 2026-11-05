@@ -103,6 +103,24 @@ func (g Git) DiffStat(ctx context.Context, dir, base, branch string) (DiffStat, 
 	return ParseNumstat(out), nil
 }
 
+// Diff is the text of the change a branch makes on top of its base (base...branch). It leaves out the files
+// that match a skip pattern (a git glob such as ".env*", matched in every folder), and it never runs the
+// repository's external diff programs or text filters.
+func (g Git) Diff(ctx context.Context, dir, base, branch string, skip []string) (string, error) {
+	if !SafeRef(base) || !SafeRef(branch) {
+		return "", fmt.Errorf("%q or %q isn't a branch name", base, branch)
+	}
+	args := []string{"diff", "--no-color", "--no-ext-diff", "--no-textconv", "-U3", base + "..." + branch, "--", "."}
+	for _, s := range skip {
+		args = append(args, ":(exclude,glob)**/"+s)
+	}
+	out, code, err := g.run(ctx, dir, args...)
+	if err != nil || code != 0 {
+		return "", fmt.Errorf("git couldn't compare %s with %s", branch, base)
+	}
+	return out, nil
+}
+
 // Commit is one commit of a branch.
 type Commit struct {
 	Hash string `json:"hash"`

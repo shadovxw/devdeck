@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -25,6 +26,9 @@ func TestMain(m *testing.M) {
 		os.Exit(3)
 	case "env":
 		fmt.Println(os.Getenv("PROC_EXTRA"))
+	case "stdin":
+		text, _ := io.ReadAll(os.Stdin)
+		fmt.Printf("got:%s", text)
 	case "sleep":
 		time.Sleep(time.Minute)
 	case "tree":
@@ -71,6 +75,15 @@ func TestRunCapturesOutputAndExitCode(t *testing.T) {
 func TestRunPassesExtraEnv(t *testing.T) {
 	res, err := Run(context.Background(), helper("env", "PROC_EXTRA=hello"))
 	if err != nil || strings.TrimSpace(res.Stdout) != "hello" {
+		t.Fatalf("stdout = %q, err = %v", res.Stdout, err)
+	}
+}
+
+func TestRunSendsStdin(t *testing.T) {
+	c := helper("stdin")
+	c.Stdin = "line one\nline two"
+	res, err := Run(context.Background(), c)
+	if err != nil || res.Stdout != "got:line one\nline two\n" {
 		t.Fatalf("stdout = %q, err = %v", res.Stdout, err)
 	}
 }

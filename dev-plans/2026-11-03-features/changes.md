@@ -114,3 +114,29 @@ The Claude review (PR 4), SonarQube (PR 5), CodeRabbit (PR 6), New feature and c
 ### Not tried
 
 Semgrep, Trivy and govulncheck were not installed on the machine this was run on, so only their "not installed" path ran, and their command lines are the CI's, not tried. Lint and gitleaks only reached the mise error. `npm test` and `npm audit` ran against fakes, not a real node project (the `node_modules` link was tested against real git and a real junction). A branch whose base doesn't exist yet skips gitleaks' commit range and scans the files instead.
+
+## PR 4: the Claude review (2026-11-05)
+
+### Added
+
+- **Claude review** in the list of review tools (`internal/review/ask.go`). It runs `claude -p` with the plan, the PR's steps and the diff of the branch against its base on standard input, and saves `reviews/<pr>-claude.md` like the other tools: a verdict (pass, warn, fail), one sentence and the problems as `- path:line message`.
+- `Tool.Manual`: a tool that is left out of "run everything" and runs only from its own button. Claude is the first (decision 16 now names it next to CodeRabbit). The API and the page both leave it out of **Run all** and **Review all changed branches**; `ToolInfo.manual` tells the page.
+- `proc.Cmd.Stdin` (sdk/proc), `gitx.Git.Diff` (a diff that leaves out files and never runs external diff programs or text filters), `feature.ReviewBrief` (the plan and the PR's steps as text), `Request.Brief`.
+- `docs/features.md` has a "The Claude review" section.
+
+### Decisions made while building, and why
+
+- **Everything goes in on standard input, and Claude runs with no tools.** The prompt can be larger than a command line allows, and a model that can't run anything can't be talked into running something by text in a diff. Flags: `-p --output-format text --tools "" --strict-mcp-config --disable-slash-commands --no-session-persistence`.
+- **It runs in an empty folder, not in a checkout of the branch.** Claude Code loads the settings, hooks and `CLAUDE.md` of the folder it starts in, and for a branch under review those are code under review. So the Claude review needs no worktree; the diff comes from the repository with `git diff base...branch`.
+- **Files that hold secrets are left out of the diff** (`.env*`, keys, certificates, Terraform state and variables), and the whole prompt goes through the same masking as the logs. The diff is cut at 150 KB at a file boundary and the summary says how many files were left out, instead of silently reviewing part of a PR.
+- **Own button only.** Run all would spend the owner's Claude usage on every PR of every feature at once.
+- **The answer's form is checked.** A reply without a `VERDICT:` line is kept in the file but marked Couldn't run, not guessed at.
+- **The sample secret in the test is built at run time** (`"token=" + strings.Repeat("a", 12)`), so the file holds nothing gitleaks reads as a key.
+
+### Not done in this PR
+
+Claude can't read the rest of the repository (only the diff and the plan), so it can't tell that a function it sees changed has a caller somewhere else that breaks. A "deep" mode that gives it read-only access to a checkout is possible later, with its own warning about what a branch's files can say to it. The model and effort are Claude Code's own defaults; there is no setting for them yet. SonarQube (PR 5), CodeRabbit (PR 6), New feature (PR 7), connector tools (PR 8) and GitHub snapshots (PR 9) are next.
+
+### Not tried
+
+**Claude Code isn't installed on the machine this was built on**, so no real review ran. The command line, the standard input and the answer's form are tested against a fake, and `proc.Stdin` against a real child process. The flags are from Claude Code's CLI reference; the first thing to do with a real install is to press the button on a small PR and read `reviews/<pr>-claude.md`. If the installed version rejects a flag, the result says "Claude couldn't answer: …" with its message.

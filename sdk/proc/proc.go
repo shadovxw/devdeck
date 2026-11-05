@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -40,6 +41,7 @@ type Cmd struct {
 	Env     []string      // extra KEY=VALUE entries added to the current environment
 	Timeout time.Duration // zero means no timeout
 	OnLine  func(Stream, string)
+	Stdin   string // text sent to the command's standard input; empty means none
 }
 
 // Result is the outcome of a command that ran to completion.
@@ -72,6 +74,9 @@ func Run(ctx context.Context, c Cmd) (Result, error) {
 
 	cmd := exec.CommandContext(ctx, c.Name, c.Args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- running configured tools is this package's purpose
 	cmd.Dir = c.Dir
+	if c.Stdin != "" {
+		cmd.Stdin = strings.NewReader(c.Stdin)
+	}
 	if len(c.Env) > 0 {
 		cmd.Env = append(cmd.Environ(), c.Env...)
 	}

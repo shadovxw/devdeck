@@ -106,6 +106,8 @@ export type ToolInfo = {
   programs: { name: string; found: boolean; hint?: string }[];
   /** False when none of its programs is installed here. */
   usable: boolean;
+  /** True when "Run all" leaves it out and it runs only from its own button (the Claude review). */
+  manual: boolean;
 };
 
 export type RunState = "queued" | "running" | "done" | "cancelled";

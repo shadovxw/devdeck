@@ -40,8 +40,8 @@ const prs: FeaturePr[] = [
   pr({ id: "w1", repo: "demo-worker", title: "Archive columns", state: "waiting", after: ["a3"], layers: ["db"], steps: [{ title: "012.sql", layers: ["db"] }] }),
 ];
 
-const tool = (id: string, name: string, usable = true): ToolInfo => ({
-  id, name, about: `${name} on the branch`, usable,
+const tool = (id: string, name: string, usable = true, manual = false): ToolInfo => ({
+  id, name, about: `${name} on the branch`, usable, manual,
   programs: [{ name: id, found: usable, hint: usable ? undefined : `Install ${name}: https://example.com/${id}` }],
 });
 const tools: ToolInfo[] = [tool("tests", "Tests"), tool("lint", "Lint"), tool("semgrep", "Semgrep", false), tool("gitleaks", "Gitleaks"), tool("trivy", "Trivy"), tool("deps", "Dependencies")];
@@ -337,6 +337,23 @@ describe("code review on a branch", () => {
     await waitFor(() => expect(started()).toBeTruthy());
     expect(started()?.body).toEqual({ pr: "a2", tool: "gitleaks" });
     expect(await screen.findByText("Started 1 run.")).toBeTruthy();
+  });
+
+  it("runs the Claude review only from its own button, and Run all leaves it out", async () => {
+    const withClaude = detail({ read_only: false, tools: [...tools, tool("claude", "Claude review", true, true)] });
+    mockServer({ detail: withClaude });
+    renderAt("/features/demo/blob");
+    fireEvent.click((await reviewPanel()).getByRole("button", { name: "Run Claude review" }));
+    await waitFor(() => expect(started()?.body).toEqual({ pr: "a2", tool: "claude" }));
+
+    // when Claude is the only tool installed, Run all would start nothing, so it is off
+    cleanup();
+    mockServer({ detail: detail({ read_only: false, tools: [tool("tests", "Tests", false), tool("claude", "Claude review", true, true)] }) });
+    renderAt("/features/demo/blob");
+    const section = await reviewPanel();
+    expect((section.getByRole("button", { name: "Run all" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Review all changed branches" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((section.getByRole("button", { name: "Run Claude review" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("runs every tool on this branch, or on every branch", async () => {

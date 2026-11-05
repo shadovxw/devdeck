@@ -2,7 +2,9 @@ package feature
 
 import (
 	"context"
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/shadovxw/devdeck/internal/review"
@@ -35,6 +37,8 @@ type ToolInfo struct {
 	Programs []ProgramInfo `json:"programs"`
 	// Usable is false when none of its programs is installed, so there is nothing to run.
 	Usable bool `json:"usable"`
+	// Manual says "run everything" leaves it out: it runs only from its own button.
+	Manual bool `json:"manual"`
 }
 
 // ToolInfos lists the review tools with which of their programs are installed.
@@ -44,7 +48,7 @@ func ToolInfos(locate func(string) (string, bool)) []ToolInfo {
 	}
 	out := make([]ToolInfo, 0, len(review.Tools))
 	for _, t := range review.Tools {
-		info := ToolInfo{ID: t.ID, Name: t.Name, About: t.About, Programs: []ProgramInfo{}, Usable: review.Usable(t, locate)}
+		info := ToolInfo{ID: t.ID, Name: t.Name, About: t.About, Programs: []ProgramInfo{}, Usable: review.Usable(t, locate), Manual: t.Manual}
 		for _, p := range t.Programs {
 			_, found := locate(p)
 			pi := ProgramInfo{Name: p, Found: found}
@@ -93,6 +97,37 @@ func (s *Service) loadReviews(ctx context.Context, env Env, p *Plan, d *Detail) 
 			}
 		}
 	}
+}
+
+// ReviewBrief is what the Claude review is told about a PR besides its diff: the plan, then this PR's title,
+// branch, base and steps with their status and layers. plan is the text of plan.md ("" when there is none).
+func ReviewBrief(plan string, pr PR) string {
+	var b strings.Builder
+	b.WriteString("THE PLAN (plan.md):\n")
+	if strings.TrimSpace(plan) == "" {
+		b.WriteString("(the plan has no plan.md)\n")
+	} else {
+		b.WriteString(strings.TrimSpace(plan) + "\n")
+	}
+	fmt.Fprintf(&b, "\nTHIS PR: %s, %s\nBranch %s, against %s.\nSteps (one step is one commit):\n", pr.ID, pr.Title, pr.Branch, pr.Base)
+	if len(pr.Steps) == 0 {
+		b.WriteString("(no steps are listed)\n")
+	}
+	for i, s := range pr.Steps {
+		status := s.Status
+		if status == "" {
+			status = "todo"
+		}
+		fmt.Fprintf(&b, "%d. [%s] %s", i+1, status, s.Title)
+		if len(s.Layer) > 0 {
+			b.WriteString(" (layer: " + strings.Join(s.Layer, ", ") + ")")
+		}
+		if s.Commit != "" {
+			b.WriteString(" commit " + s.Commit)
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 // Reviewable lists the PRs a "review everything" run covers: the ones with a branch that aren't merged or closed.

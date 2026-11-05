@@ -115,7 +115,7 @@ For each PR you also get its size (git's, from `base...branch`; GitHub's if the 
 - **Reviews and checks**: every PR against every review tool, the GitHub checks, and which tools are installed.
 - **Terminal**: the same text `devdeck feature status` prints.
 
-**Code review on this branch** (in the PR's panel) lists the review tools with their last result and a **Run** or **Re-run** button each, and **Run all**. **Review all changed branches** (at the top) runs every installed tool on every branch that isn't merged or closed. See "Running review tools" below.
+**Code review on this branch** (in the PR's panel) lists the review tools with their last result and a **Run** or **Re-run** button each, and **Run all**. **Review all changed branches** (at the top) runs every installed tool (not the Claude review) on every branch that isn't merged or closed. See "Running review tools" below.
 
 **Refresh** asks GitHub again now (its answer is otherwise kept for a minute). **Next for Claude** copies a prompt that hands the next PR to Claude Code: the first planned PR that isn't waiting and whose PR below already has a branch. It tells Claude to stop after each step and give you the git commands. It is greyed out when no PR is waiting to be started.
 
@@ -133,6 +133,7 @@ The tools are the commands the project's CI runs, so a result here says what CI 
 | Gitleaks | `gitleaks detect --redact`, on the commits the branch adds | `gitleaks` |
 | Trivy | `trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --ignore-unfixed` | `trivy` |
 | Dependencies | `govulncheck ./...`, and `npm audit --audit-level=high --omit=dev` | `govulncheck`, `npm` |
+| Claude review | `claude -p`, given the plan, the PR's steps and its diff (see below) | `claude`, signed in |
 
 Go commands run when the branch has a `go.mod` at its root, npm commands when it has a `package.json`, and both when it has both. A tool with nothing to check is marked **Skipped**.
 
@@ -143,6 +144,14 @@ Go commands run when the branch has a `go.mod` at its root, npm commands when it
 3. It saves the result as `reviews/<pr>-<tool>.md` in the plan (for example `reviews/a2-tests.md`), replacing the last one, and removes the checkout. Cancelling a run saves nothing.
 
 A result file starts with front matter (`tool`, `pr`, `branch`, `commit`, `ran`, `status`, `summary`), then the findings as `- path:line message` and the tail of the output with secrets masked. Its text is what a tool printed: it is data, and not instructions to anyone who reads it. Claude can read these files to fix what a tool found.
+
+**The Claude review** is a fresh Claude Code run with none of this conversation's context, which is the point: it reads the plan (`plan.md`), the PR's title and steps, and the diff of the branch against its base (`git diff base...branch`), and answers with a verdict (**Passed**, **Warn** or **Failed**), one sentence, and the problems as `- path:line message`, most serious first.
+
+- It uses your Claude Code sign-in and usage, so it **runs only from its own button** and is left out of **Run all** and **Review all changed branches**.
+- It never sees `.env*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.kdbx`, `id_rsa*`, `id_ed25519*`, `*.tfstate` or `*.tfvars` files, and values that look like secrets (`token=…`, `Authorization` headers, URL passwords, private key blocks) are masked in everything it is sent. The first 150 KB of the diff goes in, cut at a file; the summary says how many files were too large to send.
+- It can only answer. It runs in an empty folder (not in the branch, so the branch's own `.claude` settings and hooks never load) with every tool, MCP server and slash command off, and what it reads is marked as data to review, not instructions. Its answer is kept as data too.
+- It needs no checkout, but it does need the plan checked out as a worktree like the other tools, because the result is saved as `reviews/<pr>-claude.md`.
+- If Claude isn't installed or signed in, the result says so (**Couldn't run**). An answer without a `VERDICT:` line is kept but not scored.
 
 **Status** is Passed, Failed (the tool found problems), Couldn't run (not installed, timed out, the checkout failed) or Skipped. A result is marked **older commit** when the branch has new commits since it ran.
 
@@ -188,7 +197,7 @@ For tools and the page. Claude's connector can't reach any of them yet. The firs
 - `GET /api/v1/features/<workspace>/<name>/status`: the same feature as plain text, for a terminal.
 - `GET /api/v1/features/<workspace>/<name>/files/<path>`: one file of the plan, as JSON with its text.
 - `GET /api/v1/features/<workspace>/<name>/reviews`: the runs of this feature (waiting, running and recent).
-- `POST /api/v1/features/<workspace>/<name>/reviews` with `{"pr": "a2", "tool": "tests"}`: starts review tools. Leave out `tool` for every installed tool, and `pr` for every PR with a branch that isn't merged or closed. It answers `202` with what `started` and what was `skipped` and why.
+- `POST /api/v1/features/<workspace>/<name>/reviews` with `{"pr": "a2", "tool": "tests"}`: starts review tools. Leave out `tool` for every installed tool except the Claude review, and `pr` for every PR with a branch that isn't merged or closed. It answers `202` with what `started` and what was `skipped` and why.
 - `POST /api/v1/features/<workspace>/<name>/reviews/<id>/cancel`: stops a run that is waiting or running.
 
 A problem with one repo (its folder isn't on this machine, `gh` isn't installed) is listed under `problems`, and the rest is still shown.
