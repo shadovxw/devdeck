@@ -81,7 +81,9 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      # JSON output always exits 0, so the gate script decides: it fails on any vulnerability the code calls
+      # that isn't on the reasoned allow list (.github/govulncheck-allow.txt).
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -format json ./... | python3 .github/scripts/govulncheck-gate.py .github/govulncheck-allow.txt
 
   web:
     name: "Web: lint, typecheck, test & build"

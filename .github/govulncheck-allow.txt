@@ -1,0 +1,6 @@
+# Vulnerabilities govulncheck reports that CI accepts for now. One OSV id per line, then why it doesn't apply.
+# Take a line out as soon as the module has a fixed version (govulncheck then says "Fixed in") and update to it.
+# Read by .github/scripts/govulncheck-gate.py.
+
+GO-2026-6875 echo v4 (no v4 fix, only v5.4.0): the proxy middleware forwards a client's X-Real-IP. devdeck doesn't use the proxy middleware, and listens on 127.0.0.1 only. Move to echo v5 later.
+GO-2026-6872 echo v4 (no v4 fix, only v5.1.0): Context.RealIP trusts a spoofed X-Forwarded-For. devdeck never calls RealIP or the rate limiter, and listens on 127.0.0.1 only. Move to echo v5 later.
