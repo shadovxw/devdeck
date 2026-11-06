@@ -35,6 +35,8 @@ type reviewFixture struct {
 	// gate, when set, holds every tool until it is closed.
 	gate    chan struct{}
 	missing map[string]bool
+	// prompts is what each Claude run was given on standard input.
+	prompts []string
 }
 
 func (f *reviewFixture) exec(ctx context.Context, c proc.Cmd) (proc.Result, error) {
@@ -48,6 +50,15 @@ func (f *reviewFixture) exec(ctx context.Context, c proc.Cmd) (proc.Result, erro
 		case <-ctx.Done():
 			return proc.Result{}, ctx.Err()
 		}
+	}
+	if filepath.Base(c.Name) == "claude" {
+		f.mu.Lock()
+		f.prompts = append(f.prompts, c.Stdin)
+		f.mu.Unlock()
+		c.OnLine(proc.Stdout, "VERDICT: warn")
+		c.OnLine(proc.Stdout, "SUMMARY: go.mod has no tests.")
+		c.OnLine(proc.Stdout, "- go.mod:1 nothing tests this module yet")
+		return proc.Result{ExitCode: 0}, nil
 	}
 	c.OnLine(proc.Stdout, "ok  \tdemo\t0.1s")
 	return proc.Result{ExitCode: 0}, nil
@@ -195,18 +206,48 @@ func TestReviewEverythingRunsEveryInstalledToolOnEveryBranch(t *testing.T) {
 		}
 		tools[r.Tool] = true
 	}
-	if len(got.Started) != len(review.Tools)-1 || tools["semgrep"] || !tools["tests"] || !tools["gitleaks"] {
-		t.Errorf("started %v: every tool but the one that isn't installed", tools)
+	if len(got.Started) != len(review.Tools)-2 || tools["semgrep"] || tools["claude"] || !tools["tests"] || !tools["gitleaks"] {
+		t.Errorf("started %v: every tool but the one that isn't installed and the Claude review, which runs only on its own button", tools)
 	}
 	f.runner.Wait()
 	d := decode[feature.Detail](t, do(f.h, http.MethodGet, "/api/v1/features/demo/blob").Body.Bytes())
 	for _, p := range d.PRs {
-		if p.ID == "a1" && len(p.Reviews) != len(review.Tools)-1 {
+		if p.ID == "a1" && len(p.Reviews) != len(review.Tools)-2 {
 			t.Errorf("a1 has %d saved reviews: %v", len(p.Reviews), p.Reviews)
 		}
 		if p.ID == "a2" && len(p.Reviews) != 0 {
 			t.Errorf("a2 has no branch and no reviews: %v", p.Reviews)
 		}
+	}
+}
+
+func TestTheClaudeReviewGetsThePlanTheStepsAndTheDiff(t *testing.T) {
+	f := reviewServer(t, true)
+	must(t, os.WriteFile(filepath.Join(f.plan, "plan.md"), []byte("# Blob plan\nMove the data.\n"), 0o600))
+
+	rec := startReviews(f, `{"pr":"a1","tool":"claude"}`)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("start = %d %s", rec.Code, rec.Body)
+	}
+	f.runner.Wait()
+
+	if len(f.prompts) != 1 {
+		t.Fatalf("Claude was run %d times, want once", len(f.prompts))
+	}
+	for _, want := range []string{"# Blob plan", "THIS PR: a1", "+module demo", "diff --git a/go.mod"} {
+		if !strings.Contains(f.prompts[0], want) {
+			t.Errorf("the prompt should hold %q:\n%s", want, f.prompts[0])
+		}
+	}
+	d := decode[feature.Detail](t, do(f.h, http.MethodGet, "/api/v1/features/demo/blob").Body.Bytes())
+	for _, p := range d.PRs {
+		if r := p.Reviews["claude"]; p.ID == "a1" && (r.Status != "warn" || r.File != "reviews/a1-claude.md" || !strings.Contains(r.Summary, "no tests")) {
+			t.Errorf("a1's Claude review = %+v", r)
+		}
+	}
+	raw, err := os.ReadFile(filepath.Join(f.plan, "reviews", "a1-claude.md"))
+	if err != nil || !strings.Contains(string(raw), "- go.mod:1 nothing tests this module yet") {
+		t.Errorf("the saved result should list the finding: %v\n%s", err, raw)
 	}
 }
 

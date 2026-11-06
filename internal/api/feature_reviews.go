@@ -39,6 +39,36 @@ func checkoutCommand(e feature.Env, name string) string {
 	return `git -C "` + filepath.ToSlash(e.PlansRepo) + `" worktree add "` + filepath.ToSlash(filepath.Join(dir, name)) + `" plan/` + name
 }
 
+// chooseTools is the tools a start request means: the one it names, or every installed tool that runs with
+// the others (a tool with a limit, like the Claude review, runs only when it is named).
+func chooseTools(runner *review.Runner, id string) ([]review.Tool, error) {
+	if id != "" {
+		t, ok := review.ToolByID(id)
+		if !ok {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "devdeck has no such review tool")
+		}
+		if !runner.Usable(t) {
+			return nil, echo.NewHTTPError(http.StatusFailedDependency, t.Name+" isn't installed: "+review.Hint(t.Programs[0]))
+		}
+		return []review.Tool{t}, nil
+	}
+	var tools []review.Tool
+	for _, t := range review.Tools {
+		if runner.Usable(t) && !t.Manual {
+			tools = append(tools, t)
+		}
+	}
+	return tools, nil
+}
+
+// briefFor is what the Claude review is told about a PR; the other tools are given nothing.
+func briefFor(t review.Tool, plan string, pr feature.PR) string {
+	if t.ID != "claude" {
+		return ""
+	}
+	return feature.ReviewBrief(plan, pr)
+}
+
 // registerFeatureReviews adds the routes that run review tools on a feature's branches. A run checks the
 // branch out into a folder of its own, runs the tool there and saves what it said as a file in the plan's
 // reviews/ folder, so the plan must be checked out as a worktree (a read-only plan has nowhere to save it).
@@ -70,22 +100,9 @@ func registerFeatureReviews(ff *echo.Group, fs *feature.Service, runner *review.
 		if p.ReadOnly {
 			return echo.NewHTTPError(http.StatusConflict, "This plan isn't checked out, and results are saved in the plan's folder. Check it out first: "+checkoutCommand(e, p.Name))
 		}
-		var tools []review.Tool
-		if body.Tool != "" {
-			t, ok := review.ToolByID(body.Tool)
-			if !ok {
-				return echo.NewHTTPError(http.StatusBadRequest, "devdeck has no such review tool")
-			}
-			if !runner.Usable(t) {
-				return echo.NewHTTPError(http.StatusFailedDependency, t.Name+" isn't installed: "+review.Hint(t.Programs[0]))
-			}
-			tools = []review.Tool{t}
-		} else {
-			for _, t := range review.Tools {
-				if runner.Usable(t) {
-					tools = append(tools, t)
-				}
-			}
+		tools, err := chooseTools(runner, body.Tool)
+		if err != nil {
+			return err
 		}
 
 		ctx := c.Request().Context()
@@ -107,6 +124,12 @@ func registerFeatureReviews(ff *echo.Group, fs *feature.Service, runner *review.
 			return echo.NewHTTPError(http.StatusConflict, "No PR has a branch that isn't merged or closed, so there is nothing to review")
 		}
 
+		// The plan's text goes to the Claude review only, so it is read only when that tool is among those started.
+		var plan string
+		if slices.ContainsFunc(tools, func(t review.Tool) bool { return t.ID == "claude" }) {
+			plan, _ = feature.ReadFile(ctx, fs.Git, e, p, "plan.md")
+		}
+
 		out := reviewStarted{Started: []review.Run{}, Skipped: []reviewSkipped{}}
 		for _, pr := range targets {
 			dir, _, ok := e.RepoDir(pr.Repo)
@@ -123,6 +146,7 @@ func registerFeatureReviews(ff *echo.Group, fs *feature.Service, runner *review.
 				run, err := runner.Start(review.Request{
 					Workspace: p.Workspace, Feature: p.Name, PR: pr.ID, Repo: pr.Repo, Tool: t.ID,
 					RepoDir: dir, Branch: pr.Branch, Base: pr.Base, Ref: set.Ref(pr.Branch), BaseRef: set.Ref(pr.Base), PlanDir: p.Worktree,
+					Brief: briefFor(t, plan, pr),
 				})
 				switch {
 				case errors.Is(err, review.ErrBusy):

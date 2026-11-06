@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,5 +96,40 @@ func TestReviewableAreThePRsWithABranchThatAreNotDone(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != "a2" || got[1] != "a4" {
 		t.Errorf("Reviewable = %v", got)
+	}
+}
+
+func TestReviewBriefHoldsThePlanAndThePRsSteps(t *testing.T) {
+	pr := PR{
+		ID: "a2", Title: "Archive columns", Branch: "acme-a2-schema", Base: "acme-a1-put",
+		Steps: []workspace.FeatureStep{
+			{Title: "012_archive.sql", Layer: workspace.StepLayers{"db"}, Status: "done", Commit: "9c1e4a2"},
+			{Title: "Model fields", Layer: workspace.StepLayers{"model", "service"}},
+		},
+	}
+	got := ReviewBrief("# Plan\nMove the data.\n", pr)
+	for _, want := range []string{
+		"THE PLAN (plan.md):\n# Plan\nMove the data.",
+		"THIS PR: a2, Archive columns",
+		"Branch acme-a2-schema, against acme-a1-put.",
+		"1. [done] 012_archive.sql (layer: db) commit 9c1e4a2",
+		"2. [todo] Model fields (layer: model, service)\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the brief should hold %q:\n%s", want, got)
+		}
+	}
+
+	bare := ReviewBrief("  \n", PR{ID: "a3", Title: "No steps yet"})
+	if !strings.Contains(bare, "(the plan has no plan.md)") || !strings.Contains(bare, "(no steps are listed)") {
+		t.Errorf("a missing plan and missing steps are said so:\n%s", bare)
+	}
+}
+
+func TestToolInfosMarkTheToolsThatRunOnlyFromTheirOwnButton(t *testing.T) {
+	for _, i := range ToolInfos(func(string) (string, bool) { return "x", true }) {
+		if i.Manual != (i.ID == "claude") {
+			t.Errorf("%s: manual = %v", i.ID, i.Manual)
+		}
 	}
 }

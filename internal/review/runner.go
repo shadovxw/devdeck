@@ -21,6 +21,7 @@ import (
 // Git is what a run needs from git. gitx.Git is one.
 type Git interface {
 	Rev(ctx context.Context, dir, ref string) (string, error)
+	Diff(ctx context.Context, dir, base, branch string, skip []string) (string, error)
 	WorktreeAdd(ctx context.Context, dir, path, ref string) error
 	WorktreeRemove(ctx context.Context, dir, path string) error
 }
@@ -41,6 +42,8 @@ type Request struct {
 	BaseRef string
 	// PlanDir is the plan's folder, where the result is saved under reviews/.
 	PlanDir string
+	// Brief is what Claude is told about the PR: the plan and the PR's steps. Only the Claude review uses it.
+	Brief string
 }
 
 // State is where a run is.
@@ -267,6 +270,9 @@ func (r *Runner) check(ctx context.Context, id string, req Request, tool Tool) R
 		return fail("The branch couldn't be found: %v", err)
 	}
 	res.Commit = head
+	if tool.agent {
+		return r.ask(ctx, id, req, res)
+	}
 
 	dir := filepath.Join(r.WorkDir, id)
 	if err := os.MkdirAll(r.WorkDir, 0o755); err != nil {

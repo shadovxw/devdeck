@@ -35,14 +35,24 @@ type Tool struct {
 	About string `json:"about"`
 	// Programs are every program its commands may use, so the page can say which one is missing.
 	Programs []string `json:"programs"`
+	// Manual says the tool uses something with a limit (here, the owner's Claude usage), so "run everything"
+	// leaves it out and it runs only from its own button.
+	Manual bool `json:"manual"`
 
 	// modules says an npm step needs node_modules in the checkout.
 	modules bool
-	steps   func(Context) []Step
+	// agent says the tool is Claude reading the diff (ask.go), not commands run in a checkout.
+	agent bool
+	steps func(Context) []Step
 }
 
 // Steps are the commands to run for this checkout. None means the tool has nothing to check here.
-func (t Tool) Steps(c Context) []Step { return t.steps(c) }
+func (t Tool) Steps(c Context) []Step {
+	if t.steps == nil {
+		return nil
+	}
+	return t.steps(c)
+}
 
 // Tools are the review tools devdeck runs, in the order the page lists them. They are the same commands
 // the project's CI runs, so a result here says what CI would.
@@ -116,6 +126,11 @@ var Tools = []Tool{
 			return s
 		},
 	},
+	{
+		ID: "claude", Name: "Claude review",
+		About:    "Claude reads the plan, this PR's steps and its diff, and says what to fix. It uses your Claude Code sign-in, so it runs only from its own button, not with the other tools",
+		Programs: []string{"claude"}, Manual: true, agent: true,
+	},
 }
 
 // ToolByID finds a tool.
@@ -137,6 +152,7 @@ var hints = map[string]string{
 	"gitleaks":    "Install Gitleaks: https://github.com/gitleaks/gitleaks#installing",
 	"trivy":       "Install Trivy: https://trivy.dev/latest/getting-started/installation/",
 	"govulncheck": "Install govulncheck: go install golang.org/x/vuln/cmd/govulncheck@latest",
+	"claude":      "Install Claude Code and sign in: https://code.claude.com/docs/en/setup",
 }
 
 // Hint says how to install a program ("" when unknown).

@@ -21,6 +21,16 @@ func TestEveryToolHasStepsAndEveryProgramAHint(t *testing.T) {
 			t.Errorf("%s can't be a file name part", tool.ID)
 		}
 		both := tool.Steps(Context{Go: true, Node: true, Base: "main", Head: "feat"})
+		if tool.agent {
+			// Claude reads the diff instead of running commands in a checkout.
+			if len(both) != 0 || !tool.Manual {
+				t.Errorf("%s is an agent tool: it has no steps and runs only from its own button", tool.ID)
+			}
+			if Hint(tool.Programs[0]) == "" {
+				t.Errorf("no install hint for %s", tool.Programs[0])
+			}
+			continue
+		}
 		if len(both) == 0 {
 			t.Errorf("%s has no steps for a Go and Node checkout", tool.ID)
 		}
