@@ -2,9 +2,11 @@ package review
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/shadovxw/devdeck/sdk/proc"
 )
@@ -178,5 +180,76 @@ func TestParseAnswer(t *testing.T) {
 				t.Errorf("got %v %q %q %d findings", ok, status, summary, len(findings))
 			}
 		})
+	}
+}
+
+func TestClaudeFailuresAreReportedAndNothingIsLeftBehind(t *testing.T) {
+	cases := []struct {
+		name string
+		do   func(context.Context, proc.Cmd) (proc.Result, error)
+		want string
+	}{
+		{"it times out", func(context.Context, proc.Cmd) (proc.Result, error) { return proc.Result{}, proc.ErrTimeout }, "took longer than"},
+		{"it can't be started", func(context.Context, proc.Cmd) (proc.Result, error) {
+			return proc.Result{}, errors.New("access denied")
+		}, "couldn't be started: access denied"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := newFixture(t, map[string]string{"a.go": "package a\n"})
+			f.exec.do = c.do
+			run, _, _ := f.finish(f.ask("plan"))
+			if run.Status != StatusError || !strings.Contains(run.Summary, c.want) {
+				t.Errorf("run = %+v", run)
+			}
+			f.onlyTheMainCheckoutRemains()
+		})
+	}
+}
+
+func TestADiffThatCantBeReadIsReported(t *testing.T) {
+	f := newFixture(t, map[string]string{"a.go": "package a\n"})
+	req := f.ask("plan")
+	req.BaseRef = "no-such-branch"
+	run, _, _ := f.finish(req)
+	if run.Status != StatusError || !strings.Contains(run.Summary, "The diff couldn't be read") || len(f.exec.called()) != 0 {
+		t.Errorf("run = %+v", run)
+	}
+}
+
+func TestAHugeDiffIsCutAndTheSummarySaysSo(t *testing.T) {
+	big := "package a\n" + strings.Repeat("// padding padding padding padding padding padding\n", 4000)
+	f := newFixture(t, map[string]string{"a.go": "package a\n", "big.go": big, "z.go": "package z\n"})
+	got := f.answer(0, "VERDICT: pass", "SUMMARY: Fine.")
+	run, _, _ := f.finish(f.ask(strings.Repeat("plan text ", 8000)))
+
+	if run.Status != StatusPass || !strings.Contains(run.Summary, "too large to send") {
+		t.Errorf("run = %+v", run)
+	}
+	if len(got.Stdin) > maxDiffBytes+maxBriefBytes+4000 {
+		t.Errorf("the prompt is %d bytes, over the limits", len(got.Stdin))
+	}
+	for _, want := range []string{"the rest of the plan is left out", "too large to include"} {
+		if !strings.Contains(got.Stdin, want) {
+			t.Errorf("the prompt should say %q", want)
+		}
+	}
+}
+
+func TestAnAnswerWithAVerdictButNoSummaryOrFindingsStillSaysSomething(t *testing.T) {
+	f := newFixture(t, map[string]string{"a.go": "package a\n"})
+	f.answer(0, "VERDICT: fail")
+	run, _, _ := f.finish(f.ask("plan"))
+	if run.Status != StatusFail || run.Summary != "Claude has concerns, see the answer" {
+		t.Errorf("run = %+v", run)
+	}
+}
+
+func TestFitDiffNeverCutsInTheMiddleOfACharacter(t *testing.T) {
+	head := "diff --git a/x b/x\n"
+	diff := head + strings.Repeat("é", 50)
+	got, _ := fitDiff(diff, len(head)+5) // five bytes is two and a half letters
+	if !utf8.ValidString(got) {
+		t.Errorf("the cut text isn't valid UTF-8: %q", got)
 	}
 }

@@ -167,6 +167,28 @@ func fitDiff(diff string, limit int) (string, int) {
 	return b.String(), len(parts) - kept
 }
 
+// verdictOf reads the word after "VERDICT:". ok is false for a word that isn't pass, warn or fail.
+func verdictOf(value string) (Status, bool) {
+	word := strings.ToLower(strings.TrimSpace(value))
+	for _, s := range []Status{StatusPass, StatusWarn, StatusFail} {
+		if strings.HasPrefix(word, string(s)) {
+			return s, true
+		}
+	}
+	return "", false
+}
+
+// fallbackSummary says how an answer went when Claude gave no SUMMARY line.
+func fallbackSummary(status Status, findings []Finding) string {
+	switch {
+	case status == StatusPass:
+		return "No problems found"
+	case len(findings) > 0:
+		return fmt.Sprintf("%d %s, the first at %s:%d", len(findings), plural(len(findings), "problem", "problems"), findings[0].Path, findings[0].Line)
+	}
+	return "Claude has concerns, see the answer"
+}
+
 // parseAnswer reads Claude's reply: a VERDICT line, a SUMMARY line and "- path:line message" lines. ok is
 // false when there is no verdict.
 func parseAnswer(lines []string) (status Status, summary string, findings []Finding, ok bool) {
@@ -176,13 +198,7 @@ func parseAnswer(lines []string) (status Status, summary string, findings []Find
 		upper := strings.ToUpper(t)
 		switch {
 		case strings.HasPrefix(upper, "VERDICT:") && !ok:
-			word := strings.ToLower(strings.TrimSpace(t[len("VERDICT:"):]))
-			for _, s := range []Status{StatusPass, StatusWarn, StatusFail} {
-				if strings.HasPrefix(word, string(s)) {
-					status, ok = s, true
-					break
-				}
-			}
+			status, ok = verdictOf(t[len("VERDICT:"):])
 		case strings.HasPrefix(upper, "SUMMARY:") && summary == "":
 			summary = cut(strings.TrimSpace(t[len("SUMMARY:"):]), 200)
 		case strings.HasPrefix(t, "- "), strings.HasPrefix(t, "* "):
@@ -194,14 +210,7 @@ func parseAnswer(lines []string) (status Status, summary string, findings []Find
 	}
 	findings = Findings(bullets)
 	if summary == "" {
-		switch {
-		case status == StatusPass:
-			summary = "No problems found"
-		case len(findings) > 0:
-			summary = fmt.Sprintf("%d %s, the first at %s:%d", len(findings), plural(len(findings), "problem", "problems"), findings[0].Path, findings[0].Line)
-		default:
-			summary = "Claude has concerns, see the answer"
-		}
+		summary = fallbackSummary(status, findings)
 	}
 	return status, summary, findings, true
 }
