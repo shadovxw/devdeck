@@ -3,7 +3,13 @@ import { Download, ExternalLink, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "../../design/StatusDot";
-import { checkedAgo, useCheckUpdate, useDownloadUpdate, useInstallUpdate, useUpdate, type UpdateState } from "../../lib/update";
+import { checkedAgo, useCheckUpdate, useDownloadUpdate, useInstallUpdate, useSetAutoUpdate, useUpdate, type UpdateState } from "../../lib/update";
+import { SegmentedRow } from "../appearance/SegmentedRow";
+
+const AUTO = [
+  { id: "on", label: "Automatically" },
+  { id: "off", label: "Never" },
+] as const;
 
 const row = "flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2";
 const label = "m-0 text-[14px] font-medium leading-5 text-ink";
@@ -61,6 +67,7 @@ export function About() {
   const check = useCheckUpdate();
   const download = useDownloadUpdate();
   const install = useInstallUpdate();
+  const setAuto = useSetAutoUpdate();
   const [confirming, setConfirming] = useState(false);
 
   if (isPending) return <p className="m-0 text-[13px] text-ink-3">Loading…</p>;
@@ -128,6 +135,17 @@ export function About() {
         )}
       </div>
       {state.available && !state.installable && state.not_installable && <p className="m-0 text-[13px] text-ink-3">{state.not_installable}</p>}
+      {!state.dev && (
+        <div className="mt-4">
+          <SegmentedRow
+            title="Check for updates"
+            description="Automatically asks GitHub shortly after devdeck starts and once a day, and tells you when a new version is out. It never installs without asking."
+            options={AUTO}
+            value={state.auto ? "on" : "off"}
+            onChange={(v) => setAuto.mutate(v === "on")}
+          />
+        </div>
+      )}
     </div>
   );
 }

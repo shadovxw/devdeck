@@ -50,6 +50,9 @@ type Server struct {
 	done     chan error
 	uiHead   string
 	quit     func()
+	updates  *update.Checker
+	// stopUpdates ends the daily update check (Close).
+	stopUpdates context.CancelFunc
 }
 
 // Option changes how a Server is built.
@@ -77,6 +80,10 @@ func New(ctx context.Context, cfg config.Config, version string, opts ...Option)
 		_ = db.Close()
 		return nil, err
 	}
+	// Check for a newer release shortly after start and once a day (Settings → About can turn it off).
+	updCtx, stopUpdates := context.WithCancel(ctx)
+	s.stopUpdates = stopUpdates
+	go s.updates.Run(updCtx)
 	return s, nil
 }
 
@@ -119,6 +126,7 @@ func (s *Server) build(version string) error {
 	s.echo = echo.New()
 	s.echo.HideBanner = true
 	s.echo.HidePort = true
+	s.updates = update.NewChecker(version, cfg.DataDir)
 	api.Register(s.echo, api.Deps{
 		Version:      version,
 		Bus:          bus,
@@ -137,7 +145,7 @@ func (s *Server) build(version string) error {
 		// The themes a person made on the Appearance page.
 		Themes: api.NewThemes(s.db.DB),
 		// Whether a newer release is out (Settings → About). Development builds never ask.
-		Updates: update.NewChecker(version, cfg.DataDir),
+		Updates: s.updates,
 		Quit:    s.quit,
 		UI:      webui.HandlerWithHead(s.uiHead),
 	})
@@ -196,6 +204,9 @@ func (s *Server) Run(ctx context.Context, version string) error {
 // Close stops what devdeck started first, so closing it leaves no processes behind, then
 // everything it opened. It is safe to call once.
 func (s *Server) Close() error {
+	if s.stopUpdates != nil {
+		s.stopUpdates()
+	}
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer stopCancel()
 	s.sup.StopAll(stopCtx)

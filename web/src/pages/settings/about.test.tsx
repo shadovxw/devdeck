@@ -35,6 +35,12 @@ function mockServer(before: UpdateState, after: UpdateState = before, downloaded
         state = downloaded ?? state;
         return json(state);
       }
+      if (path === "/update/auto" && method === "PUT") {
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        posts.push({ path, body });
+        state = { ...state, auto: body.auto };
+        return json(state);
+      }
       if (path === "/update/install" && method === "POST") {
         posts.push({ path, body: init?.body ? JSON.parse(String(init.body)) : undefined });
         return json({ status: "installing" }, 202);
@@ -55,7 +61,7 @@ function renderAbout() {
   );
 }
 
-const base: UpdateState = { current: "0.1.0", dev: false, available: false, installable: true, running_stacks: 0 };
+const base: UpdateState = { current: "0.1.0", dev: false, available: false, installable: true, running_stacks: 0, auto: true };
 const now = () => new Date().toISOString();
 
 afterEach(() => {
@@ -96,7 +102,7 @@ describe("Settings → About", () => {
   });
 
   it("doesn't offer a check on a development build", async () => {
-    mockServer({ current: "0.0.0-dev", dev: true, available: false, installable: false, running_stacks: 0 });
+    mockServer({ current: "0.0.0-dev", dev: true, available: false, installable: false, running_stacks: 0, auto: false });
     renderAbout();
     expect(await screen.findByText(/Development build/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Check now" })).toBeNull();
@@ -142,6 +148,18 @@ describe("Settings → About: installing", () => {
     renderAbout();
     expect(await screen.findByText("This copy wasn't installed with the devdeck installer.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Download update" })).toBeNull();
+  });
+});
+
+describe("Settings → About: checking by itself", () => {
+  it("turns the daily check off and on", async () => {
+    mockServer(base);
+    renderAbout();
+    const never = await screen.findByRole("button", { name: "Never" });
+    expect(screen.getByRole("button", { name: "Automatically" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(never);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Never" }).getAttribute("aria-pressed")).toBe("true"));
+    expect(posts.find((p) => p.path === "/update/auto")?.body).toEqual({ auto: false });
   });
 });
 

@@ -1,6 +1,12 @@
 # Updates: getting a new devdeck
 
-devdeck checks GitHub for a newer release when you ask, and installs it for you.
+devdeck checks GitHub for a newer release by itself once a day, tells you when one is out, and installs it when you say so.
+
+## How you hear about it
+
+Shortly after devdeck starts, and then once a day, it asks GitHub whether a newer version is out. When one is, a toast says so once ("devdeck 0.2.0 is available", with **View**), and the **Settings** item in the sidebar gets a dot until you update. It never installs anything without asking.
+
+To stop the daily check, set **Settings → About → Check for updates** to **Never**. **Check now** still works.
 
 ## Update from devdeck
 
@@ -21,7 +27,7 @@ From a terminal, `devdeck update` does the same steps and asks before installing
 
 ## What it sends
 
-Nothing about you. Checking is one anonymous request to GitHub's public API for the latest release; downloading fetches the release's installer and `SHA256SUMS` from GitHub. GitHub allows 60 such requests an hour per network, so pressing Check now twice within a minute shows the first answer again.
+Nothing about you. Checking (by itself once a day, or when you press Check now) is one anonymous request to GitHub's public API for the latest release; downloading fetches the release's installer and `SHA256SUMS` from GitHub. GitHub allows 60 such requests an hour per network, so pressing Check now twice within a minute shows the first answer again.
 
 ## Check a download by hand
 

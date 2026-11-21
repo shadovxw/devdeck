@@ -24,6 +24,7 @@ type updateAnswer struct {
 //	GET  /update           the last answer, without asking GitHub
 //	POST /update/check     ask GitHub now (a second ask within a minute returns the last answer)
 //	POST /update/download  download the new installer and check it against the release's SHA256SUMS
+//	PUT  /update/auto      {"auto": bool}: check by itself once a day, or not
 //	POST /update/install   {"confirm": true}: start the installer, then quit; the installer starts devdeck again
 //
 // A failed check or download is still a 200: the state carries the reason, and the page shows it.
@@ -44,6 +45,20 @@ func registerUpdate(v1 *echo.Group, u *update.Checker, sup *supervisor.Superviso
 	v1.POST("/update/check", func(c echo.Context) error {
 		s, err := u.Check(c.Request().Context())
 		return answer(c, s, err)
+	})
+	// {"auto": true|false}: check by itself once a day, or only when asked.
+	v1.PUT("/update/auto", func(c echo.Context) error {
+		var body struct {
+			Auto *bool `json:"auto"`
+		}
+		if err := c.Bind(&body); err != nil || body.Auto == nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "send {\"auto\": true} or {\"auto\": false}")
+		}
+		s, err := u.SetAuto(*body.Auto)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "the setting couldn't be saved: "+err.Error())
+		}
+		return answer(c, s, nil)
 	})
 	v1.POST("/update/download", func(c echo.Context) error {
 		s, err := u.Download(c.Request().Context())

@@ -8,6 +8,7 @@ import { useDesktopWindow } from "../lib/desktop";
 import { useReportUiState } from "../lib/ui-state";
 import { useUi } from "../store/ui";
 import { AppSidebar } from "./AppSidebar";
+import { UpdateNotice } from "./UpdateNotice";
 import { WindowControls } from "./WindowControls";
 
 function TopBar() {
@@ -86,6 +87,7 @@ export function Shell() {
           <Outlet />
         </main>
       </div>
+      <UpdateNotice />
     </SidebarProvider>
   );
 }

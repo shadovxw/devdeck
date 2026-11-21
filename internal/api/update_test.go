@@ -123,3 +123,21 @@ func TestUpdateDownloadSaysWhyNot(t *testing.T) {
 		t.Fatalf("state = %+v", s)
 	}
 }
+
+func TestUpdateAutoSetting(t *testing.T) {
+	h := updateServer(t, "0.1.0", 200, demoRelease)
+	if s := updateState(t, callAPI(h, http.MethodGet, "/api/v1/update", "", nil)); !s.Auto {
+		t.Fatalf("automatic checks must be on by default: %+v", s)
+	}
+	if s := updateState(t, callAPI(h, http.MethodPut, "/api/v1/update/auto", `{"auto":false}`, nil)); s.Auto {
+		t.Fatalf("after turning it off: %+v", s)
+	}
+	if s := updateState(t, callAPI(h, http.MethodGet, "/api/v1/update", "", nil)); s.Auto {
+		t.Fatalf("GET after turning it off: %+v", s)
+	}
+	for _, body := range []string{``, `{}`, `{"auto":"no"}`} {
+		if rec := callAPI(h, http.MethodPut, "/api/v1/update/auto", body, nil); rec.Code != http.StatusBadRequest {
+			t.Errorf("body %q: status %d, want 400", body, rec.Code)
+		}
+	}
+}
