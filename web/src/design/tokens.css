@@ -13,6 +13,10 @@
   --scrim: rgba(10, 10, 10, 0.18);
   --hairline: 0; /* border width, zero on purpose so nobody adds one */
 
+  /* Type faces. The Neon look (looks.css) swaps them. */
+  --font-ui: "Geist Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-code: "Geist Mono Variable", ui-monospace, "Cascadia Code", Consolas, monospace;
+
   /* Names older components still use. Cards are no longer different from the page,
      and there are no borders, so --line stays transparent. */
   --surface-1: var(--bg);

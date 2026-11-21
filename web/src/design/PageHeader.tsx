@@ -23,7 +23,7 @@ type Props = {
 export function PageHeader({ title, group, parent, parentTo, actions, description, summary }: Readonly<Props>) {
   return (
     <header className="enter" style={stagger(0)}>
-      <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3">
+      <nav aria-label="Breadcrumb" data-ui="crumbs" className="text-[13px] text-ink-3">
         {[group, parent].filter(Boolean).map((crumb) => (
           <span key={crumb}>
             {crumb === parent && parentTo ? (
@@ -41,7 +41,7 @@ export function PageHeader({ title, group, parent, parentTo, actions, descriptio
         <span className="font-medium text-ink">{title}</span>
       </nav>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h1 className="m-0 text-[30px] font-semibold leading-[34px] tracking-[-0.025em] text-ink">{title}</h1>
+        <h1 data-ui="page-title" className="m-0 text-[30px] font-semibold leading-[34px] tracking-[-0.025em] text-ink">{title}</h1>
         {actions}
       </div>
       {description && <p className="m-0 mt-1 text-[14px] text-ink-3">{description}</p>}

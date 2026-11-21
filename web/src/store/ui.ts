@@ -3,6 +3,22 @@ import { create } from "zustand";
 const SIDEBAR_KEY = "devdeck.sidebar";
 const MOTION_KEY = "devdeck.reduce-motion";
 const GROUPS_KEY = "devdeck.sidebar.groups";
+const LOOK_KEY = "devdeck.look";
+
+/** The style of the app: its type, shape and details. Colours always come from the theme. */
+export type Look = "paper" | "neon";
+
+function readLook(): Look {
+  const v = read(LOOK_KEY);
+  return v === "neon" ? "neon" : "paper";
+}
+
+/** Sets data-look on the page; the Neon rules in design/looks.css hang off it. Paper is no attribute at all. */
+function applyLook(look: Look): void {
+  if (typeof document === "undefined") return;
+  if (look === "paper") delete document.documentElement.dataset.look;
+  else document.documentElement.dataset.look = look;
+}
 
 function read(key: string): string | null {
   try {
@@ -46,6 +62,9 @@ type UiState = {
   /** Reduce motion: on stops loops and turns moves into cuts. Remembered between visits, in this browser. */
   reduceMotion: boolean;
   setReduceMotion: (on: boolean) => void;
+  /** Paper (the default) or Neon. Remembered between visits, in this browser. */
+  look: Look;
+  setLook: (look: Look) => void;
   /** Sidebar expanded (labels) or collapsed (icons). Remembered between visits. */
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -60,6 +79,13 @@ export const useUi = create<UiState>((set, get) => ({
     write(MOTION_KEY, reduceMotion ? "1" : null);
     applyMotion(reduceMotion);
     set({ reduceMotion });
+  },
+
+  look: readLook(),
+  setLook: (look) => {
+    write(LOOK_KEY, look === "paper" ? null : look);
+    applyLook(look);
+    set({ look });
   },
 
   sidebarOpen: readSidebarOpen(),
@@ -78,3 +104,4 @@ export const useUi = create<UiState>((set, get) => ({
 }));
 
 applyMotion(useUi.getState().reduceMotion);
+applyLook(useUi.getState().look);

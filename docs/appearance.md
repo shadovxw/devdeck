@@ -9,6 +9,13 @@ How devdeck looks is set on **Settings → Appearance**. Changes show on the who
 
 Two themes come with devdeck: **Paper** (light, the default) and **Paper Dark**. Choosing a theme makes it the one for its scheme (a dark theme for dark, a light theme for light) and shows it. To change the other scheme's theme, click it in the gallery.
 
+## Style
+
+**Style** sets the type and the small details; your theme still sets every colour.
+
+- **Flat** (the default): Geist, plain titles, no glow.
+- **Neon**: Inter and JetBrains Mono, heavy titles ending in an accent-coloured full stop, upper-case mono labels (`// WORKSPACE`), a glowing diamond on the current page, a faint dot grid, glass menus, and a glow on buttons when you hover them. It works with any theme; it looks best with a dark one.
+
 ## Make your own theme
 
 1. Pick a theme and press **Duplicate & edit**. The built-in themes can't be changed; your copy can.

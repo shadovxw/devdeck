@@ -50,6 +50,7 @@ function ActivePill() {
       // an instant cut when it came from the keyboard.
       transition={keyboard ? { duration: 0 } : springSnappy}
       aria-hidden
+      data-ui="nav-pill"
       className="absolute inset-0 -z-10 bg-sidebar-accent"
     />
   );
@@ -144,6 +145,7 @@ function Group({ group }: { group: NavGroup }) {
       <SidebarGroup className="px-2 py-0.5 group-data-[collapsible=icon]:py-0">
         <SidebarGroupLabel
           asChild
+          data-ui="nav-group"
           className="h-6 cursor-pointer font-mono text-[11px] uppercase tracking-[0.06em] text-ink-3 hover:text-ink group-data-[collapsible=icon]:hidden"
         >
           <CollapsibleTrigger>
@@ -184,7 +186,7 @@ export function AppSidebar() {
             >
               <Logo className="size-6" />
             </NavLink>
-            <span className="text-[15px] font-bold tracking-tight text-brand-dev group-data-[collapsible=icon]:hidden">
+            <span data-ui="wordmark" className="text-[15px] font-bold tracking-tight text-brand-dev group-data-[collapsible=icon]:hidden">
               dev
               <span className="bg-gradient-to-r from-brand-deck-from to-brand-deck-to bg-clip-text text-transparent">deck</span>
             </span>
