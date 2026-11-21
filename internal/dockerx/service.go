@@ -382,6 +382,19 @@ func (s *Service) TagsFor(ctx context.Context, wants []TagWant, limit int) []Rep
 	return out
 }
 
+// Private asks Docker Hub whether the repository is private, signing in with the account.
+func (s *Service) Private(ctx context.Context, a Account, repository string) (bool, error) {
+	tok, err := s.Secrets.Get(SecretName(a.ID))
+	if err != nil {
+		return false, err
+	}
+	jwt, err := s.Hub.Login(ctx, a.Username, tok.Reveal())
+	if err != nil {
+		return false, err
+	}
+	return s.Hub.Private(ctx, jwt, repository)
+}
+
 // TagExists asks Docker Hub whether the repository already has the tag, signing in with the account.
 func (s *Service) TagExists(ctx context.Context, a Account, repository, tag string) (bool, error) {
 	tok, err := s.Secrets.Get(SecretName(a.ID))

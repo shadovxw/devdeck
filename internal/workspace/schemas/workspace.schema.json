@@ -93,6 +93,7 @@
           "items": { "enum": ["linux/amd64", "linux/arm64", "linux/arm/v7"] },
           "description": "What to build for, for example [linux/amd64]. Default: none, so docker builds for the platform of this machine."
         },
+        "cache": { "type": "boolean", "description": "Keep the build cache on Docker Hub (the tag buildcache of the same repository) so the next build starts from it. Default: true, and only used when the Docker Hub repository is private. Set false to turn it off." },
         "account": { "$ref": "#/$defs/id", "description": "A Docker account on this machine to push with, instead of the one that owns the namespace." },
         "secrets": {
           "type": "array",

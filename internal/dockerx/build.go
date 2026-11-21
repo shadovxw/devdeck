@@ -39,6 +39,9 @@ var ErrBusy = errors.New("this image is already being built: wait for it to fini
 // ErrNoDocker means the docker program wasn't found.
 var ErrNoDocker = errors.New("the docker program isn't installed or isn't on the PATH: install Docker Desktop and start it")
 
+// CacheTag is the tag of a repository that holds its build cache. It is not an image: the tag lists leave it out.
+const CacheTag = "buildcache"
+
 // Secret is one build secret: what the Dockerfile asks for, and its value.
 type Secret struct {
 	ID    string
@@ -58,7 +61,11 @@ type Spec struct {
 	Platforms []string
 	// Revision is the git commit, recorded in the image's labels.
 	Revision string
-	Account  Account
+	// Cache keeps the build cache in the registry, as the tag CacheTag of Repository: the build starts from it and
+	// writes it back. The caller turns it on only for a private repository, because the cache holds every stage
+	// of the build, source code included.
+	Cache   bool
+	Account Account
 	// Secrets are build secrets, handed to BuildKit through the environment of the docker
 	// process alone: never on a command line, never in a file.
 	Secrets []Secret
@@ -169,6 +176,11 @@ func (s Spec) plan() (*plan, error) {
 		args = append(args, "--secret", "id="+sec.ID+",env="+name)
 		pl.env = append(pl.env, name+"="+sec.Value.Reveal())
 		pl.maskEnv = append(pl.maskEnv, name+"="+sec.Value.Reveal())
+	}
+	if s.Cache {
+		// ignore-error: a cache that can't be written (offline, a full quota) must not fail a build that worked.
+		ref := "type=registry,ref=" + s.Repository + ":" + CacheTag
+		args = append(args, "--cache-from", ref, "--cache-to", ref+",mode=max,ignore-error=true")
 	}
 	pl.args = append(args, "--push", buildContext)
 	return pl, nil

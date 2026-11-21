@@ -364,14 +364,14 @@ func registerImages(g *echo.Group, svc *dockerx.Service, m *workspace.Manager, g
 			return echo.NewHTTPError(http.StatusConflict, err.Error())
 		}
 
-		var note string
+		var notes []string
 		if !body.Overwrite {
 			cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			exists, err := svc.TagExists(cctx, acct, t.image.Repository, body.Tag)
 			cancel()
 			switch {
 			case err != nil:
-				note = "devdeck couldn't check whether the tag already exists on Docker Hub (" + err.Error() + "), so it will push anyway."
+				notes = append(notes, "devdeck couldn't check whether the tag already exists on Docker Hub ("+err.Error()+"), so it will push anyway.")
 			case exists:
 				return c.JSON(http.StatusConflict, map[string]any{
 					"message": t.image.Repository + ":" + body.Tag + " already exists on Docker Hub: building pushes over it.",
@@ -379,6 +379,9 @@ func registerImages(g *echo.Group, svc *dockerx.Service, m *workspace.Manager, g
 				})
 			}
 		}
+
+		useCache, cacheNote := cachePlan(ctx, svc, acct, t.image)
+		notes = append(notes, cacheNote)
 
 		revision, dirty := repoHead(ctx, git, t.dir)
 		started := time.Now()
@@ -395,8 +398,10 @@ func registerImages(g *echo.Group, svc *dockerx.Service, m *workspace.Manager, g
 			_ = enc.Encode(v)
 			w.Flush()
 		}
-		if note != "" {
-			send(map[string]string{"line": note})
+		for _, n := range notes {
+			if n != "" {
+				send(map[string]string{"line": n})
+			}
 		}
 
 		bctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), buildLimit)
@@ -404,7 +409,7 @@ func registerImages(g *echo.Group, svc *dockerx.Service, m *workspace.Manager, g
 		berr := svc.Builder.Build(bctx, dockerx.Spec{
 			Dir: t.dir, Repository: t.image.Repository, Tag: body.Tag,
 			Dockerfile: t.image.Dockerfile, Context: t.image.Context, Platforms: t.image.Platforms,
-			Revision: revision, Account: acct, Secrets: sec,
+			Revision: revision, Cache: useCache, Account: acct, Secrets: sec,
 		}, func(line string) { send(map[string]string{"line": line}) })
 
 		rec := dockerx.Build{
@@ -424,6 +429,25 @@ func registerImages(g *echo.Group, svc *dockerx.Service, m *workspace.Manager, g
 		send(done)
 		return nil
 	})
+}
+
+// cachePlan says whether a build keeps its cache on Docker Hub, and the line to show about it. The cache holds
+// every stage of the build, source code included, so it is used only when the repository is private (a public
+// one would publish the code) and the image hasn't turned it off with cache: false.
+func cachePlan(ctx context.Context, svc *dockerx.Service, acct dockerx.Account, image workspace.Image) (bool, string) {
+	if image.Cache != nil && !*image.Cache {
+		return false, ""
+	}
+	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	private, err := svc.Private(cctx, acct, image.Repository)
+	switch {
+	case err != nil:
+		return false, "Build cache is off: devdeck couldn't check whether " + image.Repository + " is private on Docker Hub (" + oneLine(err) + ")."
+	case !private:
+		return false, "Build cache is off: " + image.Repository + " is not a private repository on Docker Hub (or doesn't exist yet), and the cache would hold the build's source code. It is used from the next build once the repository is private."
+	}
+	return true, "Build cache is on: kept as " + image.Repository + ":" + dockerx.CacheTag + " on Docker Hub."
 }
 
 // repoHead is the commit a repository has checked out, and whether it has uncommitted changes.

@@ -101,6 +101,9 @@ type Image struct {
 	Context string `yaml:"context,omitempty" json:"context,omitempty"`
 	// Platforms are what the image is built for (linux/amd64 when empty).
 	Platforms []string `yaml:"platforms,omitempty" json:"platforms,omitempty"`
+	// Cache says whether a build keeps its cache on Docker Hub, as the tag "buildcache" of the same repository,
+	// so the next build (on any machine) starts from it. On unless it is false, and only for a private repository.
+	Cache *bool `yaml:"cache,omitempty" json:"cache,omitempty"`
 	// Account is the id of a Docker account on this machine, to use instead of picking by namespace.
 	Account string `yaml:"account,omitempty" json:"account,omitempty"`
 	// Secrets are build secrets the Dockerfile asks for (RUN --mount=type=secret,id=...).

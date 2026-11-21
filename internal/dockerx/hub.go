@@ -159,7 +159,7 @@ func (h *Hub) Tags(ctx context.Context, jwt, repository string, limit int) ([]Ta
 	}
 	tags := make([]Tag, 0, len(page.Results))
 	for _, r := range page.Results {
-		if !ValidTag(r.Name) {
+		if !ValidTag(r.Name) || r.Name == CacheTag {
 			continue
 		}
 		tags = append(tags, Tag{Name: r.Name, PushedAt: cmp.Or(r.LastPushed, r.LastUpdated), Size: r.FullSize})
@@ -170,6 +170,27 @@ func (h *Hub) Tags(ctx context.Context, jwt, repository string, limit int) ([]Ta
 		tags = tags[:limit]
 	}
 	return tags, nil
+}
+
+// Private reports whether the repository exists and is private. A repository that doesn't exist yet is not
+// private: Docker Hub makes it with its own default when the first image is pushed.
+func (h *Hub) Private(ctx context.Context, jwt, repository string) (bool, error) {
+	if !ValidRepository(repository) {
+		return false, fmt.Errorf("%q isn't a Docker Hub repository", repository)
+	}
+	var repo struct {
+		Private bool `json:"is_private"`
+	}
+	code, err := h.do(ctx, http.MethodGet, "/v2/repositories/"+repository+"/", jwt, nil, &repo)
+	switch {
+	case err != nil:
+		return false, err
+	case code == http.StatusOK:
+		return repo.Private, nil
+	case code == http.StatusNotFound:
+		return false, nil
+	}
+	return false, fmt.Errorf("looking at the repository failed: Docker Hub answered %d", code)
 }
 
 // TagExists reports whether the repository already has the tag. A repository that doesn't
