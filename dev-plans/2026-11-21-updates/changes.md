@@ -39,3 +39,5 @@ Checked here: `go vet ./...`, `gofmt`, web typecheck, lint and all 568 web tests
 Checked here: `go vet` (Windows, `-tags desktop`, and `GOOS=linux`), `gofmt`, web typecheck, lint, 571 web tests. **Not run here:** the Go tests (Smart App Control blocks the Go linker on this PC); CI runs them. **Not tried for real yet:** an actual update, which needs two releases (one with the updater, then a newer one).
 
 Semgrep (`dangerous-exec-command`) flagged the `exec.Command` that starts the installer. Marked with `nosemgrep` and the reason, as `internal/mcp` and `internal/review` do: the path is only ever the file `Install` saved in the updates folder and just matched against `SHA256SUMS`, and the arguments are fixed.
+
+SonarQube's three new issues on the PR, fixed: the `devdeck update` table test's checks moved into a helper (cognitive complexity 17 → under 15); the confirmation button's label worked out before the JSX instead of a nested ternary; the "Installing…" line is an `<output>` instead of `<p role="status">`.

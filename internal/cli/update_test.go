@@ -99,19 +99,28 @@ func TestUpdateCommand(t *testing.T) {
 			if code != tt.code || !strings.Contains(out+errOut, tt.out) {
 				t.Fatalf("code %d, out %q, err %q; want %d and %q", code, out, errOut, tt.code, tt.out)
 			}
-			f.mu.Lock()
-			defer f.mu.Unlock()
-			if f.downloads != tt.downloads {
-				t.Errorf("downloads = %d, want %d", f.downloads, tt.downloads)
-			}
-			if tt.installed {
-				var body map[string]bool
-				if len(f.installs) != 1 || json.Unmarshal([]byte(f.installs[0]), &body) != nil || !body["confirm"] {
-					t.Errorf("installs = %v, want one with confirm true", f.installs)
-				}
-			} else if len(f.installs) != 0 {
-				t.Errorf("installed without being asked: %v", f.installs)
-			}
+			f.assertCalls(t, tt.downloads, tt.installed)
 		})
+	}
+}
+
+// assertCalls checks what the command asked the server for: how many downloads, and one install
+// with {"confirm": true} when installed, none otherwise.
+func (f *updateFake) assertCalls(t *testing.T, downloads int, installed bool) {
+	t.Helper()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.downloads != downloads {
+		t.Errorf("downloads = %d, want %d", f.downloads, downloads)
+	}
+	if !installed {
+		if len(f.installs) != 0 {
+			t.Errorf("installed without being asked: %v", f.installs)
+		}
+		return
+	}
+	var body map[string]bool
+	if len(f.installs) != 1 || json.Unmarshal([]byte(f.installs[0]), &body) != nil || !body["confirm"] {
+		t.Errorf("installs = %v, want one with confirm true", f.installs)
 	}
 }

@@ -35,15 +35,17 @@ function Status({ state }: Readonly<{ state: UpdateState }>) {
 /** The confirmation before installing: devdeck closes, so say what that stops. */
 function ConfirmInstall({ state, onInstall, onCancel, busy }: Readonly<{ state: UpdateState; onInstall: () => void; onCancel: () => void; busy: boolean }>) {
   const n = state.running_stacks;
+  const stacks = `${n} stack${n === 1 ? "" : "s"}`;
+  const installLabel = n > 0 ? `Stop ${stacks} and install` : "Install and restart";
   return (
     <div role="alertdialog" aria-label="Install the update" className="flex flex-col gap-3 bg-inset px-3.5 py-3">
       <p className="m-0 text-[13px] text-ink">
         Install devdeck {state.ready}? devdeck closes, updates and opens again.
-        {n > 0 && ` This stops ${n} running stack${n === 1 ? "" : "s"}.`}
+        {n > 0 && ` This stops ${n} running ${n === 1 ? "stack" : "stacks"}.`}
       </p>
       <span className="flex flex-wrap gap-2">
         <Button onClick={onInstall} disabled={busy}>
-          {n > 0 ? `Stop ${n} stack${n === 1 ? "" : "s"} and install` : "Install and restart"}
+          {installLabel}
         </Button>
         <Button variant="ghost" onClick={onCancel} disabled={busy}>
           Cancel
@@ -66,9 +68,9 @@ export function About() {
 
   if (install.isSuccess) {
     return (
-      <p role="status" className="m-0 text-[13px] text-ink">
+      <output className="m-0 block text-[13px] text-ink">
         Installing devdeck {state.ready}. devdeck closes now and opens again when the update is done.
-      </p>
+      </output>
     );
   }
 
