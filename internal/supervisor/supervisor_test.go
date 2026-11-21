@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -48,14 +49,39 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// Test ports come from 20000–29999, below every system's ephemeral range (Linux 32768+, Windows
+// and macOS 49152+). The port is checked free and released, and a fake service listens on it a
+// moment later. Taken from the ephemeral range (127.0.0.1:0), that moment was long enough for
+// another package's test server, running in parallel, to be handed the same port, and the fake
+// service then couldn't listen. The system never hands out ports from this range by itself.
+const (
+	firstTestPort = 20000
+	lastTestPort  = 29999
+)
+
+// nextPort is the last port freePort gave out. Each test gets a new one, so a port still closing
+// from an earlier test is never reused. It starts at a place that depends on the process, so two
+// runs of this package at once (two checkouts) rarely meet.
+var nextPort atomic.Int32
+
 func freePort(t *testing.T) int {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+	nextPort.CompareAndSwap(0, int32(firstTestPort+os.Getpid()%(lastTestPort-firstTestPort)))
+	for range lastTestPort - firstTestPort {
+		p := int(nextPort.Add(1))
+		if p > lastTestPort {
+			nextPort.Store(firstTestPort)
+			continue
+		}
+		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
+		if err != nil {
+			continue // in use: try the next one
+		}
+		_ = l.Close()
+		return p
 	}
-	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port
+	t.Fatalf("no free port between %d and %d", firstTestPort, lastTestPort)
+	return 0
 }
 
 // fakeService describes a stand-in service made with fakesvc's flags.
