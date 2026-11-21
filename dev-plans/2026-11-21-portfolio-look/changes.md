@@ -19,3 +19,16 @@ Owner's answers recorded in the plan (§8): refine Neon, match the mockup (nav r
 - **Moved to P2:** `Tag`, with the other shared pieces.
 
 Checked: typecheck, lint, all 575 web tests (the Docs page test once took 8 s under load and timed out; it passes alone and in a second full run). In the browser: Neon Home and Settings match the mockups' shell; Flat compared by eye with its earlier screenshot: unchanged except the group names.
+
+## 2026-11-22: P2, the shared pieces
+
+- New in `web/src/design/`, each tested in `pieces.test.tsx` (14 tests):
+  - **`SectionHeader`**: `[01] $ UP  STACKS ─── TOTAL_STACKS: 04` and an optional display heading whose last word gets the accent gradient. Neon only (`look-neon`): Flat has no such header, so Flat pages don't change.
+  - **`Panel`**: a named section with its heading, an optional Neon-only kicker (`02 $`) and an action. Flat draws exactly what pages drew before (a small heading over the content, no box); Neon draws the theme's card colour with a mono label row.
+  - **`StatusStrip`**: `KEY:: VALUE` pairs in a `<dl>`; Neon colours the value by its meaning (ok, live, warn, bad), Flat shows plain text. The word always carries the meaning.
+  - **`StageRail`**: marks joined by a line, labels under them, and a screen-reader summary ("3 of 5 stages done, next: Migrate"; "stuck at" when warning). Flat: small squares, filled in ink; Neon: diamonds, filled in the accent (the warning colour when stuck).
+  - **`Tag`**: a status word; Flat adds a status dot, Neon draws a thin box in the status colour.
+- **`web/src/design/pieces.css`** (imported after `looks.css`): the base marks for `StageRail` and every piece's Neon look, from theme tokens only.
+- **Home** uses `SectionHeader` (Neon) above the running stacks and `Panel` for the "Now" column. The rest of Home's layout is P3.
+
+Checked: typecheck, lint, all 589 web tests. In the browser, with a throwaway demo workspace running two small Node services (in the git-ignored dev data folder, `.devdeck/data`): Neon Home shows the section header and the panel; Flat Home compared with the committed `HomePage.tsx` swapped back in for a moment: identical apart from the uptime counter.

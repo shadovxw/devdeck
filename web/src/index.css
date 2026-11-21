@@ -3,6 +3,7 @@
 @import "./design/theme.css";
 @import "./design/motion.css";
 @import "./design/looks.css";
+@import "./design/pieces.css";
 
 /* Tokens and the loading page come from boot.css, linked in index.html. */
 

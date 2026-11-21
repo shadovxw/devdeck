@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { navByPath } from "../app/nav";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
+import { Panel } from "../design/Panel";
+import { SectionHeader } from "../design/SectionHeader";
 import { ServiceStateMark } from "../design/ServiceStateMark";
 import { StatusDot } from "../design/StatusDot";
 import { stagger } from "../lib/motion";
@@ -219,6 +221,7 @@ export function HomePage() {
 
       <div className="enter mt-12 flex flex-wrap gap-x-14 gap-y-12" style={stagger(1)}>
         <div className="flex min-w-[min(560px,100%)] flex-[2] flex-col gap-12">
+          <SectionHeader index="01" verb="UP" name="STACKS" count={{ label: "TOTAL_STACKS", value: String(t.stacks).padStart(2, "0") }} title="Running stacks" />
           {list.map((run) => (
             <RunServices
               key={`${run.workspace}/${run.stack}`}
@@ -230,8 +233,7 @@ export function HomePage() {
           ))}
         </div>
 
-        <section aria-label="Now" className="min-w-[min(300px,100%)] flex-1">
-          <h2 className="m-0 mb-5 text-[14px] font-semibold leading-5 text-ink">Now</h2>
+        <Panel title="Now" kicker="02 $" className="min-w-[min(300px,100%)] flex-1">
           <dl className="m-0 flex flex-col gap-10">
             <Metric label="Stacks running">{t.stacks}</Metric>
             <Metric label="Services ready">
@@ -243,7 +245,7 @@ export function HomePage() {
               <span className="text-[14px] font-medium tracking-normal">{socket === "open" ? "On" : "Reconnecting…"}</span>
             </Metric>
           </dl>
-        </section>
+        </Panel>
       </div>
     </>
   );
