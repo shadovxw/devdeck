@@ -18,3 +18,7 @@ Not done yet (later slices of the plan): effects level (Off / Reduced / Full), g
 ## 2026-11-21: golang.org/x/net 0.62.0
 
 CI (trivy, govulncheck) failed on this PR because of a new HIGH advisory in `golang.org/x/net` 0.60.0 (CVE-2026-78661, a denial of service in `x/net/html`), not because of the style change. Bumped to 0.62.0; `x/crypto` and `x/text` moved with it.
+
+## 2026-11-21: Go 1.26.11
+
+govulncheck then flagged GO-2026-6859, a crash in Go's own `net/http` (an HTTP/1 server can panic when `MaxBytesReader`'s limit is hit), fixed in Go 1.26.11. `go.mod` now says `go 1.26.11`, which CI installs.
