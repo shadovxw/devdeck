@@ -14,3 +14,7 @@ The owner asked for the look of their portfolio mockups (kept privately in `tmp/
 - `CLAUDE.md` UI rules and `docs/appearance.md` say what Neon may do.
 
 Not done yet (later slices of the plan): effects level (Off / Reduced / Full), glitch, spring, grain, scanlines, live background, the gradient word in section headings.
+
+## 2026-11-21: golang.org/x/net 0.62.0
+
+CI (trivy, govulncheck) failed on this PR because of a new HIGH advisory in `golang.org/x/net` 0.60.0 (CVE-2026-78661, a denial of service in `x/net/html`), not because of the style change. Bumped to 0.62.0; `x/crypto` and `x/text` moved with it.
