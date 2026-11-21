@@ -9,9 +9,10 @@ import { checkedAgo, type UpdateState } from "../../lib/update";
 import { useUi } from "../../store/ui";
 
 const checks: string[] = [];
+const posts: { path: string; body?: unknown }[] = [];
 
-/** A server whose GET /update answers `before` and whose POST /update/check answers `after`. */
-function mockServer(before: UpdateState, after: UpdateState = before) {
+/** A server whose GET /update answers `before`, POST /update/check `after`, and POST /update/download `downloaded`. */
+function mockServer(before: UpdateState, after: UpdateState = before, downloaded?: UpdateState) {
   let state = before;
   vi.stubGlobal(
     "fetch",
@@ -29,6 +30,15 @@ function mockServer(before: UpdateState, after: UpdateState = before) {
         state = after;
         return json(state);
       }
+      if (path === "/update/download" && method === "POST") {
+        posts.push({ path });
+        state = downloaded ?? state;
+        return json(state);
+      }
+      if (path === "/update/install" && method === "POST") {
+        posts.push({ path, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        return json({ status: "installing" }, 202);
+      }
       return json({ message: "not found" }, 404);
     }),
   );
@@ -45,7 +55,7 @@ function renderAbout() {
   );
 }
 
-const base: UpdateState = { current: "0.1.0", dev: false, available: false };
+const base: UpdateState = { current: "0.1.0", dev: false, available: false, installable: true, running_stacks: 0 };
 const now = () => new Date().toISOString();
 
 afterEach(() => {
@@ -55,6 +65,7 @@ afterEach(() => {
   useUi.setState({ sidebarOpen: false, closedGroups: [] });
   vi.unstubAllGlobals();
   checks.length = 0;
+  posts.length = 0;
 });
 
 describe("Settings → About", () => {
@@ -85,10 +96,52 @@ describe("Settings → About", () => {
   });
 
   it("doesn't offer a check on a development build", async () => {
-    mockServer({ current: "0.0.0-dev", dev: true, available: false });
+    mockServer({ current: "0.0.0-dev", dev: true, available: false, installable: false, running_stacks: 0 });
     renderAbout();
     expect(await screen.findByText(/Development build/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Check now" })).toBeNull();
+  });
+});
+
+describe("Settings → About: installing", () => {
+  const available: UpdateState = {
+    ...base,
+    latest: "0.2.0",
+    available: true,
+    url: "https://github.com/acme/demo-app/releases/tag/v0.2.0",
+    checked_at: new Date().toISOString(),
+  };
+
+  it("downloads, asks first (saying what it stops), then installs", async () => {
+    mockServer({ ...available, running_stacks: 2 }, undefined, { ...available, ready: "0.2.0", running_stacks: 2 });
+    renderAbout();
+    fireEvent.click(await screen.findByRole("button", { name: "Download update" }));
+    expect(await screen.findByText("devdeck 0.2.0 is downloaded and ready to install.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Install and restart" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Install the update" });
+    expect(dialog.textContent).toContain("This stops 2 running stacks.");
+    expect(posts.filter((p) => p.path === "/update/install")).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop 2 stacks and install" }));
+    expect((await screen.findByRole("status")).textContent).toContain("Installing devdeck 0.2.0");
+    expect(posts.find((p) => p.path === "/update/install")?.body).toEqual({ confirm: true });
+  });
+
+  it("can cancel the confirmation", async () => {
+    mockServer({ ...available, ready: "0.2.0" });
+    renderAbout();
+    fireEvent.click(await screen.findByRole("button", { name: "Install and restart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(posts).toHaveLength(0);
+  });
+
+  it("says why a copy can't update itself, and offers no download", async () => {
+    mockServer({ ...available, installable: false, not_installable: "This copy wasn't installed with the devdeck installer." });
+    renderAbout();
+    expect(await screen.findByText("This copy wasn't installed with the devdeck installer.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Download update" })).toBeNull();
   });
 });
 

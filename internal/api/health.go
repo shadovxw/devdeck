@@ -59,8 +59,12 @@ type Deps struct {
 	Claude *Claude
 	// Themes is optional: it adds the Appearance page's routes and keeps the themes a person made.
 	Themes *Themes
-	// Updates is optional: it adds Settings → About's routes, which say whether a newer release exists.
+	// Updates is optional: it adds Settings → About's routes, which say whether a newer release exists
+	// and install it.
 	Updates *update.Checker
+	// Quit is optional: it closes devdeck the way its Quit does (stacks stopped first). Installing an update
+	// calls it once the installer has started; without it the installer closes devdeck itself.
+	Quit func()
 	// UI is optional: the built web app, served for every path the API doesn't use. A
 	// build without it (tests, the remote agent) answers 404 there, as before.
 	UI http.Handler
@@ -127,7 +131,7 @@ func registerStandalone(v1 *echo.Group, d Deps) {
 		registerSystem(v1, d.FolderPicker)
 	}
 	if d.Updates != nil {
-		registerUpdate(v1, d.Updates)
+		registerUpdate(v1, d.Updates, d.Supervisor, d.Quit)
 	}
 }
 

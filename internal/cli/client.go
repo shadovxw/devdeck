@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -61,9 +62,25 @@ func stackPath(ws, stack string) string {
 // do sends one request. It returns nil when the answer is want (decoding the
 // body into out when out is set) and an *apiError for any other answer.
 func (c *client) do(ctx context.Context, method, path string, want int, out any) error {
-	req, err := http.NewRequestWithContext(ctx, method, c.base+path, nil)
+	return c.send(ctx, method, path, nil, want, out)
+}
+
+// send is do with a JSON body (nil for none).
+func (c *client) send(ctx context.Context, method, path string, in any, want int, out any) error {
+	var reqBody io.Reader
+	if in != nil {
+		b, err := json.Marshal(in)
+		if err != nil {
+			return err
+		}
+		reqBody = bytes.NewReader(b)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, reqBody)
 	if err != nil {
 		return err
+	}
+	if in != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {

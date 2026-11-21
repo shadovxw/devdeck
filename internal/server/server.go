@@ -49,6 +49,7 @@ type Server struct {
 	tunnels  *remote.Tunnels
 	done     chan error
 	uiHead   string
+	quit     func()
 }
 
 // Option changes how a Server is built.
@@ -57,6 +58,10 @@ type Option func(*Server)
 // WithUIHead adds head (script tags) to the end of the <head> of the web app it serves.
 // The desktop window uses it to load its runtime into the page.
 func WithUIHead(head string) Option { return func(s *Server) { s.uiHead = head } }
+
+// WithQuit is how devdeck closes itself: after starting an update's installer, the API calls it.
+// The window passes its Quit; devdeck serve passes the cancel of its context.
+func WithQuit(quit func()) Option { return func(s *Server) { s.quit = quit } }
 
 // New opens everything and builds the HTTP handler. Nothing listens until Start.
 func New(ctx context.Context, cfg config.Config, version string, opts ...Option) (*Server, error) {
@@ -132,7 +137,8 @@ func (s *Server) build(version string) error {
 		// The themes a person made on the Appearance page.
 		Themes: api.NewThemes(s.db.DB),
 		// Whether a newer release is out (Settings → About). Development builds never ask.
-		Updates: update.NewChecker(version),
+		Updates: update.NewChecker(version, cfg.DataDir),
+		Quit:    s.quit,
 		UI:      webui.HandlerWithHead(s.uiHead),
 	})
 	return nil

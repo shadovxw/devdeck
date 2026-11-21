@@ -12,7 +12,7 @@ import (
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 
 // order lists the guides to show first, in this order; any others follow by name.
-var order = []string{"claude-quickstart", "teammate-setup", "workspace-editor", "docker-builds", "remote-versions", "claude-connector", "features", "appearance"}
+var order = []string{"claude-quickstart", "teammate-setup", "workspace-editor", "docker-builds", "remote-versions", "claude-connector", "features", "appearance", "updates"}
 
 // Entry is one guide in the list.
 type Entry struct {

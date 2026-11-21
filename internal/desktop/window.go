@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -43,6 +44,13 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 	server.SetLogLevel(cfg)
 
 	var srv *server.Server
+	// The window's context, once it has started: what quitting (after an update's installer starts) needs.
+	var wctxHeld atomic.Pointer[context.Context]
+	quit := func() {
+		if c := wctxHeld.Load(); c != nil {
+			runtime.Quit(*c)
+		}
+	}
 	var closeOnce sync.Once
 	closeServer := func() {
 		closeOnce.Do(func() {
@@ -57,7 +65,7 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 		log.Info().Str("addr", cfg.Addr).Msg("a devdeck server is already running: the window uses it")
 	} else {
 		var err error
-		if srv, err = server.New(ctx, cfg, version, server.WithUIHead(runtimeHead)); err != nil {
+		if srv, err = server.New(ctx, cfg, version, server.WithUIHead(runtimeHead), server.WithQuit(quit)); err != nil {
 			return err
 		}
 		if err := srv.Start(version); err != nil {
@@ -100,7 +108,10 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 				runtime.Show(wctx)
 			},
 		},
-		OnStartup: func(c context.Context) { wctx = c },
+		OnStartup: func(c context.Context) {
+			wctx = c
+			wctxHeld.Store(&c)
+		},
 		OnBeforeClose: func(c context.Context) bool {
 			w, h := runtime.WindowGetSize(c)
 			SaveSize(cfg.DataDir, Size{Width: w, Height: h})
