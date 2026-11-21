@@ -37,3 +37,5 @@ Checked here: `go vet ./...`, `gofmt`, web typecheck, lint and all 568 web tests
 - `docs/updates.md` (new, in the in-app Docs): how to update, when devdeck can't, what it sends, checking a download by hand, the Windows warnings.
 
 Checked here: `go vet` (Windows, `-tags desktop`, and `GOOS=linux`), `gofmt`, web typecheck, lint, 571 web tests. **Not run here:** the Go tests (Smart App Control blocks the Go linker on this PC); CI runs them. **Not tried for real yet:** an actual update, which needs two releases (one with the updater, then a newer one).
+
+Semgrep (`dangerous-exec-command`) flagged the `exec.Command` that starts the installer. Marked with `nosemgrep` and the reason, as `internal/mcp` and `internal/review` do: the path is only ever the file `Install` saved in the updates folder and just matched against `SHA256SUMS`, and the arguments are fixed.

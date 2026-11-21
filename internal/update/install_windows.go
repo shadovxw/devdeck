@@ -19,7 +19,7 @@ const (
 // startInstaller runs the Inno Setup installer without its wizard, closing devdeck if it is still
 // open and starting it again afterwards (installer/devdeck.iss), and returns at once.
 func startInstaller(installer, logFile string) error {
-	cmd := exec.Command(installer, // #nosec G204 -- the installer devdeck downloaded and checked
+	cmd := exec.Command(installer, // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- installer is the file Install saved in devdeck's own updates folder and just matched against the release's SHA256SUMS; the arguments are fixed
 		"/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
 		"/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS",
 		"/LOG="+logFile,
