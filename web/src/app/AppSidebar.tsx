@@ -26,6 +26,20 @@ import { useInputMode } from "../lib/input-mode";
 import { springSnappy } from "../lib/motion";
 import { useUi } from "../store/ui";
 import { NAV, type NavGroup, type NavItem } from "./nav";
+import { useUpdateAvailable } from "./UpdateNotice";
+
+/** A dot on the Settings row when a newer devdeck is out (Settings → About installs it). */
+function UpdateDot() {
+  const available = useUpdateAvailable();
+  if (!available) return null;
+  return (
+    <span
+      aria-label="Update available"
+      title="A newer devdeck is out: Settings → About"
+      className="ms-auto size-1.5 shrink-0 rounded-full bg-primary group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:end-1 group-data-[collapsible=icon]:top-1"
+    />
+  );
+}
 
 const loadMotionFeatures = () => import("../lib/motion-features").then((mod) => mod.default);
 
@@ -74,6 +88,7 @@ function Page({ item }: { item: NavItem }) {
         {pathname === item.path && <ActivePill />}
         <item.icon strokeWidth={1.7} />
         <span>{item.label}</span>
+        {item.path === "/settings" && <UpdateDot />}
       </NavLink>
     </SidebarMenuButton>
   );

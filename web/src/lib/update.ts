@@ -22,12 +22,24 @@ export type UpdateState = {
   ready?: string;
   /** Stacks running now: installing stops them. */
   running_stacks: number;
+  /** Check by itself shortly after start and once a day. */
+  auto: boolean;
 };
 
 const key = ["update"] as const;
 
+/** The server checks by itself once a day; the page asks for its answer every half hour, so a new release shows without a reload. */
 export function useUpdate() {
-  return useQuery({ queryKey: key, queryFn: ({ signal }) => api.get<UpdateState>("/update", signal) });
+  return useQuery({ queryKey: key, queryFn: ({ signal }) => api.get<UpdateState>("/update", signal), refetchInterval: 30 * 60_000 });
+}
+
+/** Turns the automatic check on or off. */
+export function useSetAutoUpdate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (auto: boolean) => api.put<UpdateState>("/update/auto", { auto }),
+    onSuccess: (state) => client.setQueryData(key, state),
+  });
 }
 
 /** Asks GitHub now. A failed check still answers, with `error` set. */

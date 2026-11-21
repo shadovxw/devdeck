@@ -63,6 +63,8 @@ type State struct {
 	NotInstallable string `json:"not_installable,omitempty"`
 	// Ready is the version whose installer is downloaded and checked, waiting to be installed.
 	Ready string `json:"ready,omitempty"`
+	// Auto is "check for updates automatically": shortly after start and once a day (auto.go).
+	Auto bool `json:"auto"`
 }
 
 // Options are where a Checker asks, downloads and installs. The zero value of a field means the
@@ -78,7 +80,12 @@ type Options struct {
 	Exe string
 	// Start runs the installer and returns at once (startInstaller).
 	Start func(installer, logFile string) error
-	now   func() time.Time
+
+	// For tests: the clock, and the waits of the automatic check (auto.go).
+	now        func() time.Time
+	after      func(time.Duration) <-chan time.Time
+	startDelay time.Duration
+	wakeEvery  time.Duration
 }
 
 // Checker asks GitHub and remembers the answer. Safe for concurrent use.
@@ -119,6 +126,15 @@ func NewCheckerFor(current string, o Options) *Checker {
 	if o.now == nil {
 		o.now = time.Now
 	}
+	if o.after == nil {
+		o.after = time.After
+	}
+	if o.startDelay == 0 {
+		o.startDelay = startDelay
+	}
+	if o.wakeEvery == 0 {
+		o.wakeEvery = wakeEvery
+	}
 	o.API = strings.TrimSuffix(o.API, "/")
 	o.Downloads = strings.TrimSuffix(o.Downloads, "/")
 
@@ -127,6 +143,7 @@ func NewCheckerFor(current string, o Options) *Checker {
 	c.state = State{Current: current, Dev: err != nil}
 	c.state.NotInstallable = whyNotInstallable(c.state.Dev, o.Exe)
 	c.state.Installable = c.state.NotInstallable == ""
+	c.state.Auto = loadAuto(o.Dir)
 	return c
 }
 

@@ -41,3 +41,13 @@ Checked here: `go vet` (Windows, `-tags desktop`, and `GOOS=linux`), `gofmt`, we
 Semgrep (`dangerous-exec-command`) flagged the `exec.Command` that starts the installer. Marked with `nosemgrep` and the reason, as `internal/mcp` and `internal/review` do: the path is only ever the file `Install` saved in the updates folder and just matched against `SHA256SUMS`, and the arguments are fixed.
 
 SonarQube's three new issues on the PR, fixed: the `devdeck update` table test's checks moved into a helper (cognitive complexity 17 → under 15); the confirmation button's label worked out before the JSX instead of a nested ternary; the "Installing…" line is an `<output>` instead of `<p role="status">`.
+
+## 2026-11-21: U4, check by itself and say so
+
+- `internal/update/auto.go` (new): `Run` checks a minute after start and then whenever the last check is a day old, waking every hour (so a laptop that slept catches up), while automatic checks are on; a development build returns at once. The on/off choice is `settings.json` in the updates folder (on unless turned off), so `devdeck serve` and the window share it. `State.auto` reports it; `SetAuto` changes it. Tests drive the loop with a hand-made clock (`auto_test.go`).
+- `internal/server`: starts `Run` with the server and stops it in `Close`.
+- `internal/api/update.go`: `PUT /api/v1/update/auto` `{"auto": bool}` (400 for anything else).
+- Web: `sonner` 2.0.8 (exact; the design system's toast library, not used before). `app/UpdateNotice.tsx` shows "devdeck X is available" once per version (this browser remembers which, `devdeck.update.toasted`), with **View** → Settings → About; the toasts are unstyled sonner drawn with theme tokens (surface-float, shadow-float, square). A dot on the sidebar's Settings row while an update is out. The page re-reads `/update` every 30 minutes. Settings → About gets **Check for updates: Automatically / Never**.
+- `docs/updates.md`: how you hear about an update, and turning the check off.
+
+Checked here: `go vet` (Windows, desktop, Linux), `gofmt`, web typecheck, lint, 575 web tests. Not run here: the Go tests (CI). Not seen yet in the real app: the toast's look, since the dev server here is the old build and can't be rebuilt on this PC.
