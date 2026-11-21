@@ -1,9 +1,12 @@
+import { useState, type ReactNode } from "react";
+
 import { navByPath } from "../app/nav";
 import { PageHeader } from "../design/PageHeader";
 import { stagger } from "../lib/motion";
 import { Appearance } from "./appearance/Appearance";
+import { About } from "./settings/About";
 
-/** The settings sections. Only Appearance exists so far; the others are listed so the page does not move when they arrive. */
+/** The settings sections. Those not built yet are listed so the page does not move when they arrive. */
 const SECTIONS = [
   { id: "appearance", label: "Appearance", built: true },
   { id: "general", label: "General", built: false },
@@ -12,14 +15,30 @@ const SECTIONS = [
   { id: "notifications", label: "Notifications", built: false },
   { id: "keyboard", label: "Keyboard", built: false },
   { id: "data", label: "Data & storage", built: false },
-  { id: "about", label: "About", built: false },
-];
+  { id: "about", label: "About", built: true },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]["id"];
+
+/** What each built section shows: a title, one line under it, and its content. */
+const CONTENT: Partial<Record<SectionId, { title: string; description: string; body: () => ReactNode }>> = {
+  appearance: { title: "Appearance", description: "How devdeck looks on this machine.", body: () => <Appearance /> },
+  about: { title: "About", description: "This devdeck’s version, and whether a newer one is out.", body: () => <About /> },
+};
 
 const item = "flex h-[34px] items-center px-2.5 text-[13px]";
+
+/** The section in the address (#about), or Appearance. */
+function sectionFromHash(): SectionId {
+  const id = typeof window === "undefined" ? "" : window.location.hash.slice(1);
+  return SECTIONS.some((s) => s.id === id && s.built) ? (id as SectionId) : "appearance";
+}
 
 /** Settings: a list of sections at the left and the section at the right. */
 export function SettingsPage() {
   const page = navByPath("/settings");
+  const [active, setActive] = useState<SectionId>(sectionFromHash);
+  const content = CONTENT[active] ?? CONTENT.appearance!;
   return (
     <>
       <PageHeader title={page.label} group={page.group} />
@@ -29,7 +48,12 @@ export function SettingsPage() {
             {SECTIONS.map((s) => (
               <li key={s.id}>
                 {s.built ? (
-                  <a href={`#${s.id}`} aria-current="page" className={`${item} bg-fill font-medium text-ink shadow-[inset_2px_0_0_var(--selected)]`}>
+                  <a
+                    href={`#${s.id}`}
+                    aria-current={active === s.id ? "page" : undefined}
+                    onClick={() => setActive(s.id)}
+                    className={`${item} ${active === s.id ? "bg-fill font-medium text-ink shadow-[inset_2px_0_0_var(--selected)]" : "text-ink-2 hover:bg-fill hover:text-ink"}`}
+                  >
                     {s.label}
                   </a>
                 ) : (
@@ -41,10 +65,10 @@ export function SettingsPage() {
             ))}
           </ul>
         </nav>
-        <section id="appearance" aria-label="Appearance" className="min-w-0">
-          <h2 className="m-0 text-[20px] font-semibold leading-7 tracking-[-0.02em] text-ink">Appearance</h2>
-          <p className="m-0 mb-8 mt-0.5 text-[13px] text-ink-3">How devdeck looks on this machine.</p>
-          <Appearance />
+        <section id={active} aria-label={content.title} className="min-w-0">
+          <h2 className="m-0 text-[20px] font-semibold leading-7 tracking-[-0.02em] text-ink">{content.title}</h2>
+          <p className="m-0 mb-8 mt-0.5 text-[13px] text-ink-3">{content.description}</p>
+          {content.body()}
         </section>
       </div>
     </>

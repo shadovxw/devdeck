@@ -13,3 +13,12 @@
 Checked here: the workflow parses; a dry run of the plan step against the real tags gives `0.1.1` after `v0.1.0`; the PR-labels API call returns the merged PR; `package.ps1` refuses a bad `-Version`. Not checked here: the Windows job itself (needs a push to `main`).
 
 Needs the labels on GitHub: `release:minor`, `release:major`, `release:skip`.
+
+## 2026-11-21: U2, check for a newer release
+
+- `internal/update` (new): `Checker` asks `GET api.github.com/repos/shadovxw/devdeck/releases/latest` (anonymous, `User-Agent: devdeck-update-check`, 15 s timeout, 1 MiB answer limit), compares `MAJOR.MINOR.PATCH` as numbers, and keeps the last answer. A build whose version isn't a plain release (`dev`, `0.0.0-…`) is a development build and never asks. A second check within a minute returns the last answer (GitHub allows 60 anonymous calls an hour). A failed check keeps the last good answer and says why in words (offline, rate limited, no release yet, a tag that isn't a version, a draft or pre-release). The release link must be this repository's releases page, because the page links to it. Table tests against a fake GitHub (`update_test.go`).
+- `internal/api/update.go` (new): `GET /api/v1/update` (the last answer, no network) and `POST /api/v1/update/check` (ask now; a failure is still a 200 with `error`, for the page). Behind the Host/Origin guard like everything else; tests in `update_test.go`, including a refused cross-site check.
+- `internal/server`: wires `update.NewChecker(version)`.
+- Web: `lib/update.ts` (`useUpdate`, `useCheckUpdate`, `checkedAgo`), Settings → **About** (`pages/settings/About.tsx`): version, latest release, a one-line status, **Check now** (hidden on development builds), **Release notes** link, and until U3 a line saying to run the installer from the release page. The Settings section list now marks the open section and remembers it in the address (`#about`). Tests in `pages/settings/about.test.tsx`.
+
+Checked here: `go vet ./...`, `gofmt`, web typecheck, lint and all 568 web tests. **Not run here:** the Go tests. On this PC Smart App Control blocks Go 1.27.4's `link.exe` (the Go tools aren't code-signed), so nothing that links (tests, `go build` of the program) runs; CI runs them.
