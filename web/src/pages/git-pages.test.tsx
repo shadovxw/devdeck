@@ -386,7 +386,7 @@ describe("Connections, the page above GitHub", () => {
     mockServer();
     renderAt("/connections/github");
     const crumbs = within(await screen.findByRole("navigation", { name: "Breadcrumb" }));
-    expect(crumbs.getByText("Platform")).toBeTruthy();
+    expect(crumbs.getByText("System")).toBeTruthy();
     expect(crumbs.getByRole("link", { name: "Connections" }).getAttribute("href")).toBe("/connections");
     expect(crumbs.getByText("GitHub")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1, name: "GitHub" })).toBeTruthy();

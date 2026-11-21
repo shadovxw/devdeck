@@ -1,0 +1,94 @@
+# Neon, refined: the portfolio look across devdeck's pages
+
+> 2026-11-21 · owner: Vrishank Warrier · from the owner's design brief and approved mockups (private, in the git-ignored `tmp/`; nothing from them is copied here) · refines [`2026-11-21-neon-look/`](../2026-11-21-neon-look/plan.md) and touches [`02-frontend-design-system.md`](../02-frontend-design-system.md) · status: **approved 2026-11-21 ("match the mockup"); P1 in progress.**
+
+## 1. Goal
+
+Make the **Neon** style (Settings → Appearance → Style) look like the approved mockups on every page: a near-black page with a faint dot grid, big tight heavy headlines, every label in uppercase mono written like a terminal (`01 $ UP  STACKS ─── TOTAL_STACKS: 04`), one accent from the theme, one gradient word per screen, no borders, no rounded corners, no shadows except glow on focus and hover, panels set apart by a lighter shade, diamonds as markers. Calm and dense: a tool opened every day.
+
+**Flat (Paper) stays exactly as it is**, pixel for pixel.
+
+## 2. Ground rules (from `CLAUDE.md`, unchanged)
+
+- Everything hangs off `:root[data-look="neon"]` in `web/src/design/looks.css` and files it imports. New components render the same structure in both styles; only the Neon CSS changes how they look, or a component renders a Neon-only extra (the orb, the gradient word) that is absent in Flat.
+- **No hard-coded colours** in components: theme tokens, or Neon tokens made from them with `color-mix()`. The purple is the owner's theme's `primary`; it never appears in CSS.
+- **Public repo:** no names, workspaces, stacks or dates from the mockups in code, tests, fixtures or docs (`acme`, `demo-api`, `example.com`). Nothing from `tmp/` is committed.
+- **The built-in Neon theme is neutral** (decision 3); the owner's purple lives in their own theme file.
+- No git writes; `npm` only; fonts from `@fontsource-variable/*` (already installed); no CDN.
+
+## 3. Decisions
+
+1. **This is the Neon style, refined** (the brief's default), not a third style. The first Neon slice (Inter/JetBrains Mono, `//` labels, active diamond, dot grid, glass menus, mono buttons) is the base; this plan changes some of it (decisions 6 and 7).
+2. **Tokens under Neon** (all from theme tokens): every radius `0` except status dots; no hairlines on panels, header, sidebar or rows (outline buttons and tags keep a 1px border); `--neon-panel` = the theme's cards colour, which must stay visibly lighter than the page; `--neon-gradient` from primary through a mix to critical, used on **one word per screen**; `--neon-grid` 5–6% ink on a 24px grid; a second accent (the theme's `--link`) only for *live / connected*; **no orange**: under Neon `--serious` (restarting) uses the warning colour, so green, yellow and red only mean status; label text is the muted ink, at least 4.5:1 on the page (checked with `theme/checks.ts`).
+3. **A built-in "Neon" theme, neutral** (near-black, one cool accent, tuned status colours), so the style looks right without importing anything. It is a third built-in base next to Paper and Paper Dark, which means the theme validation (`theme/validate.ts`, and `builtInThemes` in `internal/api/themes.go`) learns the new base. The owner's purple stays in their imported theme.
+4. **Type scale under Neon:** greeting 40px/900/-0.04em; section display heading 48px/900/-0.045em; card title 24px/900; body 14–18px/500; mono labels 11–12px uppercase, letter-spacing 0.15–0.25em.
+5. **Shared pieces, built once** in `web/src/design/`, each with a Vitest test: `SectionHeader` (boxed index, `$ VERB`, `NAME`, a short primary line, `COUNT: 04`; optional display heading with the gradient on its last word), `Panel` (shade, no border, 20–24px padding, a header row with a mono label left and a link right), `StatusStrip` (`KEY:: VALUE` pairs, value coloured by meaning), `StageRail` (five diamonds joined by a line, done / to do / warning, labels under it), `Tag` (tiny mono label, 1px border in its status colour). In Flat they render in today's Paper idiom (plain heading, plain list), so Flat doesn't change.
+6. **Buttons under Neon:** primary is **solid ink on the page colour** (white on dark), dark text, mono uppercase, 48px tall, square; secondary is transparent with a 1px 25% ink border; quiet controls (workspace switcher, `Ctrl K`, segmented toggles) are a 7% ink fill, no border; a pressed segment is solid ink. This replaces the first slice's "primary-coloured button with glow on hover": the accent stays for marks and words, not the main button.
+7. **Navigation under Neon:** the app's **real groups stay** (Workspace, Code, Run locally, Run remotely, Data, Pipelines, Explore, Platform); only their look follows the mockup (`// NAME` mono headers, a 7px hollow diamond per item, filled primary with glow when active, a 6% ink fill on the active row, the wordmark as `dd.` with the dot in primary). The mockup's own group names were drawn for the picture; renaming the nav is a separate decision (open question 2).
+8. **An Effects setting arrives with the orb** (the neon-look plan's planned *Off / Reduced / Full*). Its **default follows the style**: Flat → Off, Neon → Full; the owner can lower it. Reduce motion still wins over everything. This changes the neon-look plan's "Off by default", in the same PR.
+9. **The orb is the one WebGL exception.** It breaks the neon-look plan's decision 6 ("no WebGL") and the main plan's "3D deferred, no 3D on Home". It is allowed because it only appears on **empty** pages (never on Home with data), only under Neon with Effects above Off, as a **lazy chunk** (`three` is never in the main bundle), with a still frame under Reduce motion, a stopped loop when the window is hidden, and the existing `EmptyArt` as the fallback (Flat, Effects Off, no WebGL). Both plans are updated in the PR that adds it. Plain three.js, not react-three-fiber: one small scene doesn't need it.
+10. **The orb reads its colours from the theme at run time** (`getComputedStyle` on `:root`, again when the theme changes), never hard-coded. One renderer per page, `devicePixelRatio` at most 2, 30–60 fps, everything disposed on unmount; decorative (`aria-hidden`), with the real message in text.
+11. **Three kinds of empty**, treated differently: *never set up* (full empty state: orb, mono line, headline, one action, one command), *set up but idle* (one quiet mono line and a small action, no orb), *no results* (`0 results for "x"` and *Clear filter*, no orb, no motion).
+12. **Greeting on Home:** "Good evening, <name>." uses a name from **Settings → General → Your name**; empty means "Good evening." with no name. Never hard-coded, never read from a repo. (Open question 3.) This is a Neon-only line: the design system's "no greetings" (P7) stays the rule for Flat.
+13. **Checking Flat is unchanged:** before-and-after screenshots of Home and Stacks in the browser pane at the same size, kept in `tmp/` (not committed), compared by eye and by a pixel diff where possible. There is no screenshot test runner in the repo; adding Playwright is not part of this plan.
+14. **Checks run as plain commands** (the owner doesn't use mise): `npm run lint`, `npm run typecheck`, `npm test` in `web/`, `go test ./...` when Go changes.
+
+## 4. Pages
+
+- **Home, with data:** a compact header, not a hero: mono kicker (`WORKSPACE · <NAME> · <DATE>`), the one-line greeting at 40px with a muted summary beside it, then a `StatusStrip` (Docker, Claude, branch, mode). Then `01 $ UP  STACKS` and "RUNNING **STACKS**", stack cards **four across** (label and status on one line, name, services / ports / uptime, `StageRail`). Then two panels side by side: recent runs, and Doctor findings. All stacks visible without scrolling at 1440×900.
+- **Resources, running:** `02 $ TOP  RESOURCES` with a live dot (`LIVE · 2s`), "LIVE **USAGE**". Three tiles (CPU, memory, disk): big number, unit, a small bar series (latest solid, earlier faded). The per-service table in a panel (no row lines; CPU as a thin bar and %), a right column with a host `StatusStrip` and an event tail. The time window (5M / 15M / 1H / 24H) as a segmented control in the top bar.
+- **Every other page with data:** the same pieces, nothing new. The page title becomes a `SectionHeader` and a display heading with one gradient word. Tables lose borders and row lines; spacing and the panel shade separate rows. Status uses the status dot, `Tag`, and `StageRail` where there are stages (stacks, runs, migrations, flows).
+- **Home, no workspace:** the only **hero orb** (about 440px), with its state under it (`THINKING · WAITING FOR A STACK` / `IDLE`); `00 $ BOOT · NO STACKS RUNNING`; "Your workspace is ready **to connect**." at 48px; one line of text; *Configure workspace* (primary) and *Setup guide* (secondary); then `or run devdeck init` and `Ctrl K for commands` as mono chips.
+- **Other empty pages:** a **mini orb** (about 120px), the same component with a variant per page (the brief's table: a cluster for Workspaces, a ring for Repositories, branches for Features, layers for Stacks, a falling stream for Logs, a heartbeat for Resources, a satellite for Remote hosts, a cylinder for the data pages, a path for flows and runs, a cube for Images, a closed shell for Storage and Secrets, sockets for connections, the plain orb for Claude, a calm success-coloured orb for Findings and Doctor, a tiny one for Notifications, none for Docs and Settings). "Thinking" only while devdeck is really working (Doctor running, a stack starting, Claude busy); "ok" in the success colour for good-news empties, never purple.
+
+## 5. Order of work (small PRs)
+
+| PR | What | Done when |
+|---|---|---|
+| P0 | This plan | Approved |
+| P1 | Neon tokens of decision 2 (square, borderless, panel shade, no orange), the nav regrouped as the mockup (§8) and styled, the top bar, buttons (decision 6) (`Tag` moved to P2) | Neon matches the mockups' shell (sidebar, top bar, buttons); Flat unchanged by screenshot |
+| P2 | `SectionHeader`, `Panel`, `StatusStrip`, `StageRail`, `Tag`, each tested; used on Home | Home's sections use them in both styles; Flat unchanged |
+| P3 | Home with data (greeting and the *Your name* setting) and Resources | Match the mockups at 1440×900; four stacks visible without scrolling |
+| P4 | The Effects setting (decision 8), `EmptyOrb` hero (lazy, theme colours, off switches), Home's empty state; neon-look and main plans updated (decision 9) | `three` only in its own chunk; still frame with Reduce motion; stops when hidden (test); `EmptyArt` on Flat, Effects Off and without WebGL |
+| P5a | Mini orb variants, part 1 (Workspaces, Repositories, Features, Stacks, Logs, Resources, Claude, Findings/Doctor) and the three kinds of empty | Each of those pages checked empty and filtered to nothing |
+| P5b | Mini orb variants, part 2 (the rest of the table) | Every nav page checked empty |
+| P6 | The remaining data pages restyled with the shared pieces | `grep` finds no hard-coded colour in any component |
+| P7 | Docs: `docs/appearance.md` (Neon, the orb, its fallbacks), `CLAUDE.md` UI rules for Neon, design-system doc pointer | Reviewed |
+| P8 | Neon options: text size, UI and code fonts, gradient colours (Settings → Appearance, under Style) | Changing each option shows at once across the app; Flat is unaffected |
+
+P5 is split in two because the variants are the riskiest part (shader work per page); the first half proves the approach before the rest.
+
+Each PR: lint, typecheck, Vitest, `go test` if Go changed; screenshots of the changed pages in the PR text (both styles where the page changed).
+
+## 6. Checks before calling it done
+
+- **Contrast:** every text colour at least 4.5:1 on its background, in the owner's theme and in the built-in Neon theme (`theme/checks.ts`).
+- **Keyboard:** visible focus on every control (the glow ring); nothing mouse-only; the orb decorative, the message in text.
+- **Performance:** Home with data has no WebGL; the orb chunk loads only on empty pages; idle CPU near zero with the window hidden.
+- **Narrow windows:** the nav stacks, cards go two then one across, tables scroll inside their panel.
+
+## 7. Risks
+
+- **The orb's cost and look per variant:** one shader with parameters per variant, not one scene per page; P5a proves it on eight pages before P5b.
+- **`three` size** (hundreds of KB): lazy chunk only, checked in the build output.
+- **Drift between Flat and Neon markup:** shared components render one structure; screenshots of Flat on every PR.
+- **WebView2 differences** (blur, additive blending): checked in the desktop window, not only in a browser.
+
+## 8. Answered (2026-11-21)
+
+The owner: "match the mockup and start; the theme will be Neon; we can customise the size, font and neon gradient colours, not the theme."
+
+- **Q1:** this refines the Neon style. No third style.
+- **Q2:** the nav follows the mockup: five groups, **Overview, Run locally, Data, Automate, System**, for both styles (grouping is structure, not looks). Pages the mockup doesn't show go where they fit: Features to Overview; Saved scripts and Storage to Data; Images, Flow trace to Automate; Plugins, Claude access, Notifications, Docs to System. This is the one change Flat also gets.
+- **Q4:** Effects follow the style (Flat Off, Neon Full).
+- **Q5:** the primary button is solid white (ink), as in the mockups.
+- **Decision 3 dropped:** no built-in Neon theme. Colours come from the owner's own theme. Instead, Neon gets its own **options** later (PR P8): text size, the two fonts, and the gradient's colours (defaults from the theme's primary and critical).
+- **Q3** (the greeting's name) is still open; until answered, the greeting has no name.
+
+## 9. Open questions (as first asked)
+
+1. **Replace or add:** this plan refines the existing Neon style (the brief's default). Confirm, or should it be a third style next to Flat and today's Neon?
+2. **Nav group names:** keep the app's real groups in the Neon look (proposed), or rename the nav to the mockup's five groups (Overview, Run locally, Data, Automate, System) for both styles?
+3. **Your name for the greeting:** a *Your name* field in Settings (proposed, empty = no name), or the Windows account's name?
+4. **Effects default:** follow the style (Flat Off, Neon Full; proposed), or keep the neon-look plan's Off for everyone (then the orb shows only after turning Effects on)?
+5. **Primary button colour:** solid white as in the mockups (proposed), or the theme's primary (today's Neon)?
