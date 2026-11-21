@@ -1,0 +1,167 @@
+# Release: every push to main is a release (dev-plans/2026-11-21-updates/plan.md).
+#
+# 1. "Plan" works out the next version from the latest v* tag and the merged PR's labels
+#    (release:major, release:minor, release:skip; none = patch). It skips when the commit is
+#    already tagged, or when nothing but docs and plans changed since the last release.
+# 2. "Build and publish" builds and tests on Windows, packages the installer and the Linux
+#    agent, writes SHA256SUMS, attests the build, then creates the tag and the GitHub release.
+#    The tag is made in this same job: a tag pushed with the workflow's own token would not
+#    start another workflow.
+#
+# The CI, Security and CodeQL checks already passed on the PR (branch rules), so this doesn't
+# wait for them. Third-party actions are pinned to full commit SHAs (tag in the comment).
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, like 1.2.3. Empty: work it out as on a push."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# One release at a time, never cancelled half way, so two quick merges can't take the same number.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      release: ${{ steps.next.outputs.release }}
+      version: ${{ steps.next.outputs.version }}
+      previous: ${{ steps.next.outputs.previous }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # all history and tags
+          persist-credentials: false
+      - name: Test the version script
+        run: bash scripts/next-version_test.sh
+      - id: next
+        name: Work out the version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          out() { echo "$1=$2" >> "$GITHUB_OUTPUT"; }
+          latest="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+          out previous "$latest"
+
+          if git tag --points-at "$GITHUB_SHA" | grep -qE '^v[0-9]'; then
+            echo "This commit is already released."; out release false; exit 0
+          fi
+
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            version="${INPUT_VERSION#v}"
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::\"$INPUT_VERSION\" isn't MAJOR.MINOR.PATCH"; exit 1
+            fi
+          else
+            if [ -n "$latest" ]; then
+              code="$(git diff --name-only "$latest" "$GITHUB_SHA" | grep -vE '^(docs/|dev-plans/)|\.md$' || true)"
+              if [ -z "$code" ]; then
+                echo "Only docs and plans changed since $latest: no release."; out release false; exit 0
+              fi
+            fi
+            labels="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[].labels[].name' | tr '\n' ' ')"
+            echo "Labels on the merged PR: ${labels:-none}"
+            version="$(bash scripts/next-version.sh "$latest" "$labels")"
+            if [ "$version" = "skip" ]; then
+              echo "The PR has release:skip: no release."; out release false; exit 0
+            fi
+          fi
+
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::error::Tag v$version already exists."; exit 1
+          fi
+          echo "Releasing v$version (previous: ${latest:-none})."
+          out release true
+          out version "$version"
+
+  publish:
+    name: Build and publish
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    # Windows Server 2025 comes with Inno Setup 6.
+    runs-on: windows-2025
+    permissions:
+      contents: write # the tag and the release
+      id-token: write # build provenance
+      attestations: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      PREVIOUS: ${{ needs.plan.outputs.previous }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Web app
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: Go tests
+        run: go test -count=1 ./...
+
+      - name: Windows installer
+        run: ./scripts/package.ps1 -Version $env:VERSION
+      - name: Linux agent
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags "-s -w -X main.version=$env:VERSION" -o dist/devdeck-linux-amd64 ./cmd/devdeck
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          $files = "devdeck-setup-$env:VERSION.exe", "devdeck-linux-amd64"
+          $lines = foreach ($f in $files) { "{0}  {1}" -f (Get-FileHash $f -Algorithm SHA256).Hash.ToLower(), $f }
+          [IO.File]::WriteAllText("$PWD/SHA256SUMS", ($lines -join "`n") + "`n")
+          Get-Content SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/devdeck-setup-${{ env.VERSION }}.exe
+            dist/devdeck-linux-amd64
+
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          Install or update with ``devdeck-setup-$env:VERSION.exe``. Check a download against ``SHA256SUMS``, or with ``gh attestation verify <file> --repo $env:GITHUB_REPOSITORY``.
+
+          Not code-signed yet: Windows may warn on first run (More info, then Run anyway), and a PC with Smart App Control on may block it.
+          "@
+          $from = @()
+          if ($env:PREVIOUS) { $from = @("--notes-start-tag", $env:PREVIOUS) }
+          gh release create "v$env:VERSION" `
+            "dist/devdeck-setup-$env:VERSION.exe" dist/devdeck-linux-amd64 dist/SHA256SUMS `
+            --target $env:GITHUB_SHA --title "devdeck $env:VERSION" --latest `
+            --notes $notes --generate-notes @from
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }

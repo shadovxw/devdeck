@@ -1,6 +1,6 @@
 # Updates: release from a tag, update from inside devdeck
 
-> 2026-11-21 · owner: Vrishank Warrier · covers main plan Phase 12.4 (auto-update check) and next-steps §2 (release workflow) · status: **plan, for review. Nothing built.**
+> 2026-11-21 · owner: Vrishank Warrier · covers main plan Phase 12.4 (auto-update check) and next-steps §2 (release workflow) · status: **U1 built (2026-11-21), see [`changes.md`](changes.md); U2 to U4 not started.**
 
 ## 1. The problem
 
@@ -42,7 +42,7 @@ Goal: **merge into `main`, and every installed devdeck offers the update; one cl
 |---|---|
 | `.github/workflows/release.yml` (new) | On push to `main`: work out the next version (labels, docs-only skip), build, package, `SHA256SUMS`, attestation, tag, GitHub release with notes from the merged PRs |
 | `scripts/next-version.sh` (new) | The next version from the latest `v*` tag and the PR's labels; tested with a few cases in CI |
-| `scripts/package.ps1` | Takes the version as a parameter in CI (today it reads `git describe`); writes `SHA256SUMS` |
+| `scripts/package.ps1` | Takes the version as a parameter in CI (today it reads `git describe`). `SHA256SUMS` is written by the workflow, since it also covers the agent |
 | GitHub labels | `release:minor`, `release:major`, `release:skip` |
 | `installer/devdeck.iss` | A `[Run]` entry that starts devdeck after a silent install |
 | `internal/update` (new) | Fetch the latest release, compare versions, download with limits, verify the checksum, start the installer. Table tests against a fake GitHub server |

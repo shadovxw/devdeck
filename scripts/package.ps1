@@ -1,13 +1,21 @@
 # Builds dist\devdeck-setup-<version>.exe: the desktop exe (with the web app inside, built
 # first by `mise run package`) and the Inno Setup installer around it.
+#   -Version 1.2.3  the release workflow passes the version it worked out (.github/workflows/release.yml).
+#   no -Version     the version comes from `git describe`, as before.
+param([string]$Version)
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
-# Only release tags (v1.2.3) name a version; anything else is a development build.
-$version = (git describe --tags --match "v[0-9]*" --always --dirty 2>$null)
-if (-not $version) { $version = "dev" }
-$version = $version -replace '^v', '' -replace '[^0-9A-Za-z.+-]', '-'
-if ($version -notmatch '^[0-9]+\.[0-9]+') { $version = "0.0.0-$version" }
+if ($Version) {
+  if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw "-Version must be MAJOR.MINOR.PATCH, like 1.2.3" }
+  $version = $Version
+} else {
+  # Only release tags (v1.2.3) name a version; anything else is a development build.
+  $version = (git describe --tags --match "v[0-9]*" --always --dirty 2>$null)
+  if (-not $version) { $version = "dev" }
+  $version = $version -replace '^v', '' -replace '[^0-9A-Za-z.+-]', '-'
+  if ($version -notmatch '^[0-9]+\.[0-9]+') { $version = "0.0.0-$version" }
+}
 
 New-Item -ItemType Directory -Force dist | Out-Null
 $env:CGO_ENABLED = "0"

@@ -52,6 +52,9 @@ Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; Value
 ; Needs Claude Code's "claude" program on the PATH; when it isn't, nothing is connected and the Doctor page says so.
 Filename: "{app}\{#AppExe}"; Parameters: "mcp install"; Tasks: claude; Flags: runhidden waituntilterminated; StatusMsg: "Connecting devdeck to Claude Code..."
 Filename: "{app}\{#AppExe}"; Description: "Open devdeck"; Flags: nowait postinstall skipifsilent
+; A silent install is an update started by devdeck itself, which quit first: start it again.
+; (A devdeck that the installer closed is also restarted by RestartApplications; the single-instance lock keeps it to one.)
+Filename: "{app}\{#AppExe}"; Flags: nowait skipifnotsilent
 
 [UninstallRun]
 ; Takes the connector out of Claude Code, so it doesn't point at a program that is gone.
