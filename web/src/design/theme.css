@@ -1,7 +1,8 @@
 /* Maps the CSS variables in tokens.css to Tailwind utilities (bg-surface-1, text-ink-3, ...). */
 @theme inline {
-  --font-sans: "Geist Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "Geist Mono Variable", ui-monospace, "Cascadia Code", Consolas, monospace;
+  /* The faces themselves are tokens (tokens.css), so a look can change them. */
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
 
   --color-bg: var(--bg);
   --color-surface-1: var(--surface-1);

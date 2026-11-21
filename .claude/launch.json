@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/devdeck", "serve"],
+      "env": {
+        "DEVDECK_DATA_DIR": ".devdeck/data",
+        "DEVDECK_LOG_LEVEL": "debug",
+        "DEVDECK_EXTRA_ORIGINS": "http://127.0.0.1:5174,http://localhost:5174"
+      },
+      "port": 7070
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web", "run", "dev"],
+      "port": 5174
+    }
+  ]
+}

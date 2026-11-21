@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BUILT_INS, roleColor, tokensOf } from "../../theme/builtins";
 import { colorOf, contrastChecks, ROLE_CHECKS } from "../../theme/checks";
 import { downloadTheme, readThemeFile } from "../../theme/file";
-import { useUi } from "../../store/ui";
+import { useUi, type Look } from "../../store/ui";
 import { activeTheme, isDirty, useTheme, type Mode } from "../../theme/store";
 import { ADVANCED, ROLES, type RoleId } from "../../theme/types";
 import { EditorBar } from "./EditorBar";
@@ -34,7 +34,12 @@ const MOTION = [
   { id: "on", label: "On" },
 ] as const;
 
-const heading = "m-0 text-[16px] font-semibold leading-6 text-ink";
+const LOOK_OPTIONS = [
+  { id: "paper", label: "Flat" },
+  { id: "neon", label: "Neon" },
+] as const satisfies readonly { id: Look; label: string }[];
+
+const heading ="m-0 text-[16px] font-semibold leading-6 text-ink";
 const label = "m-0 mb-1 font-mono text-[11px] font-normal uppercase leading-[14px] tracking-[0.06em] text-ink-3";
 
 /** The bar shown when someone tries to leave with changes that were not saved. */
@@ -61,6 +66,8 @@ export function Appearance() {
   const { custom, activeId, mode, lightId, darkId, select, setMode, create, edit, rename, save, discard, remove, importTheme } = state;
   const reduceMotion = useUi((s) => s.reduceMotion);
   const setReduceMotion = useUi((s) => s.setReduceMotion);
+  const look = useUi((s) => s.look);
+  const setLook = useUi((s) => s.setLook);
   const [importError, setImportError] = useState<string>();
   const theme = activeTheme(state);
   const dirty = isDirty(state);
@@ -99,6 +106,7 @@ export function Appearance() {
 
       <div className="flex flex-col gap-4">
         <SegmentedRow title="Mode" description="System follows your OS and switches between your light and dark theme." options={MODES} value={mode} onChange={setMode} />
+        <SegmentedRow title="Style" description="Type and details. Colours still come from your theme." options={LOOK_OPTIONS} value={look} onChange={setLook} />
         <SegmentedRow
           title="Reduce motion"
           description="Stops spinners and live pulses from animating, and turns movement into a cut."

@@ -5,6 +5,32 @@ import { useUi } from "./ui";
 afterEach(() => {
   localStorage.clear();
   useUi.getState().setReduceMotion(false);
+  useUi.getState().setLook("paper");
+});
+
+describe("look", () => {
+  it("is Paper by default: no attribute and nothing kept", () => {
+    expect(useUi.getState().look).toBe("paper");
+    expect(document.documentElement.dataset.look).toBeUndefined();
+  });
+
+  it("marks the page for Neon and remembers it; Paper clears both", () => {
+    useUi.getState().setLook("neon");
+    expect(document.documentElement.dataset.look).toBe("neon");
+    expect(localStorage.getItem("devdeck.look")).toBe("neon");
+
+    useUi.getState().setLook("paper");
+    expect(document.documentElement.dataset.look).toBeUndefined();
+    expect(localStorage.getItem("devdeck.look")).toBeNull();
+  });
+
+  it("ignores a value it doesn't know", async () => {
+    localStorage.setItem("devdeck.look", "sparkles");
+    const { vi } = await import("vitest");
+    vi.resetModules();
+    const fresh = (await import("./ui")).useUi;
+    expect(fresh.getState().look).toBe("paper");
+  });
 });
 
 describe("reduce motion", () => {

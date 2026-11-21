@@ -1,0 +1,138 @@
+/* Looks: the style of the app (type, shape, small details), separate from the theme (colours).
+   Paper is the default and has no rules here: it is tokens.css as it is. Neon is chosen on
+   Settings → Appearance → Style and sets data-look="neon" on <html> (store/ui.ts).
+
+   Every colour below comes from a theme token, directly or mixed with color-mix(), so Neon
+   works with any theme, light or dark. Glow is the only shadow, and only Neon has it. */
+
+:root[data-look="neon"] {
+  --font-ui: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-code: "JetBrains Mono Variable", ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  /* Neon tokens, all from the theme's colours. */
+  --neon-glow: 0 0 10px color-mix(in srgb, var(--primary) 55%, transparent);
+  --neon-glow-strong: 0 0 22px color-mix(in srgb, var(--primary) 65%, transparent);
+  --neon-gradient: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 40%, var(--critical)), var(--critical));
+  --neon-grid: color-mix(in srgb, var(--ink) 6%, transparent);
+  --neon-panel: color-mix(in srgb, var(--surface-float) 82%, transparent);
+
+  /* The empty-page illustration takes the theme's surfaces instead of Paper's white tiles. */
+  --tile-top: var(--fill-hover);
+  --tile-side: var(--fill);
+  --tile-line: color-mix(in srgb, var(--primary) 45%, transparent);
+  --tile-icon: var(--ink);
+  --tile-shadow: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* --- Ground: a faint dot grid behind the content --------------------------------- */
+:root[data-look="neon"] .page-area {
+  background-image: radial-gradient(circle at 1px 1px, var(--neon-grid) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* --- Type ------------------------------------------------------------------------ */
+:root[data-look="neon"] [data-ui="page-title"] {
+  font-weight: 900;
+  letter-spacing: -0.045em;
+}
+
+/* The full stop in the accent colour, as on the reference site. */
+:root[data-look="neon"] [data-ui="page-title"]::after {
+  content: ".";
+  color: var(--primary);
+}
+
+:root[data-look="neon"] main :is(h2, h3) {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* Breadcrumb as a terminal path: mono, upper case, wide. */
+:root[data-look="neon"] [data-ui="crumbs"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+:root[data-look="neon"] [data-ui="crumbs"] [aria-hidden] {
+  color: var(--primary);
+}
+
+/* Sidebar group labels: "// OVERVIEW". */
+:root[data-look="neon"] [data-ui="nav-group"] {
+  letter-spacing: 0.2em;
+}
+
+:root[data-look="neon"] [data-ui="nav-group"]::before {
+  content: "//";
+  margin-inline-end: 0.6em;
+  color: var(--primary);
+}
+
+:root[data-look="neon"] [data-ui="wordmark"] {
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+/* "deck" in the theme's accent gradient. Set here rather than through the brand tokens,
+   which the theme writes inline on <html> and so would win. */
+:root[data-look="neon"] [data-ui="wordmark"] > span {
+  background-image: var(--neon-gradient);
+}
+
+/* --- The current page: a glowing diamond at the start of the row ------------------ */
+:root[data-look="neon"] [data-ui="nav-pill"]::before {
+  content: "";
+  position: absolute;
+  /* Inside the row's own padding, before the icon: the row clips anything outside it. */
+  inset-inline-start: 1px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  background: var(--primary);
+  box-shadow: var(--neon-glow);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/* --- Buttons: mono, upper case, glow on hover ------------------------------------- */
+:root[data-look="neon"] [data-slot="button"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    background-color var(--dur-quick) var(--ease-out),
+    box-shadow var(--dur-quick) var(--ease-out),
+    color var(--dur-quick) var(--ease-out);
+}
+
+:root[data-look="neon"] [data-slot="button"][data-variant="default"]:hover {
+  box-shadow: var(--neon-glow-strong);
+}
+
+:root[data-look="neon"] [data-slot="button"]:not([data-variant="default"]):hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+/* --- Focus: the ring glows -------------------------------------------------------- */
+:root[data-look="neon"] :focus-visible {
+  box-shadow: var(--neon-glow);
+}
+
+/* --- Floating layers: glass ------------------------------------------------------- */
+:root[data-look="neon"] :is([role="menu"], [data-slot="sheet-content"], [data-slot="tooltip-content"]) {
+  background-color: var(--neon-panel);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* --- Selection and scrollbars carry the accent ------------------------------------ */
+:root[data-look="neon"] {
+  scrollbar-color: color-mix(in srgb, var(--primary) 55%, transparent) transparent;
+}
+
+:root[data-look="neon"] ::selection {
+  background: color-mix(in srgb, var(--primary) 35%, transparent);
+}
