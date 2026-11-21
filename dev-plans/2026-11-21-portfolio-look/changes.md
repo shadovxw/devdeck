@@ -32,3 +32,17 @@ Checked: typecheck, lint, all 575 web tests (the Docs page test once took 8 s un
 - **Home** uses `SectionHeader` (Neon) above the running stacks and `Panel` for the "Now" column. The rest of Home's layout is P3.
 
 Checked: typecheck, lint, all 589 web tests. In the browser, with a throwaway demo workspace running two small Node services (in the git-ignored dev data folder, `.devdeck/data`): Neon Home shows the section header and the panel; Flat Home compared with the committed `HomePage.tsx` swapped back in for a moment: identical apart from the uptime counter.
+
+## 2026-11-22: P3, Home
+
+- **`web/src/pages/home/NeonHome.tsx`** (new): Home in the Neon style, rendered instead of the Flat layout when Neon is on (`HomePage.tsx` chooses; the Flat code path is unchanged). It shows only what devdeck knows:
+  - A compact header: mono kicker (`WORKSPACE · <name or "N workspaces"> · SUN 22 NOV`), "Good evening." (morning / afternoon / evening by the hour; no name until Q3 is answered) with the dot in the accent, a summary ("4 stacks up, 1 needs a look."), and a `StatusStrip`: Live (on / reconnecting), Stacks, Services ready, Problems. The mockup's Docker, Claude, branch and mode fields are left out until devdeck reports them; nothing is filled in for show.
+  - Stop all and Restart failed, as before.
+  - `SectionHeader` `01 $ UP STACKS` + "RUNNING **STACKS**", and one **card per stack**, four across at 1440 px: `[n] // <workspace>`, the stack's state (Running, Starting, Degraded, Stopping, Stopped), its name (links to Stacks), services / ports (three, then `+n`) / uptime, and a `StageRail` of its **services in start order**, done up to the first that isn't ready, yellow when one has failed. (The mockup's Boot · Build · Install · Migrate · Ready aren't stages devdeck tracks; the services are.)
+  - A **Needs a look** panel with each failed service and its Restart, only when something failed. The mockup's "recent runs" and "Doctor findings" panels wait for the data (runs and findings aren't built yet).
+- `web/src/pages/home/parts.tsx` (new): `ProblemRow` and `StopAll`, moved out of `HomePage.tsx` so both layouts use them.
+- `web/src/design/pieces.css`: the Home styles (kicker, greeting, status box, card grid, cards).
+- Tests: `pages/home/neon-home.test.tsx` (12: the greeting by hour, header, strip, cards, rail, a failed service and its restart, several workspaces, `+n` ports).
+- **Resources (P3b) waits for its data:** the page is still a placeholder; it is built with main plan Phase 5.
+
+Checked: typecheck, lint, all 601 web tests. In the browser with four demo stacks (one failing on purpose, all in the git-ignored dev data folder): Neon Home matches the mockup's layout, four cards in one row at 1440×900 with nothing below the fold; Flat Home compared with the committed `HomePage.tsx`: identical apart from the uptime counter.

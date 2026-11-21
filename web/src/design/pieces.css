@@ -200,3 +200,95 @@
 [data-ui="tag"][data-tone="neutral"] { --tag: var(--neutral); }
 [data-ui="tag"][data-tone="primary"] { --tag: var(--primary); }
 [data-ui="tag"]:is([data-tone="ink"], [data-tone="ink-2"], [data-tone="ink-3"]) { --tag: var(--ink-2); }
+
+/* --- Home (pages/home/NeonHome.tsx) -------------------------------------------------- */
+/* Only rendered in Neon, so these need no :root[data-look] guard; they keep it anyway, in
+   case a part is reused in Flat later. */
+:root[data-look="neon"] [data-ui="kicker"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+:root[data-look="neon"] [data-ui="greeting"] {
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+:root[data-look="neon"] [data-ui="greeting"] > span {
+  color: var(--primary);
+}
+
+:root[data-look="neon"] [data-ui="greeting-summary"] {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+:root[data-look="neon"] [data-ui="strip-box"] {
+  padding: 12px 16px;
+  background: var(--neon-panel);
+}
+
+:root[data-look="neon"] [data-ui="card-grid"] {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+
+:root[data-look="neon"] [data-ui="stack-card"] {
+  padding: 20px;
+  background: var(--neon-panel);
+}
+
+:root[data-look="neon"] [data-ui="card-label"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root[data-look="neon"] [data-ui="card-state"] {
+  flex: none;
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+:root[data-look="neon"] [data-ui="card-title"] {
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+:root[data-look="neon"] [data-ui="card-title"] a:hover {
+  color: var(--primary);
+}
+
+:root[data-look="neon"] [data-ui="card-facts"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+
+:root[data-look="neon"] [data-ui="card-facts"] > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:root[data-look="neon"] [data-ui="card-facts"] dt {
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root[data-look="neon"] [data-ui="card-facts"] dd {
+  margin: 0;
+  color: var(--ink);
+}
