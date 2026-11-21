@@ -30,7 +30,7 @@ func updateServer(t *testing.T, current string, status int, body string) http.Ha
 	e := echo.New()
 	Register(e, Deps{
 		Version: current, Bus: bus, Guard: guard, Hub: NewHub(bus, guard.OriginHosts(), zerolog.Nop()), Plugins: sdk.NewRegistry(),
-		Updates: update.NewCheckerFor(current, gh.URL, "acme/demo-app", gh.Client()),
+		Updates: update.NewCheckerFor(current, update.Options{API: gh.URL, Downloads: gh.URL, Repo: "acme/demo-app", Client: gh.Client()}),
 	})
 	return e
 }
@@ -92,5 +92,34 @@ func TestUpdateRoutesKeepTheGuard(t *testing.T) {
 	rec := callAPI(h, http.MethodPost, "/api/v1/update/check", "", map[string]string{"Origin": "https://example.com"})
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("a check from another site: status %d, want 403", rec.Code)
+	}
+}
+
+func TestUpdateInstallNeedsConfirmAndADownload(t *testing.T) {
+	h := updateServer(t, "0.1.0", 200, demoRelease)
+	tests := []struct {
+		name, body string
+		want       int
+	}{
+		{name: "no body", body: ``, want: http.StatusBadRequest},
+		{name: "not confirmed", body: `{"confirm":false}`, want: http.StatusBadRequest},
+		{name: "confirmed, nothing downloaded", body: `{"confirm":true}`, want: http.StatusConflict},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if rec := callAPI(h, http.MethodPost, "/api/v1/update/install", tt.body, nil); rec.Code != tt.want {
+				t.Fatalf("status %d, want %d: %s", rec.Code, tt.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestUpdateDownloadSaysWhyNot(t *testing.T) {
+	// A copy that wasn't installed by the installer (as in a test) can't download an update.
+	h := updateServer(t, "0.1.0", 200, demoRelease)
+	_ = callAPI(h, http.MethodPost, "/api/v1/update/check", "", nil)
+	s := updateState(t, callAPI(h, http.MethodPost, "/api/v1/update/download", "", nil))
+	if s.Installable || s.Ready != "" || s.Error == "" {
+		t.Fatalf("state = %+v", s)
 	}
 }

@@ -30,13 +30,14 @@ const (
 )
 
 // Commands are the words the program treats as the command line instead of the server.
-var Commands = []string{"up", "down", "status", "feature", "help"}
+var Commands = []string{"up", "down", "status", "feature", "update", "help"}
 
 const usage = `Usage:
   devdeck                         run the server
   devdeck up <stack> [flags]      start a stack and wait until it is ready
   devdeck down <stack> [flags]    stop a stack
   devdeck status                  show the stacks that are running
+  devdeck update [--yes]          check for a newer devdeck and install it (asks first; --check only checks)
 
 Flags for up and down:
   -w <workspace>                  workspace id (default: your only workspace)
@@ -65,6 +66,8 @@ type Env struct {
 	Getenv func(string) string
 	Stdout io.Writer
 	Stderr io.Writer
+	// Stdin answers questions (devdeck update asks before installing). Nil means there is no one to ask.
+	Stdin io.Reader
 	// Client is used for every call. Nil means a plain http.Client.
 	Client *http.Client
 	// Poll is how often `up` asks the server for progress. Zero means 500 ms.
@@ -114,6 +117,8 @@ func Run(ctx context.Context, args []string, env Env) int {
 		return a.status(ctx, args[1:])
 	case "feature":
 		return a.feature(ctx, args[1:])
+	case "update":
+		return a.update(ctx, args[1:])
 	}
 	a.errorf("unknown command %q\n\n%s", args[0], usage)
 	return exitUsage

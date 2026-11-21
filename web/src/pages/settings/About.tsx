@@ -1,8 +1,9 @@
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { Download, ExternalLink, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "../../design/StatusDot";
-import { checkedAgo, useCheckUpdate, useUpdate, type UpdateState } from "../../lib/update";
+import { checkedAgo, useCheckUpdate, useDownloadUpdate, useInstallUpdate, useUpdate, type UpdateState } from "../../lib/update";
 
 const row = "flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2";
 const label = "m-0 text-[14px] font-medium leading-5 text-ink";
@@ -15,7 +16,7 @@ function Status({ state }: Readonly<{ state: UpdateState }>) {
     return (
       <span role="alert" className="inline-flex items-center gap-2">
         <StatusDot tone="warning" />
-        Couldn’t check: {state.error}
+        {state.error}
       </span>
     );
   }
@@ -24,21 +25,56 @@ function Status({ state }: Readonly<{ state: UpdateState }>) {
     return (
       <span className="inline-flex items-center gap-2">
         <StatusDot tone="good" />
-        devdeck {state.latest} is available.
+        {state.ready === state.latest ? `devdeck ${state.latest} is downloaded and ready to install.` : `devdeck ${state.latest} is available.`}
       </span>
     );
   }
   return <span>You have the latest version.</span>;
 }
 
-/** Settings → About: the version, and whether a newer release is out. Installing an update comes later (plan U3). */
+/** The confirmation before installing: devdeck closes, so say what that stops. */
+function ConfirmInstall({ state, onInstall, onCancel, busy }: Readonly<{ state: UpdateState; onInstall: () => void; onCancel: () => void; busy: boolean }>) {
+  const n = state.running_stacks;
+  const stacks = `${n} stack${n === 1 ? "" : "s"}`;
+  const installLabel = n > 0 ? `Stop ${stacks} and install` : "Install and restart";
+  return (
+    <div role="alertdialog" aria-label="Install the update" className="flex flex-col gap-3 bg-inset px-3.5 py-3">
+      <p className="m-0 text-[13px] text-ink">
+        Install devdeck {state.ready}? devdeck closes, updates and opens again.
+        {n > 0 && ` This stops ${n} running ${n === 1 ? "stack" : "stacks"}.`}
+      </p>
+      <span className="flex flex-wrap gap-2">
+        <Button onClick={onInstall} disabled={busy}>
+          {installLabel}
+        </Button>
+        <Button variant="ghost" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+      </span>
+    </div>
+  );
+}
+
+/** Settings → About: the version, whether a newer release is out, and installing it. */
 export function About() {
   const { data: state, isPending, error } = useUpdate();
   const check = useCheckUpdate();
+  const download = useDownloadUpdate();
+  const install = useInstallUpdate();
+  const [confirming, setConfirming] = useState(false);
 
   if (isPending) return <p className="m-0 text-[13px] text-ink-3">Loading…</p>;
   if (error || !state) return <p className="m-0 text-[13px] text-ink-3">The version couldn’t be read{error ? `: ${error.message}` : "."}</p>;
 
+  if (install.isSuccess) {
+    return (
+      <output className="m-0 block text-[13px] text-ink">
+        Installing devdeck {state.ready}. devdeck closes now and opens again when the update is done.
+      </output>
+    );
+  }
+
+  const ready = state.available && state.ready === state.latest;
   return (
     <div className="flex flex-col gap-4">
       <dl className="m-0 flex flex-col">
@@ -59,7 +95,23 @@ export function About() {
         {state.checked_at && !state.dev && <span className="text-ink-3">Checked {checkedAgo(state.checked_at)}.</span>}
       </div>
 
+      {confirming && ready && (
+        <ConfirmInstall state={state} busy={install.isPending} onInstall={() => install.mutate()} onCancel={() => setConfirming(false)} />
+      )}
+      {install.error && (
+        <p role="alert" className="m-0 text-[13px] text-ink">
+          The update didn’t start: {install.error.message}
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-2">
+        {state.available && state.installable && !ready && (
+          <Button onClick={() => download.mutate()} disabled={download.isPending} title="Downloads the installer and checks it against the release’s checksums.">
+            <Download aria-hidden />
+            {download.isPending ? "Downloading…" : "Download update"}
+          </Button>
+        )}
+        {ready && !confirming && <Button onClick={() => setConfirming(true)}>Install and restart</Button>}
         {!state.dev && (
           <Button variant="secondary" onClick={() => check.mutate()} disabled={check.isPending} title="Asks GitHub for the newest release. Nothing about you is sent.">
             <RefreshCw className={check.isPending ? "animate-spin" : undefined} aria-hidden />
@@ -75,9 +127,7 @@ export function About() {
           </Button>
         )}
       </div>
-      {state.available && (
-        <p className="m-0 text-[13px] text-ink-3">To update now, download the installer from the release page and run it. Your settings and data stay.</p>
-      )}
+      {state.available && !state.installable && state.not_installable && <p className="m-0 text-[13px] text-ink-3">{state.not_installable}</p>}
     </div>
   );
 }

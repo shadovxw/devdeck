@@ -22,3 +22,22 @@ Needs the labels on GitHub: `release:minor`, `release:major`, `release:skip`.
 - Web: `lib/update.ts` (`useUpdate`, `useCheckUpdate`, `checkedAgo`), Settings → **About** (`pages/settings/About.tsx`): version, latest release, a one-line status, **Check now** (hidden on development builds), **Release notes** link, and until U3 a line saying to run the installer from the release page. The Settings section list now marks the open section and remembers it in the address (`#about`). Tests in `pages/settings/about.test.tsx`.
 
 Checked here: `go vet ./...`, `gofmt`, web typecheck, lint and all 568 web tests. **Not run here:** the Go tests. On this PC Smart App Control blocks Go 1.27.4's `link.exe` (the Go tools aren't code-signed), so nothing that links (tests, `go build` of the program) runs; CI runs them.
+
+## 2026-11-21: U3, download, verify, install, restart
+
+- `internal/update`:
+  - The check also reads the release's files (`assets`). `State` gains `installable` / `not_installable` (a release build, on Windows, installed by the installer: Inno's `unins000.exe` beside the exe) and `ready` (the version whose installer is downloaded and checked).
+  - `Download` (`download.go`): needs a check that found a newer release; fetches `SHA256SUMS` and `devdeck-setup-<v>.exe`, both of which must be listed at exactly `https://github.com/shadovxw/devdeck/releases/download/v<v>/<name>`; follows redirects only to `github.com` and `*.githubusercontent.com`; size limits (64 KiB, 300 MiB), 10-minute limit; hashes while writing to `<name>.part`, renames only on a match, deletes the part file otherwise, then removes older installers. One download at a time.
+  - `Install`: checks the saved file's SHA-256 again against `SHA256SUMS` (a changed or missing file is deleted and `ready` cleared), then starts it (`install_windows.go`): `/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /LOG=<updates>\install-<v>.log`, detached so it outlives devdeck. `install_other.go` refuses on other systems.
+  - Downloads go to `<data folder>\updates` (`%AppData%\devdeck\updates`), not `%LocalAppData%` as the plan first said: devdeck already owns its data folder.
+- `internal/api/update.go`: `POST /update/download`, `POST /update/install` (needs `{"confirm": true}`; 409 with the reason when not ready), and every answer carries `running_stacks`. After the installer starts, the API calls `Deps.Quit` half a second later.
+- Quitting: `server.WithQuit`. The window passes Wails' `runtime.Quit` (its context held in an `atomic.Pointer`, set on start-up); `devdeck serve` passes the cancel of its signal context. Both stop the stacks and close everything as a normal quit does. The installer starts devdeck again (`[Run]` for silent installs, from U1).
+- `devdeck update [--yes] [--check]` (`internal/cli/update.go`): the same steps through the running server; asks `[y/N]` on stdin, and with no stdin says to use `--yes`. The CLI client can now send a JSON body (`send`).
+- Web: Settings → About gets **Download update**, then **Install and restart** with an inline confirmation ("This stops 2 running stacks", button "Stop 2 stacks and install"), a status line while installing, and the reason when this copy can't update itself.
+- `docs/updates.md` (new, in the in-app Docs): how to update, when devdeck can't, what it sends, checking a download by hand, the Windows warnings.
+
+Checked here: `go vet` (Windows, `-tags desktop`, and `GOOS=linux`), `gofmt`, web typecheck, lint, 571 web tests. **Not run here:** the Go tests (Smart App Control blocks the Go linker on this PC); CI runs them. **Not tried for real yet:** an actual update, which needs two releases (one with the updater, then a newer one).
+
+Semgrep (`dangerous-exec-command`) flagged the `exec.Command` that starts the installer. Marked with `nosemgrep` and the reason, as `internal/mcp` and `internal/review` do: the path is only ever the file `Install` saved in the updates folder and just matched against `SHA256SUMS`, and the arguments are fixed.
+
+SonarQube's three new issues on the PR, fixed: the `devdeck update` table test's checks moved into a helper (cognitive complexity 17 → under 15); the confirmation button's label worked out before the JSX instead of a nested ternary; the "Installing…" line is an `<output>` instead of `<p role="status">`.

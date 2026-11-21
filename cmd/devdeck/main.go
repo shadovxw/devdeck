@@ -111,7 +111,7 @@ func main() {
 	// devdeck up | down | status talk to the running server and exit.
 	if len(os.Args) > 1 && slices.Contains(cli.Commands, os.Args[1]) {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-		code := cli.Run(ctx, os.Args[1:], cli.Env{Getenv: os.Getenv, Stdout: os.Stdout, Stderr: os.Stderr})
+		code := cli.Run(ctx, os.Args[1:], cli.Env{Getenv: os.Getenv, Stdout: os.Stdout, Stderr: os.Stderr, Stdin: os.Stdin})
 		stop()
 		os.Exit(code)
 	}
@@ -138,7 +138,8 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	srv, err := server.New(ctx, cfg, version)
+	// Installing an update quits devdeck the same way Ctrl+C does: stacks stopped, then everything closed.
+	srv, err := server.New(ctx, cfg, version, server.WithQuit(stop))
 	if err != nil {
 		return err
 	}

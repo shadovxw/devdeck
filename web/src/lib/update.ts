@@ -13,8 +13,15 @@ export type UpdateState = {
   url?: string;
   published_at?: string;
   checked_at?: string;
-  /** Why the last check failed. */
+  /** Why the last check or download failed. */
   error?: string;
+  /** This copy can update itself (an installed release build on Windows); otherwise `not_installable` says why. */
+  installable: boolean;
+  not_installable?: string;
+  /** The version whose installer is downloaded and checked, ready to install. */
+  ready?: string;
+  /** Stacks running now: installing stops them. */
+  running_stacks: number;
 };
 
 const key = ["update"] as const;
@@ -30,6 +37,20 @@ export function useCheckUpdate() {
     mutationFn: () => api.post<UpdateState>("/update/check"),
     onSuccess: (state) => client.setQueryData(key, state),
   });
+}
+
+/** Downloads the new installer and checks it against the release's SHA256SUMS. A failure answers with `error` set. */
+export function useDownloadUpdate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<UpdateState>("/update/download"),
+    onSuccess: (state) => client.setQueryData(key, state),
+  });
+}
+
+/** Starts the installer; devdeck then closes, and the installer opens it again. */
+export function useInstallUpdate() {
+  return useMutation({ mutationFn: () => api.post<{ status: string }>("/update/install", { confirm: true }) });
 }
 
 /** "just now", "5 min ago", "3 h ago", "2 days ago". */

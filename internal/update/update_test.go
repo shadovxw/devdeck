@@ -116,7 +116,7 @@ func TestCheck(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			srv, _ := fakeGitHub(t, tt.status, tt.body)
-			c := newChecker(tt.current, srv.URL, repo, srv.Client(), time.Now)
+			c := testChecker(tt.current, srv, time.Now)
 			s, err := c.Check(context.Background())
 			if tt.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.err) {
@@ -146,7 +146,7 @@ func TestCheck(t *testing.T) {
 func TestDevBuildNeverAsks(t *testing.T) {
 	for _, current := range []string{"dev", "0.0.0-dev", "0.0.0-f501170-dirty", ""} {
 		srv, calls := fakeGitHub(t, 200, releaseJSON("v9.0.0"))
-		c := newChecker(current, srv.URL, repo, srv.Client(), time.Now)
+		c := testChecker(current, srv, time.Now)
 		s, err := c.Check(context.Background())
 		if err != nil || !s.Dev || s.Available || calls.Load() != 0 {
 			t.Errorf("%q: state %+v, err %v, calls %d; want a dev state and no call", current, s, err, calls.Load())
@@ -157,7 +157,7 @@ func TestDevBuildNeverAsks(t *testing.T) {
 func TestCheckTooSoonReusesTheAnswer(t *testing.T) {
 	srv, calls := fakeGitHub(t, 200, releaseJSON("v0.2.0"))
 	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
-	c := newChecker("0.1.0", srv.URL, repo, srv.Client(), func() time.Time { return now })
+	c := testChecker("0.1.0", srv, func() time.Time { return now })
 
 	if _, err := c.Check(context.Background()); err != nil {
 		t.Fatal(err)
@@ -179,19 +179,20 @@ func TestCheckTooSoonReusesTheAnswer(t *testing.T) {
 }
 
 func TestFailureKeepsTheLastGoodAnswer(t *testing.T) {
-	status := http.StatusOK
+	var status atomic.Int32
+	status.Store(http.StatusOK)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(status)
+		w.WriteHeader(int(status.Load()))
 		_, _ = w.Write([]byte(releaseJSON("v0.2.0")))
 	}))
 	t.Cleanup(srv.Close)
 	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
-	c := newChecker("0.1.0", srv.URL, repo, srv.Client(), func() time.Time { return now })
+	c := testChecker("0.1.0", srv, func() time.Time { return now })
 
 	if _, err := c.Check(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	status = http.StatusBadGateway
+	status.Store(http.StatusBadGateway)
 	now = now.Add(2 * MinInterval)
 	s, err := c.Check(context.Background())
 	if err == nil {
