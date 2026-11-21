@@ -13,6 +13,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/remote"
 	"github.com/shadovxw/devdeck/internal/review"
 	"github.com/shadovxw/devdeck/internal/supervisor"
+	"github.com/shadovxw/devdeck/internal/update"
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/sdk"
 )
@@ -58,6 +59,8 @@ type Deps struct {
 	Claude *Claude
 	// Themes is optional: it adds the Appearance page's routes and keeps the themes a person made.
 	Themes *Themes
+	// Updates is optional: it adds Settings → About's routes, which say whether a newer release exists.
+	Updates *update.Checker
 	// UI is optional: the built web app, served for every path the API doesn't use. A
 	// build without it (tests, the remote agent) answers 404 there, as before.
 	UI http.Handler
@@ -122,6 +125,9 @@ func registerStandalone(v1 *echo.Group, d Deps) {
 	}
 	if d.FolderPicker != nil {
 		registerSystem(v1, d.FolderPicker)
+	}
+	if d.Updates != nil {
+		registerUpdate(v1, d.Updates)
 	}
 }
 

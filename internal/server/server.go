@@ -29,6 +29,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/secrets"
 	"github.com/shadovxw/devdeck/internal/store"
 	"github.com/shadovxw/devdeck/internal/supervisor"
+	"github.com/shadovxw/devdeck/internal/update"
 	"github.com/shadovxw/devdeck/internal/workspace"
 	"github.com/shadovxw/devdeck/plugins"
 	"github.com/shadovxw/devdeck/sdk"
@@ -130,7 +131,9 @@ func (s *Server) build(version string) error {
 		Claude: api.NewClaude(s.db.DB, filepath.Join(cfg.DataDir, "claude-access.yaml")),
 		// The themes a person made on the Appearance page.
 		Themes: api.NewThemes(s.db.DB),
-		UI:     webui.HandlerWithHead(s.uiHead),
+		// Whether a newer release is out (Settings → About). Development builds never ask.
+		Updates: update.NewChecker(version),
+		UI:      webui.HandlerWithHead(s.uiHead),
 	})
 	return nil
 }

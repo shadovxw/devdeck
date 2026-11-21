@@ -1,6 +1,6 @@
 # Updates: release from a tag, update from inside devdeck
 
-> 2026-11-21 · owner: Vrishank Warrier · covers main plan Phase 12.4 (auto-update check) and next-steps §2 (release workflow) · status: **U1 built (2026-11-21), see [`changes.md`](changes.md); U2 to U4 not started.**
+> 2026-11-21 · owner: Vrishank Warrier · covers main plan Phase 12.4 (auto-update check) and next-steps §2 (release workflow) · status: **U1 and U2 built (2026-11-21), see [`changes.md`](changes.md); U3 and U4 not started.**
 
 ## 1. The problem
 
