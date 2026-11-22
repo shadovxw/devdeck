@@ -1,3 +1,4 @@
+import { useServerLink, writesPaused } from "./server-link";
 import type { Issue } from "./types";
 
 const base = "/api/v1";
@@ -18,7 +19,12 @@ export class ApiError extends Error {
   }
 }
 
+/** What a write says while the server is gone (lib/server-link.ts): it is not sent at all. */
+export const PAUSED_MESSAGE = "devdeck is reconnecting to its server. Try again once it is back.";
+
 async function request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  // Writes wait while the server is gone; reading still tries, so the page keeps its last data.
+  if (method !== "GET" && writesPaused(useServerLink.getState())) throw new ApiError(0, PAUSED_MESSAGE);
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const res = await fetch(base + path, {

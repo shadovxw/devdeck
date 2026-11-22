@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createMemoryRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { routes } from "../../app/routes";
 import type { RunStatus, WorkspaceSummary } from "../../lib/types";
+import { PAUSED_TITLE, useServerLink } from "../../lib/server-link";
 import { useUi } from "../../store/ui";
 
 vi.mock("../../design/orb/OrbCanvas", () => ({ default: () => <canvas data-testid="orb-canvas" /> }));
@@ -49,7 +50,11 @@ afterEach(() => {
   localStorage.clear();
   useUi.setState({ look: "paper", effects: null, name: "", sidebarOpen: false, closedGroups: [] });
   vi.unstubAllGlobals();
+  useServerLink.getState().reset();
 });
+
+/** The server went away 5s ago, after the app was up. */
+const serverGone = () => act(() => useServerLink.setState({ everUp: true, failures: 2, downSince: Date.now() - 5_000, lastFailAt: Date.now() }));
 
 describe("Neon Home, the launcher", () => {
   it("greets you by name, says the workspace, and shows the orb's state", async () => {
@@ -118,6 +123,29 @@ describe("Neon Home, the launcher", () => {
     renderAt("/");
     expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Where to?" })).toBeNull();
+  });
+});
+
+describe("when the server goes away while in use", () => {
+  it("the orb turns to its warning state and thinks; the strip says actions wait", async () => {
+    mockServer();
+    useUi.setState({ look: "neon" });
+    renderAt("/");
+    await screen.findByText("Idle · Ready");
+    serverGone();
+    expect(await screen.findByText("Thinking · Reconnecting")).toBeTruthy();
+    expect(await screen.findByText(/Reconnecting · [56]s/)).toBeTruthy();
+    expect(screen.getByText("Actions paused")).toBeTruthy();
+  });
+
+  it("buttons that change things are disabled and say why", async () => {
+    mockServer({ runs: [running] });
+    renderAt("/overview");
+    const stopAll = await screen.findByRole("button", { name: /Stop all/ });
+    expect((stopAll as HTMLButtonElement).disabled).toBe(false);
+    serverGone();
+    expect((stopAll as HTMLButtonElement).disabled).toBe(true);
+    expect(stopAll.getAttribute("title")).toBe(PAUSED_TITLE);
   });
 });
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { orbPalette, spherePoints, type OrbColors } from "./model";
+import { orbPalette, spherePoints, thinks, type OrbColors } from "./model";
 
-const colors: OrbColors = { primary: "#c27aff", critical: "#ef4444", good: "#22c55e", ink: "#ffffff", live: "#22d3ee" };
+const colors: OrbColors = { primary: "#c27aff", critical: "#ef4444", good: "#22c55e", warning: "#fbbf24", ink: "#ffffff", live: "#22d3ee" };
 
 describe("orbPalette", () => {
   it("goes from the accent at the top to the error colour at the bottom, through the gradient's middle", () => {
@@ -24,6 +24,12 @@ describe("orbPalette", () => {
     const p = orbPalette(colors, "ok");
     expect([p.top, p.low]).toEqual(["#22c55e", "#22c55e"]);
     expect(p.mid).toBe("#22c55e");
+  });
+
+  it("is the warning colour all through while reconnecting, and thinks then", () => {
+    const p = orbPalette(colors, "warn");
+    expect([p.top, p.mid, p.low]).toEqual(["#fbbf24", "#fbbf24", "#fbbf24"]);
+    expect([thinks("warn"), thinks("thinking"), thinks("idle"), thinks("ok")]).toEqual([true, true, false, false]);
   });
 
   it("keeps the top colour as the middle when a colour can't be read", () => {

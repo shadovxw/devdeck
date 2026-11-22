@@ -99,3 +99,16 @@ Checked: typecheck, lint, all 652 web tests.
 - `launch.ts`, not `launcher.ts`: Windows treats `launcher.ts` and `Launcher.tsx` as the same name.
 
 Checked: typecheck, lint, all 694 web tests. In the browser at 1440×900: Neon Home matches the IntroToHome design's launcher (greeting, orb, Where to?, tiles); typing "log" lists Logs first and Enter opens it; Workspaces with none shows the hero; Flat Home unchanged.
+
+## 2026-11-22: P9a, loading states (offline at start, reconnecting in use)
+
+- **`lib/server-link.ts`** (pure parts table-tested in `server-link.test.ts`): a small store of the server's state, fed by the health check as each answer or failure happens (`lib/queries.ts` `useHealth`). It gives the back-off (1s, 2s, 4s, 8s, then 15s; it was a flat 3s), the view (`up`, `reconnecting` after 2s gone, `connected` for 2s after an outage that showed; shorter blips show nothing), when the next check runs, and whether writes wait.
+- **`lib/use-server-link.ts`**: `useLink()` (re-read twice a second only while an outage or "Connected" is on), `useWritesPaused()`, and `useServerWatch()`: a dropped live socket asks the health check at once instead of waiting up to 30s; when the server is back every query refreshes, and "Connected" ends after 2s.
+- **Offline at start** (`design/Splash.tsx`, `app/Boot.tsx`): in Neon, the design's screen: the dimmed lockup, a red line, `Server offline · 127.0.0.1:7070`, one sentence, *Retry now*, `$ devdeck serve`, and `Retrying in 4s · attempt 3`. Flat keeps its small "offline" note and retry button, with the countdown in its tooltip. The start command is `devdeck serve` (the installed command), not the design's `mise run dev`.
+- **Reconnecting in use** (`app/LinkStrip.tsx` under the top bar, both styles): `Reconnecting · 12s` and `Actions paused` in the warning colour, then `Connected` in the success colour for 2s. The page keeps its last data.
+- **Writes wait** (`lib/api.ts`): while the strip shows, POST, PUT and DELETE are refused before sending, with a message saying why. The main action buttons are also disabled with a tooltip: stack and service start, stop and restart (Stacks), Stop all and Restart (Home, Overview), Add workspace.
+- **The orb's `warn` state** (`design/orb/model.ts`, `scene.ts`, `OrbCanvas.tsx`): the warning colour all through, and it thinks. The launcher shows it with `Thinking · Reconnecting`.
+- Styles in `design/pieces.css` from tokens; the splash's glow only with Effects Full.
+- Tests: `server-link.test.ts` (16), `app/link-strip.test.tsx` (blips show nothing; the strip counts up, then Connected, a refresh, gone; fake timers), `design/splash.test.tsx` (Neon offline screen, countdown), `orb/model.test.ts` (warn), `pages/home/launcher.test.tsx` (orb and strip when the server goes; Stop all disabled with its tooltip).
+
+Checked: typecheck, lint, all 717 web tests. In the browser: with the page's requests failing, the strip showed after 2s and counted up, the orb turned to the warning colour and thought, then `Connected` showed after the next back-off check and went 2s later. With a dev server whose API pointed at a dead port, the Neon offline screen matched the design, and the attempts climbed to the 15s cap.
