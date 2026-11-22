@@ -1,4 +1,4 @@
-import { FolderOpen, FolderSearch, Plus } from "lucide-react";
+import { Boxes, FolderOpen, FolderSearch, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 
@@ -15,7 +15,7 @@ import { PAUSED_TITLE } from "../lib/server-link";
 import { useWritesPaused } from "../lib/use-server-link";
 import { WorkspaceCards } from "./workspaces/WorkspaceCards";
 import { WorkspaceDetail } from "./workspaces/WorkspaceDetail";
-import { NeonNoWorkspace } from "./workspaces/NeonNoWorkspace";
+import { EmptyState } from "../design/EmptyState";
 
 const field =
   "h-10 w-full min-w-0 rounded-ctl bg-inset px-3 text-[14px] text-ink placeholder:text-ink-3 outline-none " +
@@ -154,7 +154,7 @@ export function WorkspacesPage() {
         }
       />
 
-      {showEmpty && item.empty && <NeonNoWorkspace empty={item.empty} guide={navByPath("/").empty?.secondary} onAdd={() => setAdding(true)} />}
+      {showEmpty && item.empty && <EmptyState icon={Boxes} empty={{ ...item.empty, secondary: navByPath("/").empty?.secondary }} variant="workspaces" onCta={() => setAdding(true)} />}
 
       {isPending && (
         <output aria-label="Loading workspaces…" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

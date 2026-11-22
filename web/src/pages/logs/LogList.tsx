@@ -54,7 +54,8 @@ type Props = {
   follow: boolean;
   hasOlder: boolean;
   onLoadOlder: () => void;
-  empty: string;
+  /** What shows with no lines: a short text, or one of the quieter empties (design/EmptyState). */
+  empty: ReactNode;
   /** What the "more" button of a row offers. */
   rowActions: (e: LogEntry) => MenuItem[];
   /** What opens under the selected row. */
@@ -229,7 +230,7 @@ export function LogList({ entries, label, selected, onSelect, follow, hasOlder, 
           }}
           className="relative h-[min(60vh,34rem)] min-h-[16rem] overflow-auto font-mono text-[12px] text-ink-2 outline-none focus-visible:outline-offset-[-2px]"
         >
-          {entries.length === 0 && <p className="m-0 p-3 text-ink-3">{empty}</p>}
+          {entries.length === 0 && (typeof empty === "string" ? <p className="m-0 p-3 text-ink-3">{empty}</p> : <div className="px-3">{empty}</div>)}
           <div style={{ height: total, position: "relative" }}>
             {rows.slice(first, last).map(({ entry: e, repeat }, i) => {
               const row = first + i;

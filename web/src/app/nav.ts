@@ -32,6 +32,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { MiniVariant } from "../design/orb/mini-model";
+
 /** What an empty page says and offers. */
 export type Empty = {
   headline: string;
@@ -43,6 +45,12 @@ export type Empty = {
     to?: string;
   };
   secondary?: { label: string; href: string };
+  /** The mono line above the headline ("00 $ LOGS · NOTHING STREAMING"). */
+  kicker?: string;
+  /** A real devdeck command that does the same from a terminal, shown as a chip. */
+  command?: string;
+  /** The mini orb's variant: what the page holds (dev-plans/2026-11-21-portfolio-look §8d). */
+  orb?: MiniVariant;
 };
 
 type NavDef = {
@@ -121,9 +129,12 @@ const GROUPS: GroupDef[] = [
         hint: "a folder of repos",
         icon: Boxes,
         empty: {
-          headline: "No workspace yet",
+          headline: "No workspaces yet",
           text: "Point devdeck at a folder of repositories to create your first workspace.",
-          cta: { label: "Add workspace" },
+          cta: { label: "Create workspace" },
+          kicker: "00 $ Workspaces · none yet",
+          command: "devdeck workspace check <folder>",
+          orb: "workspaces",
         },
       },
       {
@@ -182,6 +193,10 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "Nothing running yet",
           text: "CPU, memory and disk per service show up once a stack is running.",
+          kicker: "00 $ Resources · flat line",
+          command: "devdeck up <stack>",
+          cta: { label: "Start a stack", to: "/stacks" },
+          orb: "resources",
         },
       },
       {
@@ -222,8 +237,11 @@ const GROUPS: GroupDef[] = [
         icon: ShieldAlert,
         phase: "Phase 8",
         empty: {
-          headline: "No findings yet",
+          headline: "All clear. Nothing to fix.",
           text: "Results from security and quality scanners are merged into one list.",
+          kicker: "00 $ Findings · all clear",
+          cta: { label: "Run Doctor again", to: "/doctor" },
+          orb: "findings",
         },
       },
     ],

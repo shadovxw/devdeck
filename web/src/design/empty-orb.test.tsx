@@ -1,10 +1,11 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useUi } from "../store/ui";
 import { EmptyOrb, supportsWebGL } from "./EmptyOrb";
 
 // The real canvas needs WebGL, which the test browser doesn't have.
+vi.mock("./orb/MiniCanvas", () => ({ default: ({ variant }: { variant: string }) => <canvas data-testid="mini-canvas" data-variant={variant} /> }));
 vi.mock("./orb/OrbCanvas", () => ({
   default: ({ state, still }: { state: string; still: boolean }) => <canvas data-testid="orb-canvas" data-orb-state={state} data-still={String(still)} />,
 }));
@@ -53,5 +54,42 @@ describe("EmptyOrb", () => {
     useUi.setState({ effects: null, ...state });
     render(<EmptyOrb fallback={art} webgl />);
     expect((await screen.findByTestId("orb-canvas")).getAttribute("data-still")).toBe("true");
+  });
+});
+
+describe("the empty-state kinds", () => {
+  it("kind 1: the mini orb in its variant, the mono line, headline, action and command", async () => {
+    const { MemoryRouter } = await import("react-router");
+    const { EmptyState } = await import("./EmptyState");
+    const { Layers } = await import("lucide-react");
+    useUi.setState({ effects: null });
+    const { container } = render(
+      <MemoryRouter>
+        <EmptyState icon={Layers} variant="stacks" empty={{ headline: "No stacks yet", text: "Why", kicker: "00 $ Stacks · none yet", command: "devdeck schema stack", cta: { label: "New stack", to: "/stacks" } }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("heading", { name: "No stacks yet" })).toBeTruthy();
+    expect(screen.getByText("00 $ Stacks · none yet")).toBeTruthy();
+    expect(screen.getByText("$ devdeck schema stack")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /New stack/ }).getAttribute("href")).toBe("/stacks");
+    // the test browser has no WebGL: the plain art stands in for the orb
+    expect(container.querySelector('[data-ui="mini-orb"]')).toBeNull();
+  });
+
+  it("the mini orb itself, where WebGL works, carries its variant", async () => {
+    const { MiniOrb } = await import("./EmptyOrb");
+    useUi.setState({ effects: null });
+    const { container } = render(<MiniOrb variant="logs" fallback={art} webgl />);
+    expect(container.querySelector('[data-ui="mini-orb"]')!.getAttribute("data-variant")).toBe("logs");
+  });
+
+  it("kind 3: no orb, the count and a way to clear it", async () => {
+    const { NoResults } = await import("./EmptyState");
+    const clear = vi.fn();
+    const { container } = render(<NoResults query="postgres" onClear={clear} />);
+    expect(screen.getByText("0 results for “postgres”")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+    expect(clear).toHaveBeenCalledOnce();
+    expect(container.querySelector("canvas, [data-ui='mini-orb']")).toBeNull();
   });
 });

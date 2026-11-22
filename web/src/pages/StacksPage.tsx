@@ -367,9 +367,11 @@ export function StacksPage() {
         <PageHeader title={item.label} group={item.group} />
         <EmptyState
           icon={Layers}
+          variant="stacks"
           empty={{
             headline: "Add a workspace first",
             text: "A stack belongs to a workspace. Add one, then start its stacks from here.",
+            kicker: "00 $ Stacks · no workspace",
             cta: { label: "Add workspace", to: "/workspaces" },
           }}
         />
@@ -428,10 +430,13 @@ export function StacksPage() {
       {detail.data && stacks.length === 0 && (
         <EmptyState
           icon={Layers}
+          variant="stacks"
           empty={{
-            headline: "This workspace has no stacks",
+            headline: "No stacks yet",
             text: "A stack is a group of services and containers that start together, written as a file in the workspace’s stacks folder. Add one and it will show up here.",
-            cta: detail.data.source === "example" ? undefined : { label: "Add stack" },
+            kicker: "00 $ Stacks · none yet",
+            cta: detail.data.source === "example" ? undefined : { label: "New stack" },
+            command: "devdeck schema stack",
           }}
           onCta={() => setAdding(true)}
         />

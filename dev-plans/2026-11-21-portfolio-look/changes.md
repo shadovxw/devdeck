@@ -195,3 +195,32 @@ The owner's direction (§8d): Flat goes, and Neon is devdeck's one style. Light 
 Checked: typecheck, lint, all 752 web tests. `grep` finds no `data-look`, `look-flat`, `look-neon`, `setLook` or `s.look` in `web/src` or `index.html`. In the browser:
 - In the owner's dark theme: Inter in use, no `data-look`, the old key gone.
 - With the built-in light theme (Paper) applied to the page only, without changing the saved appearance: Home's launcher and Stacks read well, and Settings shows Mode, Effects and Reduce motion with no Style row.
+
+## 2026-11-22: P5a, mini orbs and the three kinds of empty (§8d)
+
+- **`design/orb/mini-model.ts`** (pure, table-tested in `mini-model.test.ts`): one point layout and one motion per variant.
+  - **Workspaces:** three small orbs in a row, the middle one lit and breathing; the row doesn't turn, which would line them up.
+  - **Repositories:** a ring of 12 dot clusters, like commits on a loop.
+  - **Stacks:** the orb cut into three layers that bob apart.
+  - **Logs:** a column of points falling and wrapping.
+  - **Resources:** an orb on a heartbeat (two beats, then rest) with a flat line through it.
+  - **Findings:** calm, slow, in the success colour.
+  - **Plain:** the default.
+- **`design/orb/mini.ts`**: the one small three.js scene for every variant. It is lazy (`MiniCanvas`, a 4 KB chunk sharing three.js with the big orb; the main bundle has none of it) and left out of coverage like the other WebGL files. It runs at 30 fps, still with Reduce motion or Reduced effects, and stops while the page is hidden.
+- **`MiniOrb`** (`design/EmptyOrb.tsx`): about 120px, under the same rules as the big orb, so Effects Off or no WebGL gives the page's plain art.
+- **`design/EmptyState.tsx`**, the three kinds of empty:
+  1. **Never set up (`EmptyState`):** the mini orb in the page's variant, one mono line (`kicker`), one headline, one action, one command chip (`command`). The explanation is in the tooltip and for screen readers.
+  2. **Set up, nothing happening (`QuietEmpty`):** one quiet mono line and at most a small action, no orb.
+  3. **A filter found nothing (`NoResults`):** `0 results for "…"` and *Clear filter*, no orb.
+- **`app/nav.ts`**: `Empty` takes `kicker`, `command` and `orb`, so pages that aren't built yet (Resources, Findings) get their variant through `Placeholder`.
+- **Pages:**
+  - Workspaces: "No workspaces yet", *Create workspace*, the guide, `devdeck workspace check <folder>`. It replaces P3d's full hero, which is deleted (`NeonNoWorkspace.tsx`). Home's big orb now shrinks into this mini orb on the way there.
+  - Repositories: "No repos linked", *Link a repo*, `devdeck schema workspace`.
+  - Stacks: with no workspace, "Add a workspace first"; with no stacks, "No stacks yet", *New stack*, `devdeck schema stack`.
+  - Logs: with no workspace or stack, "Nothing streaming", with *Start a stack* and `devdeck up <stack>` when there is no stack. In the log view, filtered to nothing gives `0 results for "error, api"` and *Clear filter*. A stopped stack with no lines gives `Stack stopped · start it to stream logs`, and a running one `Running · waiting for the first line` (`filterSummary` in `lib/log-query.ts`, tested).
+  - Resources: "Nothing running yet", *Start a stack*, `devdeck up <stack>`.
+  - Findings: "All clear. Nothing to fix.", *Run Doctor again*.
+- **Commands are real.** The CLI has `up`, `down`, `status`, `workspace check`, `schema` and `feature`. The table's `devdeck init` and `devdeck stack add` don't exist, so the pages show the closest real ones.
+- Tests: `mini-model.test.ts` (16), `empty-orb.test.tsx` (the three kinds, the mini orb's variant), `log-query.test.ts` (`filterSummary`), and the page tests updated for the new words (Repositories, Logs, Workspaces, the launcher).
+
+Checked: typecheck, lint, all 776 web tests, build. In the browser at 1440×900, in the owner's dark theme, all six pages were empty with no workspace. Each showed its variant: three orbs with the middle one lit, a ring, layers, a falling column, a beating orb with a flat line, and a green orb. The Workspaces row first spun into one line; it is now still.

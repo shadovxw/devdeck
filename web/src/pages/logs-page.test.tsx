@@ -748,11 +748,11 @@ describe("the Logs page", () => {
     await waitFor(() => expect(screen.getByRole("status").textContent).toContain("the pattern isn't valid"));
   });
 
-  it("tells a stack with no lines that nothing matches", async () => {
+  it("says a stopped stack has nothing to stream (no filter on, so not a search)", async () => {
     mockServer({ entries: [] });
     renderLogs();
     const box = await list();
-    await waitFor(() => expect(box.textContent).toContain("No stored lines match these filters."));
+    await waitFor(() => expect(box.textContent).toContain("Stack stopped · start it to stream logs"));
     expect(await screen.findByText("No errors so far.", {}, { timeout: 100 }).catch(() => null)).toBeNull(); // the sample group still shows
   });
 });

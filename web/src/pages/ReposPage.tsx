@@ -344,7 +344,8 @@ export function ReposPage() {
         {header}
         <EmptyState
           icon={FolderGit2}
-          empty={{ headline: "No repository yet", text: "The repositories listed in your workspaces appear here, each with its GitHub account.", cta: { label: "Go to Workspaces", to: "/workspaces" } }}
+          variant="repos"
+          empty={{ headline: "No repos linked", text: "The repositories listed in your workspaces appear here, each with its GitHub account.", kicker: "00 $ Repos · nothing linked", cta: { label: "Link a repo", to: "/workspaces" }, secondary: undefined, command: "devdeck schema workspace" }}
         />
       </>
     );

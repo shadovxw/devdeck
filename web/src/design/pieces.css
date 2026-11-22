@@ -623,10 +623,10 @@
 }
 
 /* --- The orb carried across (P9c) -------------------------------------------------------
-   Home's orb and the Workspaces hero's share one view-transition name, so a page change
-   between them carries the orb from one slot to the other while the pages cross-fade. Only
-   the two big orbs, so the name stays unique on a page; only with full effects and motion. */
-:root[data-effects="full"]:not([data-motion="reduced"]) [data-ui="orb"]:is([data-size="launcher"], [data-size="hero"]) {
+   Home's orb and Workspaces' mini orb (three orbs, one lit) share one view-transition name, so
+   going from one to the other shrinks the big orb into the mini one while the pages cross-fade.
+   One per page, so the name stays unique; only with full effects and motion. */
+:root[data-effects="full"]:not([data-motion="reduced"]) :is([data-ui="orb"]:is([data-size="launcher"], [data-size="hero"]), [data-ui="mini-orb"][data-variant="workspaces"]) {
   view-transition-name: orb;
 }
 
@@ -948,4 +948,52 @@
   [data-ui="where-to-layer"] {
     top: 80px;
   }
+}
+
+/* --- Empty pages: the mini-orb pattern and the quieter kinds (design/EmptyState.tsx, §8d) --- */
+[data-ui="empty-kicker"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+[data-ui="empty-title"] {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+}
+
+[data-ui="empty-command"] {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--ink-2);
+  background: var(--neon-panel);
+}
+
+[data-ui="no-results"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+[data-ui="no-results-clear"] {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--link);
+  background: none;
+}
+
+[data-ui="no-results-clear"]:hover {
+  text-decoration: underline;
 }

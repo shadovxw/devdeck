@@ -151,9 +151,9 @@ describe("workspaces page", () => {
   it("shows the empty state when there are none, and its button opens the add form", async () => {
     mockServer();
     renderAt("/workspaces");
-    const hero = within(await screen.findByRole("region", { name: "Get started" }));
+    const hero = within(await screen.findByRole("region", { name: "No workspaces yet" }));
 
-    const add = hero.getByRole("button", { name: /Add workspace/ }) as HTMLButtonElement;
+    const add = hero.getByRole("button", { name: /Create workspace/ }) as HTMLButtonElement;
     expect(add.disabled).toBe(false);
     fireEvent.click(add);
 
@@ -326,7 +326,7 @@ describe("workspaces page", () => {
     await waitFor(() => expect(deleted()).toBe(true));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Workspace demo" })).toBeNull());
     // with none left, the page offers to add one
-    expect(await screen.findByRole("region", { name: "Get started" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "No workspaces yet" })).toBeTruthy();
   });
 
   it("says why a workspace could not be deleted and keeps it", async () => {

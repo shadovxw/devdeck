@@ -89,7 +89,7 @@ describe("Neon Home, the launcher", () => {
     expect(line.getAttribute("href")).toBe("/workspaces");
     expect(line.getAttribute("title")).toBe("Configure a workspace");
     fireEvent.click(line);
-    expect(await screen.findByRole("region", { name: "Get started" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "No workspaces yet" })).toBeTruthy();
   });
 
   it("has no sidebar: every page sits around the orb, with what it is for, and a legend", async () => {
@@ -164,15 +164,16 @@ describe("when the server goes away while in use", () => {
   });
 });
 
-describe("the hero empty state, now on Workspaces", () => {
-  it("shows on Neon's Workspaces with none yet, and its button opens the add form", async () => {
+describe("empty pages: the mini-orb pattern", () => {
+  it("Workspaces with none yet: one mono line, one headline, one action, one command", async () => {
     mockServer({ workspaces: [] });
     renderAt("/workspaces");
-    const hero = within(await screen.findByRole("region", { name: "Get started" }));
-    expect(hero.getByRole("heading", { level: 2 }).textContent).toBe("Your workspace is ready to connect.");
-    expect(hero.getByText("Idle")).toBeTruthy();
-    expect(hero.getByRole("link", { name: /Setup guide/ })).toBeTruthy();
-    fireEvent.click(hero.getByRole("button", { name: /Add workspace/ }));
+    const empty = within(await screen.findByRole("region", { name: "No workspaces yet" }));
+    expect(empty.getByText("00 $ Workspaces · none yet")).toBeTruthy();
+    expect(empty.getByRole("heading", { level: 2 }).textContent).toBe("No workspaces yet");
+    expect(empty.getByText("$ devdeck workspace check <folder>")).toBeTruthy();
+    expect(empty.getByRole("link", { name: /setup guide/i })).toBeTruthy();
+    fireEvent.click(empty.getByRole("button", { name: /Create workspace/ }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 
@@ -181,7 +182,7 @@ describe("the hero empty state, now on Workspaces", () => {
     renderAt("/overview");
     expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
     expect((await screen.findByRole("link", { name: /Open workspaces/ })).getAttribute("href")).toBe("/workspaces");
-    expect(screen.queryByRole("region", { name: "Get started" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "No workspaces yet" })).toBeNull();
   });
 });
 

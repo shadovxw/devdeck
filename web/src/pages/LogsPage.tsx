@@ -4,14 +4,14 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
 import { navByPath } from "../app/nav";
-import { EmptyState } from "../design/EmptyState";
+import { EmptyState, NoResults, QuietEmpty } from "../design/EmptyState";
 import { levelOrder } from "../design/LevelMark";
 import type { MenuItem } from "../design/Menu";
 import { PageHeader } from "../design/PageHeader";
 import { StatusDot } from "../design/StatusDot";
 import { stagger } from "../lib/motion";
 import { useLogGroups, useLogHistogram, useLogTrends, useSavedFilters } from "../lib/log-api";
-import { messageOf, type LogQuery } from "../lib/log-query";
+import { filterSummary, messageOf, type LogQuery } from "../lib/log-query";
 import { serviceStats, servicesWithErrors } from "../lib/log-services";
 import { isMutedText, muteOfText, useMutes } from "../lib/log-mutes";
 import { useLogStream } from "../lib/log-stream";
@@ -126,6 +126,7 @@ function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, 
   const mutePatterns = useMemo(() => mutes.filter((m) => m.on).map((m) => m.pattern), [mutes]);
   const shown = useMemo<LogQuery>(() => ({ ...query, mutes: mutePatterns }), [query, mutePatterns]);
   const stream = useLogStream(workspace, stack, shown, live);
+  const runs = useRuns();
   const following = live && !stream.paused;
   const captures = useCaptures(workspace, stack, true);
   const groups = useLogGroups(workspace, stack, true, following);
@@ -163,6 +164,9 @@ function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, 
     { label: "Copy a link to this view", onSelect: () => void navigator.clipboard?.writeText(window.location.href) },
   ];
 
+  // Empty, kind 2 or 3 (dev-plans/2026-11-21-portfolio-look §8d): filtered to nothing, or nothing logged.
+  const filters = filterSummary(query);
+  const running = (runs.data ?? []).some((r) => r.workspace === workspace && r.stack === stack && r.state !== "stopped");
   const status = statusLine({ state: stream.state, error: stream.error, count: stream.entries.length, muted: histogram.data?.muted, paused: stream.paused, live });
   const perMinute = linesInLastMinute(stream.entries, now);
 
@@ -254,7 +258,7 @@ function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, 
               follow={following}
               hasOlder={stream.hasOlder}
               onLoadOlder={() => void stream.loadOlder()}
-              empty={stream.state === "ready" ? "No stored lines match these filters." : "Loading…"}
+              empty={stream.state !== "ready" ? "Loading…" : filters ? <NoResults query={filters} onClear={() => onQuery({ since: query.since, until: query.until })} /> : running ? <QuietEmpty line="Running · waiting for the first line" /> : <QuietEmpty line="Stack stopped · start it to stream logs" action={{ label: "Open stacks", to: `/stacks?workspace=${encodeURIComponent(workspace)}` }} />}
               rowActions={rowActions}
               renderDetail={(e) => (
                 <LogDetail workspace={workspace} stack={stack} entry={e} onClose={() => setSelected(undefined)} onGroup={choose} onFilter={filterBy} onMute={() => addMute(muteOfText(messageOf(e)))} />
@@ -296,7 +300,8 @@ export function LogsPage() {
         {header}
         <EmptyState
           icon={ScrollText}
-          empty={{ headline: "Add a workspace first", text: "Logs belong to a stack, and a stack to a workspace. Add one, start a stack, and its logs appear here.", cta: { label: "Add workspace", to: "/workspaces" } }}
+          variant="logs"
+          empty={{ headline: "Nothing streaming", text: "Logs belong to a stack, and a stack to a workspace. Add one, start a stack, and its logs appear here.", kicker: "00 $ Logs · nothing streaming", cta: { label: "Add workspace", to: "/workspaces" } }}
         />
       </>
     );
@@ -354,7 +359,8 @@ export function LogsPage() {
       {detail.data && stacks.length === 0 && (
         <EmptyState
           icon={ScrollText}
-          empty={{ headline: "No stack in this workspace", text: "Logs come from a stack’s services and containers. Add a stack, start it, and its logs appear here.", cta: { label: "Go to Stacks", to: `/stacks?workspace=${encodeURIComponent(id ?? "")}` } }}
+          variant="logs"
+          empty={{ headline: "Nothing streaming", text: "Logs come from a stack’s services and containers. Add a stack, start it, and its logs appear here.", kicker: "00 $ Logs · no stack", cta: { label: "Start a stack", to: `/stacks?workspace=${encodeURIComponent(id ?? "")}` }, command: "devdeck up <stack>" }}
         />
       )}
       {ready && <LogsView key={`${id}/${stack}`} workspace={id} stack={stack} sample={detail.data.source === "example"} query={query} onQuery={setQuery} selectors={selectors} title={item.label} group={item.group} />}

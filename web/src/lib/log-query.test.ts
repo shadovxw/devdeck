@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compilePattern, entryMatches, logQueryString, messageOf, parseFieldFilter, queryOfFilter, vscodeLink, type LogQuery } from "./log-query";
+import { compilePattern, entryMatches, filterSummary, logQueryString, messageOf, parseFieldFilter, queryOfFilter, vscodeLink, type LogQuery } from "./log-query";
 import type { LogEntry } from "./types";
 
 describe("logQueryString", () => {
@@ -87,5 +87,17 @@ describe("what the browser can tell about a live line", () => {
     expect(messageOf(e())).toBe("db timeout after 30s");
     expect(vscodeLink("/work/api/main.go", 14)).toBe("vscode://file/work/api/main.go:14");
     expect(vscodeLink(String.raw`C:\Users\me\my repo\main.go`, 3)).toBe("vscode://file/C:/Users/me/my%20repo/main.go:3");
+  });
+});
+
+describe("filterSummary", () => {
+  it.each([
+    ["nothing", {}, ""],
+    ["a time range alone", { since: "15m" }, ""],
+    ["levels and services", { levels: ["error"], services: ["api"] }, "error, api"],
+    ["a pattern and a field", { regex: "timeout", fields: ["user=7"] }, "timeout, user=7"],
+    ["an error group", { group: "abc" }, "one kind of error"],
+  ] as const)("%s", (_, q, want) => {
+    expect(filterSummary(q as LogQuery)).toBe(want);
   });
 });
