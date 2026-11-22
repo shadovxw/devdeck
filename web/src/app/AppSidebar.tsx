@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { LazyMotion, m, MotionConfig } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
 import { Popover } from "radix-ui";
 import { Link, NavLink, useLocation } from "react-router";
 
@@ -21,10 +21,12 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { Logo } from "../design/Logo";
+import { StatusDot } from "../design/StatusDot";
 import { useInputMode } from "../lib/input-mode";
 import { springSnappy } from "../lib/motion";
 import { useUi } from "../store/ui";
 import { FOOTER_GROUP, HOME_GROUP, NAV, sidebarPathOf, type NavItem } from "./nav";
+import { useNavStatus, type NavStatus } from "./nav-status";
 import { useUpdateAvailable } from "./UpdateNotice";
 
 /** A dot on the Settings row when a newer devdeck is out (Settings → About installs it). */
@@ -71,18 +73,47 @@ function ActivePill() {
 /** Rows in the footer that are icons only, side by side: Notifications, Docs, Settings. */
 const ICON_ROW = new Set(["/notifications", "/docs", "/settings"]);
 
+/** The live status of the rows that have one (app/nav-status.ts), worked out once for the sidebar. */
+const StatusContext = createContext<Record<string, NavStatus | undefined>>({});
+
+/**
+ * A row's live status: a dot and maybe a count at the row's end; folded to icons, the dot sits on
+ * the icon's corner. The words go to screen readers as the row's description, so its name stays
+ * the page's name.
+ */
+function RowStatus({ status, id }: Readonly<{ status: NavStatus; id: string }>) {
+  return (
+    <span data-ui="nav-status" aria-hidden className="ms-auto flex items-center gap-1.5 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:end-0.5 group-data-[collapsible=icon]:top-0.5">
+      {status.count !== undefined && <span className="font-mono text-[11px] tabular-nums text-ink-2 group-data-[collapsible=icon]:hidden">{status.count}</span>}
+      <StatusDot tone={status.tone} size={6} />
+      <span id={id} hidden>
+        {status.text}
+      </span>
+    </span>
+  );
+}
+
 /** One sidebar row. It stays highlighted while any page of its family is open (its tabs). */
 function Page({ item }: Readonly<{ item: NavItem }>) {
   const { pathname } = useLocation();
   const { setOpenMobile } = useSidebar();
+  const status = useContext(StatusContext)[item.path];
+  const statusId = useId();
   const active = sidebarPathOf(pathname) === item.path;
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={active} tooltip={item.label} className={row}>
-        <Link to={item.path} viewTransition onClick={() => setOpenMobile(false)} aria-current={active ? "page" : undefined}>
+      <SidebarMenuButton asChild isActive={active} tooltip={status ? `${item.label}: ${status.text}` : item.label} className={row}>
+        <Link
+          to={item.path}
+          viewTransition
+          onClick={() => setOpenMobile(false)}
+          aria-current={active ? "page" : undefined}
+          aria-describedby={status ? statusId : undefined}
+        >
           {active && <ActivePill />}
           <item.icon strokeWidth={1.7} />
           <span>{item.label}</span>
+          {status && <RowStatus status={status} id={statusId} />}
           {item.path === "/settings" && <UpdateDot />}
         </Link>
       </SidebarMenuButton>
@@ -258,8 +289,10 @@ const SOON = NAV.flatMap((g) => g.items.filter((i) => !i.built));
 export function AppSidebar() {
   const { setOpenMobile } = useSidebar();
   const reduceMotion = useUi((s) => s.reduceMotion);
+  const status = useNavStatus();
   return (
     <LazyMotion features={loadMotionFeatures} strict>
+      <StatusContext.Provider value={status}>
       <MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>
         <Sidebar collapsible="icon">
           <SidebarHeader className="h-14 flex-row items-center gap-3 px-3 group-data-[collapsible=icon]:justify-center">
@@ -308,6 +341,7 @@ export function AppSidebar() {
           <SidebarRail />
         </Sidebar>
       </MotionConfig>
+      </StatusContext.Provider>
     </LazyMotion>
   );
 }
