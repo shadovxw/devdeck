@@ -67,11 +67,10 @@ describe("advance and skip", () => {
 });
 
 describe("introMode", () => {
-  const base = { seen: false, look: "neon", effects: "full" as const, reduceMotion: false, webgl: true };
+  const base = { seen: false, effects: "full" as const, reduceMotion: false, webgl: true };
   it.each([
-    ["Neon, full effects, WebGL: the 3D intro", base, "3d"],
+    ["full effects, WebGL: the 3D intro", base, "3d"],
     ["seen this session", { ...base, seen: true }, "none"],
-    ["Flat", { ...base, look: "paper" }, "none"],
     ["effects off", { ...base, effects: "off" as const }, "none"],
     ["effects reduced: the fade", { ...base, effects: "reduced" as const }, "fade"],
     ["reduce motion: the fade", { ...base, reduceMotion: true }, "fade"],

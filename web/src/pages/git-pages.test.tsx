@@ -454,6 +454,7 @@ describe("the Repositories page", () => {
     cleanup();
     mockServer({ repos: [] });
     renderAt("/repos");
-    expect(await screen.findByText("No repository yet")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "No repos linked" })).toBeTruthy();
+    expect(screen.getByText("$ devdeck schema workspace")).toBeTruthy();
   });
 });

@@ -9,7 +9,7 @@ import { PAUSED_TITLE } from "../../lib/server-link";
 import type { RunStatus, ServiceStatus } from "../../lib/types";
 import { useWritesPaused } from "../../lib/use-server-link";
 
-// Pieces of Home that both styles use (HomePage for Flat, NeonHome for Neon).
+// Pieces of the Overview dashboard (NeonHome).
 
 /** A service that needs attention, pinned above the others with its one action. */
 export function ProblemRow({ run, service, busy, onRestart }: Readonly<{ run: RunStatus; service: ServiceStatus; busy: boolean; onRestart: () => void }>) {

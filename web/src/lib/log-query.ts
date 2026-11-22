@@ -140,3 +140,12 @@ export function filterId(name: string): string {
   const id = /^[a-z]/.test(slug) ? slug : `f-${slug}`;
   return id.slice(0, 40).replace(/-+$/, "");
 }
+
+/**
+ * What a view is narrowed by, in a few words ("error, api, timeout"), or "" when nothing
+ * narrows it: an empty list then means nothing has been logged, not that a filter hid it.
+ * The time range and mutes don't count; they don't read as a search.
+ */
+export function filterSummary(q: LogQuery): string {
+  return [...(q.levels ?? []), ...(q.services ?? []), ...(q.regex ? [q.regex] : []), ...(q.fields ?? []), ...(q.group ? ["one kind of error"] : [])].join(", ");
+}

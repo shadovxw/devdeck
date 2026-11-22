@@ -131,3 +131,119 @@ Checked: typecheck, lint, all 717 web tests. In the browser: with the page's req
 - Tests: `timeline.test.ts` (23), `intro.test.tsx` (10, with fake timers driving the frames and the 3D scene stubbed: the app mounts at 2.6s and Home's orb shows again at the end; it holds and continues once the server answers; offline ends it; a key or click skips; the svg and fade modes; once per session; never in Flat), `orb/model.test.ts` (`orbRadiusPx`).
 
 Checked: typecheck, lint, all 751 web tests, build. In the browser at 1440×900, timed from inside the page: the overlay was up at 0.16s, the first letter at 2.2s, the app underneath at 2.9s, the overlay gone at 4.4s, ending on Home with its orb. The D assembled and the lockup matched the design. The mark aimed at the sidebar's logo and the particles at the orb's slot (both measured). Effects Reduced gave the flat lockup with no canvas.
+
+## 2026-11-22: P9c, the orb carried from Home to Workspaces
+
+- `design/pieces.css`: Home's orb (`data-size="launcher"`) and the Workspaces hero's (`data-size="hero"`) share `view-transition-name: orb`. A page change between them (every link already uses the View Transitions API) carries the orb from one slot to the other in 900ms with an ease-in-out, while the pages cross-fade as before. No second WebGL scene is needed: the browser moves snapshots of the two canvases.
+- **When it happens:** only those two big orbs carry the name, so it stays unique on a page; only in Neon with Effects Full. With Reduce motion (the app's or the system's), or a keyboard-driven change, it is a plain page change.
+- `pages/home/Launcher.tsx`: with no workspace yet, the orb's line reads `Idle · Set up a workspace` and opens Workspaces, where the hero is. While stacks run it still opens Overview; while reconnecting it is not a link.
+- **Later:** the design's morph into three small orbs, which waits for the P5a mini-orb variants.
+- Test: `pages/home/launcher.test.tsx` (the line leads to Workspaces and its hero).
+
+Checked: typecheck, lint, all 752 web tests. In the browser at 1440×900, the transition was paused from inside the page: the `orb` group ran beside the page cross-fade, and moved from Home's slot (316px at x 588) through 378px at 450ms to the hero's slot (440px at x 521) at 900ms.
+
+## 2026-11-22: Home without a sidebar, the orb launcher (§8c)
+
+- **`pages/home/Launcher.tsx`**, rebuilt from the `OrbLauncher` design:
+  - `dd.` and the kicker top left, and a `Ctrl K` chip top right.
+  - The greeting, and one line on what devdeck is for.
+  - The orb in the middle, with its state line (still a link to Overview, or to Workspaces when there is none).
+  - Every built sidebar page around it on an arc, each with its hint and a diamond in its group's colour, plus a legend of the groups at the bottom.
+  - `Ctrl K` (or the chip) opens the page search ("Where to?"), which Escape closes.
+  - Picking a page gives it the view-transition name `launch-pick`, which the sidebar's current row takes on the next page, so the name flies into its row.
+- **`pages/home/launch.ts`**: `orbitNodes` (the arc from -45° to 225°, which side each page reads from, its tone) and `launchLegend`, table-tested in `launch.test.ts`.
+- **`app/nav.ts`**: a `hint` for each built page and a `blurb` for each group (the design's words).
+- **`app/Shell.tsx`**: on Neon's Home, `data-home-bare` on `<html>` parks the sidebar off-screen (hidden from the keyboard too) and gives the page the full width. The top bar is dropped, except in devdeck's own window, where it stays see-through for the window buttons. Leaving Home slides the sidebar in.
+- **`design/intro/Intro.tsx`**: the intro's mark now lands on Home's `dd.`, since there is no sidebar on Home.
+- Styles in `design/pieces.css`, from tokens. Under 900px wide (or 700px high), one column with the pages in a grid.
+- Tests: `launch.test.ts` (the arc, sides, tones, hints, legend) and `launcher.test.tsx` (no sidebar or top bar, every page around the orb with its hint, the legend, a pick names the flight and brings the sidebar back, `Ctrl K` opens the search).
+- **Not yet:** the design's orb flying into the destination page's mini orb and turning into a ring. It needs the mini orbs (§8d).
+- **Plan:** §8c (this) and §8d (the owner's new direction: Neon only, the full orb on Home only, mini orbs per page, three kinds of empty) added, with P10 and the revised P5a and P5b.
+
+Checked: typecheck, lint, all 759 web tests. In the browser:
+- At 1440×900 the launcher matches the design.
+- Picking Stacks ran the `launch-pick` transition, measured from inside the page: from the page's spot by the orb (x 581, y 808, 210px wide) to its 32px sidebar row, beside the page cross-fade. The sidebar was back.
+- At 375px the page is one column with no sideways scroll.
+
+## 2026-11-22: P10, Neon is the only style
+
+The owner's direction (§8d): Flat goes, and Neon is devdeck's one style. Light and dark themes stay; the style is built from theme tokens.
+
+- **CSS:**
+  - `design/looks.css` and `pieces.css` no longer wait for `data-look="neon"`: every rule applies always.
+  - The `.look-flat` and `.look-neon` switches are gone.
+  - The token block is `html:root`, so it beats `tokens.css` whatever order the stylesheets load in.
+  - `boot.css` loses the old small "offline" note.
+- **State:**
+  - `store/ui.ts` has no `look`. Effects are Full until chosen (`effectiveEffects(chosen)`).
+  - The old `devdeck.look` key is cleared on load.
+  - `index.html` no longer sets `data-look` before first paint, and Effects default to Full there too.
+- **Settings → Appearance:** the Style row is gone. Effects says what it covers now (the orb, the launch intro, glow).
+- **Flat-only code removed:**
+  - Home's Flat dashboard: `HomePage` is just the launcher, and `OverviewPage` owns the dashboard, which is `NeonHome`.
+  - Flat's small offline note: `Splash` shows the full offline screen.
+  - Flat's Workspaces empty state: always the hero, until P5a makes it the mini variant.
+  - Flat's wordmark in the sidebar, and Tag's dot.
+  - The `look` checks in the shell, `EmptyOrb`, the intro (`introMode` no longer takes a look) and `OrbCanvas`.
+- The launcher's orb is now 368px, the design's 120px sphere radius (it was 316px).
+- **Docs:** `CLAUDE.md`'s UI rules now say one style, built in `looks.css` and `pieces.css` from tokens, that every screen must work in a light and a dark theme, and that the full orb is Home's only. `docs/appearance.md` "Style" now describes the one style and Effects. A note at the top of the neon-look plan and `02-frontend-design-system.md` says Flat no longer exists.
+- **Tests:**
+  - Flat cases removed.
+  - The old Home dashboard tests now check Overview, and the Workspaces tests look for the hero.
+  - `store/ui.test.ts` checks the old key is cleared and Effects default to Full.
+
+Checked: typecheck, lint, all 752 web tests. `grep` finds no `data-look`, `look-flat`, `look-neon`, `setLook` or `s.look` in `web/src` or `index.html`. In the browser:
+- In the owner's dark theme: Inter in use, no `data-look`, the old key gone.
+- With the built-in light theme (Paper) applied to the page only, without changing the saved appearance: Home's launcher and Stacks read well, and Settings shows Mode, Effects and Reduce motion with no Style row.
+
+## 2026-11-22: P5a, mini orbs and the three kinds of empty (§8d)
+
+- **`design/orb/mini-model.ts`** (pure, table-tested in `mini-model.test.ts`): one point layout and one motion per variant.
+  - **Workspaces:** three small orbs in a row, the middle one lit and breathing; the row doesn't turn, which would line them up.
+  - **Repositories:** a ring of 12 dot clusters, like commits on a loop.
+  - **Stacks:** the orb cut into three layers that bob apart.
+  - **Logs:** a column of points falling and wrapping.
+  - **Resources:** an orb on a heartbeat (two beats, then rest) with a flat line through it.
+  - **Findings:** calm, slow, in the success colour.
+  - **Plain:** the default.
+- **`design/orb/mini.ts`**: the one small three.js scene for every variant. It is lazy (`MiniCanvas`, a 4 KB chunk sharing three.js with the big orb; the main bundle has none of it) and left out of coverage like the other WebGL files. It runs at 30 fps, still with Reduce motion or Reduced effects, and stops while the page is hidden.
+- **`MiniOrb`** (`design/EmptyOrb.tsx`): about 120px, under the same rules as the big orb, so Effects Off or no WebGL gives the page's plain art.
+- **`design/EmptyState.tsx`**, the three kinds of empty:
+  1. **Never set up (`EmptyState`):** the mini orb in the page's variant, one mono line (`kicker`), one headline, one action, one command chip (`command`). The explanation is in the tooltip and for screen readers.
+  2. **Set up, nothing happening (`QuietEmpty`):** one quiet mono line and at most a small action, no orb.
+  3. **A filter found nothing (`NoResults`):** `0 results for "…"` and *Clear filter*, no orb.
+- **`app/nav.ts`**: `Empty` takes `kicker`, `command` and `orb`, so pages that aren't built yet (Resources, Findings) get their variant through `Placeholder`.
+- **Pages:**
+  - Workspaces: "No workspaces yet", *Create workspace*, the guide, `devdeck workspace check <folder>`. It replaces P3d's full hero, which is deleted (`NeonNoWorkspace.tsx`). Home's big orb now shrinks into this mini orb on the way there.
+  - Repositories: "No repos linked", *Link a repo*, `devdeck schema workspace`.
+  - Stacks: with no workspace, "Add a workspace first"; with no stacks, "No stacks yet", *New stack*, `devdeck schema stack`.
+  - Logs: with no workspace or stack, "Nothing streaming", with *Start a stack* and `devdeck up <stack>` when there is no stack. In the log view, filtered to nothing gives `0 results for "error, api"` and *Clear filter*. A stopped stack with no lines gives `Stack stopped · start it to stream logs`, and a running one `Running · waiting for the first line` (`filterSummary` in `lib/log-query.ts`, tested).
+  - Resources: "Nothing running yet", *Start a stack*, `devdeck up <stack>`.
+  - Findings: "All clear. Nothing to fix.", *Run Doctor again*.
+- **Commands are real.** The CLI has `up`, `down`, `status`, `workspace check`, `schema` and `feature`. The table's `devdeck init` and `devdeck stack add` don't exist, so the pages show the closest real ones.
+- Tests: `mini-model.test.ts` (16), `empty-orb.test.tsx` (the three kinds, the mini orb's variant), `log-query.test.ts` (`filterSummary`), and the page tests updated for the new words (Repositories, Logs, Workspaces, the launcher).
+
+Checked: typecheck, lint, all 776 web tests, build. In the browser at 1440×900, in the owner's dark theme, all six pages were empty with no workspace. Each showed its variant: three orbs with the middle one lit, a ring, layers, a falling column, a beating orb with a flat line, and a green orb. The Workspaces row first spun into one line; it is now still.
+
+## 2026-11-22: P5b, the rest of the mini-orb table (§8d)
+
+- **`design/orb/mini-model.ts`**: six more variants, table-tested.
+  - **Hosts:** an orb with a satellite that drifts away and comes round again.
+  - **Data:** a dense, still cylinder of stacked rings, for Databases, Migrations and SQL.
+  - **Flows:** two small nodes, with points flowing along a gentle arc between them, for Flows and Runs.
+  - **Secrets:** a closed shell with a small, dimmer core inside.
+  - **Sockets:** an orb with six empty sockets around it, for Plugins and Connections.
+  - **Notifications:** tiny and quiet.
+  - Notifications joins Findings as good news: the success colour, a slow turn, and the mono line in green, never the accent (`data-good` on the empty state).
+- **`app/nav.ts`**, the pages not built yet:
+  - Databases, Migrations, SQL: "No database connected", *Add connection*.
+  - Flows: "No flows yet", *New flow*, `devdeck schema flow`.
+  - Runs: "No runs yet", *Run one*.
+  - Secrets: "No secrets stored", *Add secret*.
+  - Notifications: "You're caught up", no action.
+  - Each has its mono line and variant.
+- **`pages/HostsPage.tsx`**: "No hosts connected", *Add host*, `devdeck agent`, with the `workspace.yaml` example kept under it, since it shows how to set one up.
+- **Not wired:** Plugins and Connections always list something (the built-in plugins and connection kinds), so they never reach an empty state yet. The `sockets` variant is ready for when they can.
+- Tests: `mini-model.test.ts` (6 more), `empty-orb.test.tsx` (good news is marked), and `hosts-page.test.tsx` and `pages.test.tsx` updated for the new words.
+
+Checked: typecheck, lint, all 789 web tests. In the browser at 1440×900, each new variant was on its empty page: Hosts, Databases, Flows, Secrets and Notifications (a small green orb with a green line).

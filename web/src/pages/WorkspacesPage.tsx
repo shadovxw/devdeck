@@ -5,7 +5,6 @@ import { useSearchParams } from "react-router";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { navByPath } from "../app/nav";
 import { primaryButton, quietButton } from "../design/buttons";
-import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { IssueList } from "../design/IssueList";
 import { ApiError } from "../lib/api";
@@ -14,10 +13,9 @@ import { useDebounced } from "../lib/use-debounced";
 import { useCreateWorkspace, usePickFolder, useScanFolder, useValidateWorkspace, useWorkspaces } from "../lib/queries";
 import { PAUSED_TITLE } from "../lib/server-link";
 import { useWritesPaused } from "../lib/use-server-link";
-import { useUi } from "../store/ui";
 import { WorkspaceCards } from "./workspaces/WorkspaceCards";
 import { WorkspaceDetail } from "./workspaces/WorkspaceDetail";
-import { NeonNoWorkspace } from "./workspaces/NeonNoWorkspace";
+import { EmptyState } from "../design/EmptyState";
 
 const field =
   "h-10 w-full min-w-0 rounded-ctl bg-inset px-3 text-[14px] text-ink placeholder:text-ink-3 outline-none " +
@@ -129,7 +127,6 @@ export function WorkspacesPage() {
   const [params, setParams] = useSearchParams();
   const [adding, setAdding] = useState(false);
   const { data, isPending, isError } = useWorkspaces();
-  const look = useUi((s) => s.look);
   const paused = useWritesPaused();
 
   // The selected workspace is kept in the address (?open=) so a link can point at it. With none chosen, the first shows.
@@ -157,11 +154,7 @@ export function WorkspacesPage() {
         }
       />
 
-      {showEmpty && item.empty && (look === "neon" ? (
-        <NeonNoWorkspace empty={item.empty} guide={navByPath("/").empty?.secondary} onAdd={() => setAdding(true)} />
-      ) : (
-        <EmptyState icon={Boxes} empty={item.empty} onCta={() => setAdding(true)} />
-      ))}
+      {showEmpty && item.empty && <EmptyState icon={Boxes} empty={{ ...item.empty, secondary: navByPath("/").empty?.secondary }} variant="workspaces" onCta={() => setAdding(true)} />}
 
       {isPending && (
         <output aria-label="Loading workspaces…" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

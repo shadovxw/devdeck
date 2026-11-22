@@ -32,6 +32,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { MiniVariant } from "../design/orb/mini-model";
+
 /** What an empty page says and offers. */
 export type Empty = {
   headline: string;
@@ -43,6 +45,12 @@ export type Empty = {
     to?: string;
   };
   secondary?: { label: string; href: string };
+  /** The mono line above the headline ("00 $ LOGS · NOTHING STREAMING"). */
+  kicker?: string;
+  /** A real devdeck command that does the same from a terminal, shown as a chip. */
+  command?: string;
+  /** The mini orb's variant: what the page holds (dev-plans/2026-11-21-portfolio-look §8d). */
+  orb?: MiniVariant;
 };
 
 type NavDef = {
@@ -53,6 +61,8 @@ type NavDef = {
   phase?: string;
   /** The page's name on its family's tab strip, when it differs from its label (Health's own tab is "Doctor"). */
   tab?: string;
+  /** A few words on what the page is for, under its name on Home (the orb launcher). */
+  hint?: string;
   empty?: Empty;
 };
 
@@ -67,9 +77,10 @@ export type NavItem = NavDef & {
   built: boolean;
 };
 
-type GroupDef = { name: string; items: NavDef[] };
+/** blurb: what the group is about in two or three words, on Home's legend ("what's running"). */
+type GroupDef = { name: string; blurb?: string; items: NavDef[] };
 /** A sidebar group. Home's group ("devdeck") has no heading; System is the footer pinned to the bottom. */
-export type NavGroup = { name: string; items: NavItem[] };
+export type NavGroup = { name: string; blurb?: string; items: NavItem[] };
 
 /** The group shown as the sidebar's footer, and the one without a heading. */
 export const FOOTER_GROUP = "System";
@@ -98,6 +109,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/overview",
         label: "Overview",
+        hint: "everything at a glance",
         icon: LayoutDashboard,
         empty: {
           headline: "Nothing is running",
@@ -109,20 +121,26 @@ const GROUPS: GroupDef[] = [
   },
   {
     name: "Work",
+    blurb: "your code",
     items: [
       {
         path: "/workspaces",
         label: "Workspaces",
+        hint: "a folder of repos",
         icon: Boxes,
         empty: {
-          headline: "No workspace yet",
+          headline: "No workspaces yet",
           text: "Point devdeck at a folder of repositories to create your first workspace.",
-          cta: { label: "Add workspace" },
+          cta: { label: "Create workspace" },
+          kicker: "00 $ Workspaces · none yet",
+          command: "devdeck workspace check <folder>",
+          orb: "workspaces",
         },
       },
       {
         path: "/repos",
         label: "Repositories",
+        hint: "clone, branch, sync",
         icon: FolderGit2,
         empty: {
           headline: "No repository connected yet",
@@ -133,6 +151,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/features",
         label: "Features",
+        hint: "work items across repos",
         icon: GitBranch,
         empty: {
           headline: "No features yet",
@@ -144,10 +163,12 @@ const GROUPS: GroupDef[] = [
   },
   {
     name: "Run",
+    blurb: "what's running",
     items: [
       {
         path: "/stacks",
         label: "Stacks",
+        hint: "start services together",
         icon: Layers,
         empty: {
           headline: "No stack defined yet",
@@ -172,6 +193,10 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "Nothing running yet",
           text: "CPU, memory and disk per service show up once a stack is running.",
+          kicker: "00 $ Resources · flat line",
+          command: "devdeck up <stack>",
+          cta: { label: "Start a stack", to: "/stacks" },
+          orb: "resources",
         },
       },
       {
@@ -187,6 +212,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/hosts",
         label: "Remote hosts",
+        hint: "machines over SSH",
         icon: Server,
         empty: {
           headline: "No remote host yet",
@@ -196,6 +222,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/doctor",
         label: "Health",
+        hint: "Doctor and findings",
         tab: "Doctor",
         icon: Stethoscope,
         empty: {
@@ -210,14 +237,18 @@ const GROUPS: GroupDef[] = [
         icon: ShieldAlert,
         phase: "Phase 8",
         empty: {
-          headline: "No findings yet",
+          headline: "All clear. Nothing to fix.",
           text: "Results from security and quality scanners are merged into one list.",
+          kicker: "00 $ Findings · all clear",
+          cta: { label: "Run Doctor again", to: "/doctor" },
+          orb: "findings",
         },
       },
     ],
   },
   {
     name: "Data",
+    blurb: "your data",
     items: [
       {
         path: "/databases",
@@ -225,9 +256,11 @@ const GROUPS: GroupDef[] = [
         icon: Database,
         phase: "Phase 6",
         empty: {
-          headline: "No database connected yet",
+          headline: "No database connected",
           text: "Add a connection to browse tables, run SQL and apply migrations.",
           cta: { label: "Add connection", to: "/connections" },
+          kicker: "00 $ Databases · none connected",
+          orb: "data",
         },
       },
       {
@@ -236,8 +269,11 @@ const GROUPS: GroupDef[] = [
         icon: History,
         phase: "Phase 6",
         empty: {
-          headline: "No migrations tracked yet",
+          headline: "No database connected",
           text: "Connect a database and point devdeck at your migration folder.",
+          cta: { label: "Add connection", to: "/connections" },
+          kicker: "00 $ Migrations · nothing tracked",
+          orb: "data",
         },
       },
       {
@@ -246,8 +282,11 @@ const GROUPS: GroupDef[] = [
         icon: Terminal,
         phase: "Phase 6",
         empty: {
-          headline: "No database selected",
+          headline: "No database connected",
           text: "Connect a database to open a SQL console with history and saved scripts.",
+          cta: { label: "Add connection", to: "/connections" },
+          kicker: "00 $ SQL · no database",
+          orb: "data",
         },
       },
       {
@@ -275,6 +314,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     name: "Automate",
+    blurb: "flows and runs",
     items: [
       {
         path: "/flows",
@@ -284,7 +324,10 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "No flows yet",
           text: "Chain checks, builds and scans into a flow you can run again and again.",
-          cta: { label: "Create flow" },
+          cta: { label: "New flow" },
+          kicker: "00 $ Flows · none yet",
+          command: "devdeck schema flow",
+          orb: "flows",
         },
       },
       {
@@ -295,6 +338,9 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "No runs yet",
           text: "Every flow run is recorded here with its steps, timings and output.",
+          cta: { label: "Run one", to: "/flows" },
+          kicker: "00 $ Runs · none today",
+          orb: "flows",
         },
       },
       {
@@ -311,10 +357,12 @@ const GROUPS: GroupDef[] = [
   },
   {
     name: "System",
+    blurb: "setup",
     items: [
       {
         path: "/connections",
         label: "Connections",
+        hint: "GitHub, Docker Hub, Claude",
         icon: KeyRound,
         empty: {
           headline: "No connections yet",
@@ -357,26 +405,30 @@ const GROUPS: GroupDef[] = [
         icon: Lock,
         phase: "Later",
         empty: {
-          headline: "No secrets store connected yet",
+          headline: "No secrets stored",
           text: "Connect a secrets manager to browse secret names. Values are never shown or sent anywhere.",
-          cta: { label: "Add connection", to: "/connections" },
+          cta: { label: "Add secret", to: "/connections" },
+          kicker: "00 $ Secrets · none stored",
+          orb: "secrets",
         },
       },
-      { path: "/plugins", label: "Plugins", icon: Puzzle },
+      { path: "/plugins", label: "Plugins", hint: "extend devdeck", icon: Puzzle },
       {
         path: "/notifications",
         label: "Notifications",
         icon: Bell,
         phase: "Phase 5",
         empty: {
-          headline: "No notification channels yet",
+          headline: "You're caught up",
           text: "Get an alert when a service goes down or a build fails.",
-          cta: { label: "Add channel" },
+          kicker: "00 $ Notifications · nothing new",
+          orb: "notifications",
         },
       },
       {
         path: "/docs",
         label: "Docs",
+        hint: "guides and reference",
         icon: BookOpen,
         empty: {
           headline: "No guides",
@@ -386,6 +438,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/settings",
         label: "Settings",
+        hint: "look, shortcuts, about",
         icon: Settings,
         empty: {
           headline: "More settings are coming",
@@ -420,7 +473,7 @@ export const NAV: NavGroup[] = GROUPS.map((g) => {
       });
       return { ...i, group: g.name, children: children.length > 0 ? children : undefined, built: !i.phase };
     });
-  return { name: g.name, items };
+  return { name: g.name, blurb: g.blurb, items };
 });
 
 /** Every page, parents and sub-pages alike. */

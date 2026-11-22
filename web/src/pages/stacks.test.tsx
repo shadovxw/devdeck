@@ -287,22 +287,20 @@ describe("stacks page", () => {
   });
 });
 
-describe("home page", () => {
+describe("overview page", () => {
   it("points to the stacks when something can be started", async () => {
     mockServer();
-    renderAt("/");
-    expect(await screen.findByRole("heading", { name: "Nothing is running" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Open stacks/ }).getAttribute("href")).toBe("/stacks");
+    renderAt("/overview");
+    expect((await screen.findByRole("link", { name: /Open stacks/ })).getAttribute("href")).toBe("/stacks");
   });
 
-  it("asks for a workspace when there is none", async () => {
+  it("points to Workspaces when there is none", async () => {
     mockServer({ workspaces: [] });
-    renderAt("/");
-    expect(await screen.findByRole("heading", { name: "Your workspace is ready to connect" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Configure workspace/ }).getAttribute("href")).toBe("/workspaces");
+    renderAt("/overview");
+    expect((await screen.findByRole("link", { name: /Open workspaces/ })).getAttribute("href")).toBe("/workspaces");
   });
 
-  it("shows what is running, with counts, links and problems", async () => {
+  it("shows what is running, with problems first and their one action", async () => {
     mockServer({
       runs: [
         run("degraded", [
@@ -312,23 +310,9 @@ describe("home page", () => {
         ]),
       ],
     });
-    renderAt("/");
-
-    const strip = within(await screen.findByText("Stacks running").then((el) => el.closest("dl") as HTMLElement));
-    expect(strip.getByText("Stacks running").nextElementSibling?.textContent).toBe("1");
-    expect(strip.getByText("Services ready").nextElementSibling?.textContent).toBe("2of 3");
-    expect(strip.getByText("Problems").nextElementSibling?.textContent).toContain("1");
-    // no live connection in this test, and the page says so instead of claiming updates are on
-    expect(strip.getByText("Live updates").nextElementSibling?.textContent).toBe("Reconnecting…");
-
-    const services = within(screen.getByRole("region", { name: "Services in full" }));
-    expect(services.getByRole("link", { name: ":8080" }).getAttribute("href")).toBe("http://127.0.0.1:8080");
-    expect(services.queryByRole("link", { name: ":5173" })).toBeNull(); // not ready: nothing to open yet
-    expect(services.getByText(/exited with code 1: boom/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "full" }).getAttribute("href")).toBe("/stacks?workspace=demo");
-    // problems come first, as their own rows with the one action
-    expect(within(screen.getByRole("region", { name: "Services in full" })).getByRole("button", { name: /Restart web/ })).toBeTruthy();
-    expect(screen.getByText("1 need attention")).toBeTruthy();
-    expect(screen.getByText("2 of 3 running")).toBeTruthy();
+    renderAt("/overview");
+    expect(await screen.findByRole("button", { name: /Restart web/ })).toBeTruthy();
+    expect(screen.getAllByText(/exited with code 1: boom/).length).toBeGreaterThan(0);
   });
 });
+

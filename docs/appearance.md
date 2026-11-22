@@ -11,10 +11,9 @@ Two themes come with devdeck: **Paper** (light, the default) and **Paper Dark**.
 
 ## Style
 
-**Style** sets the type and the small details; your theme still sets every colour.
+devdeck has one style: Inter and JetBrains Mono, heavy titles ending in an accent-coloured full stop, upper-case mono labels (`// WORKSPACE`), a diamond on the current page, a faint dot grid and glass menus. Your theme sets every colour, so it works with any theme, light or dark.
 
-- **Flat** (the default): Geist, plain titles, no glow.
-- **Neon**: Inter and JetBrains Mono, heavy titles ending in an accent-coloured full stop, upper-case mono labels (`// WORKSPACE`), a glowing diamond on the current page, a faint dot grid, glass menus, and a glow on buttons when you hover them. It works with any theme; it looks best with a dark one.
+**Effects** (Off, Reduced, Full; Full until you choose) sets how much moves and glows: the orb on Home, the launch intro, the glow on buttons. Reduced draws still frames and a short fade instead of the intro; Off draws plain art. **Reduce motion** (or your system's setting) turns movement into cuts.
 
 ## Make your own theme
 

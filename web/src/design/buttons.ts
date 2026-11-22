@@ -1,4 +1,4 @@
-// btn-primary and btn-quiet are not Tailwind classes: they are hooks for the Neon style (design/looks.css).
+// btn-primary and btn-quiet are not Tailwind classes: they are hooks for the style (design/looks.css).
 
 /** The blue button used for a page's main next step: one per view. */
 export const primaryButton =

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BUILT_INS, roleColor, tokensOf } from "../../theme/builtins";
 import { colorOf, contrastChecks, ROLE_CHECKS } from "../../theme/checks";
 import { downloadTheme, readThemeFile } from "../../theme/file";
-import { effectiveEffects, useUi, type Effects, type Look } from "../../store/ui";
+import { effectiveEffects, useUi, type Effects } from "../../store/ui";
 import { activeTheme, isDirty, useTheme, type Mode } from "../../theme/store";
 import { ADVANCED, ROLES, type RoleId } from "../../theme/types";
 import { EditorBar } from "./EditorBar";
@@ -33,11 +33,6 @@ const MOTION = [
   { id: "off", label: "Off" },
   { id: "on", label: "On" },
 ] as const;
-
-const LOOK_OPTIONS = [
-  { id: "paper", label: "Flat" },
-  { id: "neon", label: "Neon" },
-] as const satisfies readonly { id: Look; label: string }[];
 
 const EFFECT_OPTIONS = [
   { id: "off", label: "Off" },
@@ -72,9 +67,7 @@ export function Appearance() {
   const { custom, activeId, mode, lightId, darkId, select, setMode, create, edit, rename, save, discard, remove, importTheme } = state;
   const reduceMotion = useUi((s) => s.reduceMotion);
   const setReduceMotion = useUi((s) => s.setReduceMotion);
-  const look = useUi((s) => s.look);
-  const setLook = useUi((s) => s.setLook);
-  const effects = useUi((s) => effectiveEffects(s.look, s.effects));
+  const effects = useUi((s) => effectiveEffects(s.effects));
   const setEffects = useUi((s) => s.setEffects);
   const [importError, setImportError] = useState<string>();
   const theme = activeTheme(state);
@@ -114,10 +107,9 @@ export function Appearance() {
 
       <div className="flex flex-col gap-4">
         <SegmentedRow title="Mode" description="System follows your OS and switches between your light and dark theme." options={MODES} value={mode} onChange={setMode} />
-        <SegmentedRow title="Style" description="Type and details. Colours still come from your theme." options={LOOK_OPTIONS} value={look} onChange={setLook} />
         <SegmentedRow
           title="Effects"
-          description="Motion and decoration, such as the orb on empty pages. Follows the style until you choose: off for Flat, full for Neon."
+          description="Motion and decoration: the orb, the launch intro, glow. Off draws the plain art instead."
           options={EFFECT_OPTIONS}
           value={effects}
           onChange={setEffects}

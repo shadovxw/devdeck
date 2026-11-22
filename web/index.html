@@ -14,8 +14,7 @@
       // app (src/theme/store.ts); only plain variable names and values pass.
       try {
         if (localStorage.getItem("devdeck.reduce-motion") === "1") document.documentElement.dataset.motion = "reduced";
-        if (localStorage.getItem("devdeck.look") === "neon") document.documentElement.dataset.look = "neon";
-        var fx = localStorage.getItem("devdeck.effects") || (localStorage.getItem("devdeck.look") === "neon" ? "full" : "off");
+        var fx = localStorage.getItem("devdeck.effects") || "full";
         if (fx === "reduced" || fx === "full") document.documentElement.dataset.effects = fx;
         var mode = localStorage.getItem("devdeck.theme.mode");
         var dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);

@@ -5,31 +5,17 @@ import { useUi } from "./ui";
 afterEach(() => {
   localStorage.clear();
   useUi.getState().setReduceMotion(false);
-  useUi.getState().setLook("paper");
 });
 
-describe("look", () => {
-  it("is Paper by default: no attribute and nothing kept", () => {
-    expect(useUi.getState().look).toBe("paper");
-    expect(document.documentElement.dataset.look).toBeUndefined();
-  });
-
-  it("marks the page for Neon and remembers it; Paper clears both", () => {
-    useUi.getState().setLook("neon");
-    expect(document.documentElement.dataset.look).toBe("neon");
-    expect(localStorage.getItem("devdeck.look")).toBe("neon");
-
-    useUi.getState().setLook("paper");
-    expect(document.documentElement.dataset.look).toBeUndefined();
-    expect(localStorage.getItem("devdeck.look")).toBeNull();
-  });
-
-  it("ignores a value it doesn't know", async () => {
-    localStorage.setItem("devdeck.look", "sparkles");
+describe("one style", () => {
+  it("clears the old Flat/Neon choice and marks nothing for it", async () => {
+    localStorage.setItem("devdeck.look", "neon");
     const { vi } = await import("vitest");
     vi.resetModules();
     const fresh = (await import("./ui")).useUi;
-    expect(fresh.getState().look).toBe("paper");
+    expect("look" in fresh.getState()).toBe(false);
+    expect(localStorage.getItem("devdeck.look")).toBeNull();
+    expect(document.documentElement.dataset.look).toBeUndefined();
   });
 });
 
@@ -57,18 +43,14 @@ describe("reduce motion", () => {
 describe("effects", () => {
   afterEach(() => useUi.getState().setEffects(null));
 
-  it("follows the style until chosen: off for Flat, full for Neon", async () => {
+  it("is full until chosen", async () => {
     const { effectiveEffects } = await import("./ui");
-    expect(effectiveEffects("paper", null)).toBe("off");
-    expect(effectiveEffects("neon", null)).toBe("full");
-    expect(effectiveEffects("neon", "reduced")).toBe("reduced");
-    expect(effectiveEffects("paper", "full")).toBe("full");
+    expect(effectiveEffects(null)).toBe("full");
+    expect(effectiveEffects("reduced")).toBe("reduced");
+    expect(effectiveEffects("off")).toBe("off");
   });
 
   it("marks the page with the effects in use; off is no mark", () => {
-    expect(document.documentElement.dataset.effects).toBeUndefined();
-    useUi.getState().setLook("neon");
-    expect(document.documentElement.dataset.effects).toBe("full");
     useUi.getState().setEffects("reduced");
     expect(document.documentElement.dataset.effects).toBe("reduced");
     expect(localStorage.getItem("devdeck.effects")).toBe("reduced");
@@ -77,8 +59,6 @@ describe("effects", () => {
     useUi.getState().setEffects(null);
     expect(localStorage.getItem("devdeck.effects")).toBeNull();
     expect(document.documentElement.dataset.effects).toBe("full");
-    useUi.getState().setLook("paper");
-    expect(document.documentElement.dataset.effects).toBeUndefined();
   });
 });
 

@@ -63,3 +63,38 @@ export function orbStatus(runs: RunStatus[] | undefined): { state: OrbState; tex
   if (problems > 0) return { state: "idle", text: `Idle · ${plural(problems, "service needs", "services need")} a look` };
   return { state: "idle", text: `Idle · ${plural(runs.length, "stack", "stacks")} running` };
 }
+
+/** The colour family of a group on the orb launcher: Work cyan, Run the accent, System the gradient's middle. */
+export type LaunchTone = "work" | "run" | "system" | "data" | "automate";
+
+const TONES: Record<string, LaunchTone> = { devdeck: "run", Work: "work", Run: "run", Data: "data", Automate: "automate", System: "system" };
+
+/** One page on the orb launcher: where it sits on the ellipse (cos, sin of its angle) and which side it reads from. */
+export type OrbitNode = { item: NavItem; tone: LaunchTone; cos: number; sin: number; side: "left" | "right" | "center" };
+
+/** The arc the pages sit on, clockwise from the upper right (the design's -45° to 225°): the bottom stays free for the orb's line. */
+export const ARC = { from: -45, to: 225 } as const;
+
+/**
+ * The orb launcher's pages (the "Home without sidebar" design): every built sidebar page but
+ * Home, in the sidebar's order, spread evenly over the arc. Pages right of the orb read from
+ * their left edge, pages left of it from their right edge, the rest are centred.
+ */
+export function orbitNodes(groups = NAV): OrbitNode[] {
+  const pages = launchTiles(groups).flatMap((t) => t.pages);
+  const step = pages.length > 1 ? (ARC.to - ARC.from) / (pages.length - 1) : 0;
+  return pages.map((item, i) => {
+    const a = ((ARC.from + step * i) * Math.PI) / 180;
+    const cos = Math.round(Math.cos(a) * 1e4) / 1e4;
+    const sin = Math.round(Math.sin(a) * 1e4) / 1e4;
+    const side = cos > 0.2 ? "right" : cos < -0.2 ? "left" : "center";
+    return { item, tone: TONES[item.group] ?? "run", cos, sin, side };
+  });
+}
+
+/** The legend under the launcher: each group with pages on it, its tone and blurb (Home's own group is left out). */
+export function launchLegend(groups = NAV): { name: string; tone: LaunchTone; blurb: string }[] {
+  return groups
+    .filter((g) => g.name !== HOME_GROUP && g.blurb && g.items.some((i) => i.built))
+    .map((g) => ({ name: g.name, tone: TONES[g.name] ?? "run", blurb: g.blurb! }));
+}

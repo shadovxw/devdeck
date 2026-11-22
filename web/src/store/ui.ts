@@ -3,30 +3,16 @@ import { create } from "zustand";
 const SIDEBAR_KEY = "devdeck.sidebar";
 const MOTION_KEY = "devdeck.reduce-motion";
 const GROUPS_KEY = "devdeck.sidebar.groups";
-const LOOK_KEY = "devdeck.look";
+/** Where the Flat/Neon choice used to be kept; devdeck has one style now, so it is cleared. */
+const OLD_LOOK_KEY = "devdeck.look";
 const NAME_KEY = "devdeck.name";
 
 /** The longest name the greeting takes. */
 export const NAME_MAX = 40;
 
-/** The style of the app: its type, shape and details. Colours always come from the theme. */
-export type Look = "paper" | "neon";
-
-function readLook(): Look {
-  const v = read(LOOK_KEY);
-  return v === "neon" ? "neon" : "paper";
-}
-
-/** Sets data-look on the page; the Neon rules in design/looks.css hang off it. Paper is no attribute at all. */
-function applyLook(look: Look): void {
-  if (typeof document === "undefined") return;
-  if (look === "paper") delete document.documentElement.dataset.look;
-  else document.documentElement.dataset.look = look;
-}
-
 const EFFECTS_KEY = "devdeck.effects";
 
-/** How much motion and decoration the style adds: the orb, and later glow and transitions. */
+/** How much motion and decoration there is: the orb, the launch intro, glow and transitions. */
 export type Effects = "off" | "reduced" | "full";
 
 function readEffects(): Effects | null {
@@ -34,12 +20,12 @@ function readEffects(): Effects | null {
   return v === "off" || v === "reduced" || v === "full" ? v : null;
 }
 
-/** The effects in use: the person's choice, or the style's default (Flat: off, Neon: full). */
-export function effectiveEffects(look: Look, chosen: Effects | null): Effects {
-  return chosen ?? (look === "neon" ? "full" : "off");
+/** The effects in use: the person's choice, or full until they choose. */
+export function effectiveEffects(chosen: Effects | null): Effects {
+  return chosen ?? "full";
 }
 
-/** Sets data-effects on the page; off is no attribute at all, so Flat's page is as it was. */
+/** Sets data-effects on the page; off is no attribute at all. */
 function applyEffects(effects: Effects): void {
   if (typeof document === "undefined") return;
   if (effects === "off") delete document.documentElement.dataset.effects;
@@ -88,10 +74,7 @@ type UiState = {
   /** Reduce motion: on stops loops and turns moves into cuts. Remembered between visits, in this browser. */
   reduceMotion: boolean;
   setReduceMotion: (on: boolean) => void;
-  /** Paper (the default) or Neon. Remembered between visits, in this browser. */
-  look: Look;
-  setLook: (look: Look) => void;
-  /** The effects chosen in Settings, or null to follow the style (Flat: off, Neon: full). Remembered in this browser. */
+  /** The effects chosen in Settings, or null for the default (full). Remembered in this browser. */
   effects: Effects | null;
   setEffects: (effects: Effects | null) => void;
   /** Your name, for Home's greeting ("Good evening, Sam."). Empty: no name. Remembered in this browser. */
@@ -113,18 +96,10 @@ export const useUi = create<UiState>((set, get) => ({
     set({ reduceMotion });
   },
 
-  look: readLook(),
-  setLook: (look) => {
-    write(LOOK_KEY, look === "paper" ? null : look);
-    applyLook(look);
-    applyEffects(effectiveEffects(look, get().effects));
-    set({ look });
-  },
-
   effects: readEffects(),
   setEffects: (effects) => {
     write(EFFECTS_KEY, effects);
-    applyEffects(effectiveEffects(get().look, effects));
+    applyEffects(effectiveEffects(effects));
     set({ effects });
   },
 
@@ -151,5 +126,5 @@ export const useUi = create<UiState>((set, get) => ({
 }));
 
 applyMotion(useUi.getState().reduceMotion);
-applyLook(useUi.getState().look);
-applyEffects(effectiveEffects(useUi.getState().look, useUi.getState().effects));
+applyEffects(effectiveEffects(useUi.getState().effects));
+write(OLD_LOOK_KEY, null);

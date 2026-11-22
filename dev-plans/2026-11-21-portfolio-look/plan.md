@@ -144,7 +144,7 @@ Rules for when it plays and how it degrades:
 - **Flat** gets the same strip and back-off in its own plain style, with no orb.
 
 **Orb carried across (P9c).**
-- From Home's orb, **Configure** opens Workspaces when there is no workspace.
+- With no workspace yet, Home's orb line reads `Idle · Set up a workspace` and opens Workspaces (the launcher has no separate Configure button). Any other way there (a tile, Where to?, `G W`) carries the orb too.
 - The orb travels to the Workspaces hero (`No workspace yet`, `+ Add workspace`, `← Home`) while the two pages slide across each other in about 0.9s. The nav diamond moves with them.
 - **How:** one View Transition with `view-transition-name: orb` on both slots, so no second WebGL scene is needed.
 - **Later:** the design's morph into three small orbs, which is shader work, waits for the P5a mini-orb variants.
@@ -155,6 +155,66 @@ Rules for when it plays and how it degrades:
 | P9a | Offline splash (Neon) with back-off, countdown, Retry now; reconnecting strip in both styles; write buttons paused; orb warn state | Stopping the server shows the strip after 2s and pauses writes; starting it shows Connected, then the strip goes away (tests with fake timers) |
 | P9b | Launch intro, ending in the launcher Home with the one orb; skip, once per session, fallbacks | Plays once on cold start in Neon Full; any key skips it; Reduce motion gives the fade; no WebGL gives the SVG lockup; Flat never shows it |
 | P9c | Home → Workspaces with the orb carried across (View Transition) | The orb moves between the two slots; Reduce motion gives a plain page change |
+
+## 8c. Home without a sidebar: the orb launcher (designed 2026-11-22)
+
+The design canvas's `OrbLauncher` board. It replaces §8a's tiles and the always-open "Where to?" box.
+
+- **Layout:** Neon's Home has no sidebar and no top bar.
+  - The page has `dd.` and the workspace kicker top left, and a `Ctrl K` chip top right.
+  - Below them come the greeting and one line on what devdeck is for.
+  - The orb sits in the middle, with its state line under it.
+  - Every built sidebar page sits around the orb on an arc, with a few words on what it is for and a diamond in its group's colour: Work cyan (`--link`), Run the accent, System the gradient's middle.
+  - A legend of the groups runs along the bottom.
+- **Search:** `Ctrl K` (or the chip) opens the page search; Escape closes it. The full palette is still hub milestone H2.
+- **Picking a page:** the page's name flies into its sidebar row as the sidebar slides in from the left, using one view-transition name for that change only.
+- **Narrow windows:** one column, with the pages in a grid.
+- **Later, with the mini orbs (§8d):** the design's orb flying to the destination page's mini orb and becoming a ring.
+
+## 8d. One Neon style, and mini orbs on empty pages (owner's direction, 2026-11-22)
+
+**Neon only.** Flat goes. Neon becomes the only style, and the Style setting is removed. Light and dark themes stay; Neon is built from theme tokens, so it works in both. This changes `CLAUDE.md`'s UI rules (two styles, Flat the default) and `docs/appearance.md`, in the same PR.
+
+**The full orb is for Home only.** It is the "welcome, nothing's set up yet" moment. Every other empty page uses one small pattern, so they feel related:
+- a mini orb (about 120px), styled for the page, hinting at what it holds;
+- one mono line in the house style (`00 $ LOGS · NOTHING STREAMING`);
+- one headline, one action, one command (for example "No stacks yet.", *New stack*, `devdeck stack add`).
+
+| Page | Orb | Says | Action |
+|---|---|---|---|
+| Workspaces | several small orbs, one lit | No workspaces yet | Create workspace · `devdeck init` |
+| Repositories | a ring of dots, like commits on a loop | No repos linked | Link repo / connect GitHub |
+| Stacks | the orb split into stacked layers | No stacks yet | New stack · import a compose file |
+| Logs | particles falling like a stream | Nothing streaming | Start a stack |
+| Resources | pulsing like a heartbeat, a flat line | Nothing running yet | Start a stack |
+| Remote hosts | a satellite drifting away | No hosts connected | Add host |
+| Databases / Migrations / SQL | a dense, still cylinder of points | No database connected | Add connection |
+| Flows / Runs | points flowing along a path between two nodes | No flows yet / No runs yet | New flow / run one |
+| Findings | a calm green orb | All clear. Nothing to fix. | Run Doctor again |
+| Secrets | a closed shell with a hidden core | No secrets stored | Add secret |
+| Plugins / Connections | empty sockets around the orb | Nothing connected | Browse / connect |
+| Notifications | tiny and quiet | You're caught up | none |
+
+**Three kinds of empty:**
+1. **Never set up:** the full pattern above, with an action that teaches what to do.
+2. **Set up, nothing happening** (no logs because nothing runs, no runs today): a quieter line, no orb headline, such as `STACK STOPPED · START IT TO STREAM LOGS`.
+3. **A search or filter found nothing:** no orb. One line (`0 results for "postgres"`) and *Clear filter*.
+
+**Rules for the orb:**
+- Good news (Findings, Notifications) is calm and green, never the accent, and never thinking.
+- "Thinking" is only for real work: Doctor running, a stack starting, Claude busy.
+
+**How it is built:** one shared `<EmptyState variant="logs" />` with a single small three.js scene. Each variant changes only the point layout and the motion, so the orb code is written and lazy-loaded once.
+
+**What changes in work already done:**
+- Workspaces with none yet becomes the mini "several orbs, one lit" variant instead of P3d's full hero.
+- §8b's carry from Home (P9c) then shrinks the big orb into that mini orb, as the `OrbTransition` design's three orbs do.
+
+| PR | What | Done when |
+|---|---|---|
+| P10 | Neon only: remove the Style setting, Flat-only code paths and `look-flat` markup; Neon's rules apply always; `CLAUDE.md` UI rules, `docs/appearance.md` and tests updated | No Flat left (`grep` for `look === "paper"`, `look-flat`, `data-look`); every page checked in a light and a dark theme |
+| P5a (revised) | `EmptyState` with `variant`, the one mini-orb scene and the three kinds of empty; Workspaces, Repositories, Stacks, Logs, Resources, Findings | Each page checked never set up, set up but idle, and filtered to nothing |
+| P5b (revised) | The rest of the table | Every page in the table checked |
 
 ## 9. Open questions (as first asked)
 

@@ -2,6 +2,8 @@
 
 > 2026-11-21 · owner: Vrishank Warrier · milestone H7 of [`2026-11-21-desktop-hub/`](../2026-11-21-desktop-hub/plan.md) (moved first, by the owner's choice) · extends [`2026-11-01-custom-themes/`](../2026-11-01-custom-themes/plan.md) and [`02-frontend-design-system.md`](../02-frontend-design-system.md) · status: **first slice built (2026-11-21): a Style setting, Flat (default) or Neon, with the type, labels, marker, grid, glass and hover glow; see [`changes.md`](changes.md). The owner chose a style separate from the theme, so colours always come from the theme. Effects level, glitch and the rest are not started.**
 
+> **2026-11-22: Neon is now the only style.** Flat and the Style setting were removed (portfolio-look plan §8d, P10). Where this plan says "optional" or compares with Flat, read it as history.
+
 ## 1. Goal
 
 A dark, minimal, cyberpunk look you can turn on: one neon accent, glow on hover and focus, glass panels, springy motion, a glitch when you change page, optional scanlines and an animated background. Paper stays the default and stays flat and calm. Turning effects off brings back today's app exactly.

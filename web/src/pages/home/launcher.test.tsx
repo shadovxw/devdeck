@@ -48,7 +48,7 @@ function renderAt(path: string) {
 afterEach(() => {
   cleanup();
   localStorage.clear();
-  useUi.setState({ look: "paper", effects: null, name: "", sidebarOpen: false, closedGroups: [] });
+  useUi.setState({ effects: null, name: "", sidebarOpen: false, closedGroups: [] });
   vi.unstubAllGlobals();
   useServerLink.getState().reset();
 });
@@ -59,7 +59,7 @@ const serverGone = () => act(() => useServerLink.setState({ everUp: true, failur
 describe("Neon Home, the launcher", () => {
   it("greets you by name, says the workspace, and shows the orb's state", async () => {
     mockServer();
-    useUi.setState({ look: "neon", name: "Sam" });
+    useUi.setState({ name: "Sam" });
     renderAt("/");
     const h1 = await screen.findByRole("heading", { level: 1 });
     expect(h1.textContent).toMatch(/^Good (morning|afternoon|evening), Sam\.$/);
@@ -69,14 +69,12 @@ describe("Neon Home, the launcher", () => {
 
   it("greets without a name when none is set", async () => {
     mockServer();
-    useUi.setState({ look: "neon" });
     renderAt("/");
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toMatch(/^Good (morning|afternoon|evening)\.$/);
   });
 
   it("looks the same with stacks running; the orb's line leads to Overview", async () => {
     mockServer({ runs: [running] });
-    useUi.setState({ look: "neon" });
     renderAt("/");
     const line = await screen.findByRole("link", { name: "Idle · 1 stack running" });
     expect(line.getAttribute("href")).toBe("/overview");
@@ -84,21 +82,46 @@ describe("Neon Home, the launcher", () => {
     expect(screen.getByRole("navigation", { name: "Launch" })).toBeTruthy();
   });
 
-  it("opens every sidebar page from the grid, a tile per group", async () => {
-    mockServer();
-    useUi.setState({ look: "neon" });
+  it("with no workspace yet, the orb's line leads to Workspaces and its hero", async () => {
+    mockServer({ workspaces: [] });
     renderAt("/");
-    const grid = within(await screen.findByRole("navigation", { name: "Launch" }));
-    expect(grid.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["// Overview", "// Work", "// Run", "// System"]);
-    const run = within(grid.getByRole("region", { name: "Run" }));
-    expect(run.getByRole("link", { name: "Stacks" }).getAttribute("href")).toBe("/stacks");
-    expect(grid.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/overview");
+    const line = await screen.findByRole("link", { name: "Idle · Set up a workspace" });
+    expect(line.getAttribute("href")).toBe("/workspaces");
+    expect(line.getAttribute("title")).toBe("Configure a workspace");
+    fireEvent.click(line);
+    expect(await screen.findByRole("region", { name: "No workspaces yet" })).toBeTruthy();
+  });
+
+  it("has no sidebar: every page sits around the orb, with what it is for, and a legend", async () => {
+    mockServer();
+    renderAt("/");
+    const orbit = within(await screen.findByRole("navigation", { name: "Launch" }));
+    expect(orbit.getByRole("link", { name: /Stacks/ }).getAttribute("href")).toBe("/stacks");
+    expect(orbit.getByRole("link", { name: /Overview/ }).textContent).toContain("everything at a glance");
+    expect(orbit.queryByRole("link", { name: /^Home/ })).toBeNull();
+    expect(document.documentElement.dataset.homeBare).toBe("");
+    expect(document.querySelector('[data-ui="topbar"]')).toBeNull();
+    const legend = within(screen.getByRole("list", { name: "Groups" }));
+    expect(legend.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["// Workyour code", "// Runwhat's running", "// Systemsetup"]);
+  });
+
+  it("picking a page names it for the flight into the sidebar, and the sidebar comes back", async () => {
+    mockServer();
+    renderAt("/");
+    const stacks = within(await screen.findByRole("navigation", { name: "Launch" })).getByRole("link", { name: /Stacks/ });
+    fireEvent.click(stacks);
+    expect(document.documentElement.dataset.launch).toBe("");
+    expect(await screen.findByRole("heading", { level: 1, name: "Stacks" })).toBeTruthy();
+    expect(document.documentElement.dataset.homeBare).toBeUndefined();
   });
 
   it("finds a page by name and opens it with Enter; arrows move, Escape clears", async () => {
     mockServer();
-    useUi.setState({ look: "neon" });
     const router = renderAt("/");
+    // Ctrl K opens the page search on Home.
+    expect(await screen.findByRole("button", { name: "Ctrl K" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Where to?" })).toBeNull();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     const box = await screen.findByRole("combobox", { name: "Where to?" });
     expect(box.getAttribute("aria-expanded")).toBe("false");
 
@@ -117,19 +140,11 @@ describe("Neon Home, the launcher", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Stacks" })).toBeTruthy();
     expect(router.state.location.pathname).toBe("/stacks");
   });
-
-  it("stays the dashboard in Flat", async () => {
-    mockServer({ runs: [running] });
-    renderAt("/");
-    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeTruthy();
-    expect(screen.queryByRole("combobox", { name: "Where to?" })).toBeNull();
-  });
 });
 
 describe("when the server goes away while in use", () => {
   it("the orb turns to its warning state and thinks; the strip says actions wait", async () => {
     mockServer();
-    useUi.setState({ look: "neon" });
     renderAt("/");
     await screen.findByText("Idle · Ready");
     serverGone();
@@ -149,33 +164,25 @@ describe("when the server goes away while in use", () => {
   });
 });
 
-describe("the hero empty state, now on Workspaces", () => {
-  it("shows on Neon's Workspaces with none yet, and its button opens the add form", async () => {
+describe("empty pages: the mini-orb pattern", () => {
+  it("Workspaces with none yet: one mono line, one headline, one action, one command", async () => {
     mockServer({ workspaces: [] });
-    useUi.setState({ look: "neon" });
     renderAt("/workspaces");
-    const hero = within(await screen.findByRole("region", { name: "Get started" }));
-    expect(hero.getByRole("heading", { level: 2 }).textContent).toBe("Your workspace is ready to connect.");
-    expect(hero.getByText("Idle")).toBeTruthy();
-    expect(hero.getByRole("link", { name: /Setup guide/ })).toBeTruthy();
-    fireEvent.click(hero.getByRole("button", { name: /Add workspace/ }));
+    const empty = within(await screen.findByRole("region", { name: "No workspaces yet" }));
+    expect(empty.getByText("00 $ Workspaces · none yet")).toBeTruthy();
+    expect(empty.getByRole("heading", { level: 2 }).textContent).toBe("No workspaces yet");
+    expect(empty.getByText("$ devdeck workspace check <folder>")).toBeTruthy();
+    expect(empty.getByRole("link", { name: /setup guide/i })).toBeTruthy();
+    fireEvent.click(empty.getByRole("button", { name: /Create workspace/ }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 
-  it("is the usual empty state in Flat", async () => {
+  it("the empty Overview is the quiet kind, pointing to Workspaces when there is none", async () => {
     mockServer({ workspaces: [] });
-    renderAt("/workspaces");
-    expect(await screen.findByRole("heading", { name: "No workspace yet" })).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Get started" })).toBeNull();
-  });
-
-  it("Neon's empty Overview is the quiet kind, pointing to Workspaces when there is none", async () => {
-    mockServer({ workspaces: [] });
-    useUi.setState({ look: "neon" });
     renderAt("/overview");
     expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
     expect((await screen.findByRole("link", { name: /Open workspaces/ })).getAttribute("href")).toBe("/workspaces");
-    expect(screen.queryByRole("region", { name: "Get started" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "No workspaces yet" })).toBeNull();
   });
 });
 

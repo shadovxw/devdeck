@@ -94,7 +94,7 @@ type Props = {
 };
 
 /**
- * Home in the Neon style (dev-plans/2026-11-21-portfolio-look §4): a compact header (kicker,
+ * The Overview dashboard (dev-plans/2026-11-21-portfolio-look §4): a compact header (kicker,
  * greeting, summary, status strip), the running stacks as cards, and what needs a look. It uses
  * only what devdeck knows; nothing is filled in for show.
  */

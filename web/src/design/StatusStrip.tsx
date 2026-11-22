@@ -4,8 +4,7 @@ export type StripTone = "ok" | "live" | "warn" | "bad" | "plain";
 export type StripItem = { key: string; value: string; tone?: StripTone; title?: string };
 
 /**
- * A row of `KEY:: VALUE` pairs (Neon: mono, upper case, the value coloured by meaning). In Flat it
- * is the same pairs as plain small text ("Docker  running"), the value in ink and the key muted.
+ * A row of `KEY:: VALUE` pairs: mono, upper case, the value coloured by meaning.
  * Colour never carries the meaning alone: the value says it in words.
  */
 export function StatusStrip({ items, label }: Readonly<{ items: StripItem[]; label: string }>) {

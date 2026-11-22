@@ -32,8 +32,9 @@ function measure(): IntroTargets {
   const H = window.innerHeight;
   const slot = rectOf(document.querySelector('[data-ui="launcher"] [data-ui="orb"]'));
   const orb = slot ? { x: slot.left + slot.width / 2, y: slot.top + slot.height / 2, r: orbRadiusPx(slot.width) } : { x: W / 2, y: H / 2, r: 90 };
+  // Home's own mark when Home has no sidebar (the orb launcher), else the sidebar's.
   const header = document.querySelector('[data-slot="sidebar-header"]');
-  const markEl = [header?.querySelector('[data-ui="logo"]'), header?.querySelector('[data-ui="wordmark-neon"]')].map(rectOf).find(Boolean);
+  const markEl = [document.querySelector('[data-ui="launcher-mark"]'), header?.querySelector('[data-ui="logo"]'), header?.querySelector('[data-ui="wordmark-neon"]')].map(rectOf).find((r) => r && r.left >= 0);
   const mark = markEl ? { x: markEl.left + markEl.height / 2, y: markEl.top + markEl.height / 2, size: markEl.height } : { x: 35, y: 35, size: 26 };
   return { orb, mark };
 }
