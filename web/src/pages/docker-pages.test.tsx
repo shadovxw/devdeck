@@ -268,7 +268,8 @@ describe("the Docker Hub page", () => {
   it("is reachable from the Connections page, with its state", async () => {
     mockServer();
     renderAt("/connections");
-    const link = await within(await screen.findByRole("main")).findByRole("link", { name: /Docker Hub/ });
+    // The card, not the Docker Hub tab of the Connections family.
+    const link = (await screen.findAllByRole("link", { name: /Docker Hub/ })).find((a) => a.closest("main") && !a.closest('[data-ui="family-tabs"]'))!;
     expect(link.getAttribute("href")).toBe("/connections/docker");
     expect(await within(link).findByText("1 account")).toBeTruthy();
   });

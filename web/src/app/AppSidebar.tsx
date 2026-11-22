@@ -1,23 +1,20 @@
 import { ChevronRight } from "lucide-react";
 import { LazyMotion, m, MotionConfig } from "motion/react";
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router";
+import { Link, NavLink, useLocation } from "react-router";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
@@ -25,7 +22,7 @@ import { Logo } from "../design/Logo";
 import { useInputMode } from "../lib/input-mode";
 import { springSnappy } from "../lib/motion";
 import { useUi } from "../store/ui";
-import { NAV, type NavGroup, type NavItem } from "./nav";
+import { FOOTER_GROUP, HOME_GROUP, NAV, sidebarPathOf, type NavItem } from "./nav";
 import { useUpdateAvailable } from "./UpdateNotice";
 
 /** A dot on the Settings row when a newer devdeck is out (Settings → About installs it). */
@@ -47,7 +44,6 @@ const loadMotionFeatures = () => import("../lib/motion-features").then((mod) => 
 // The active highlight is the sliding pill below, so the button's own active background is off.
 const row =
   "relative isolate h-8 gap-2 py-0 text-[13px] data-[active=true]:bg-transparent group-data-[collapsible=icon]:size-8! [&>svg]:size-[17px]";
-const subRow = "relative isolate h-7 text-[13px] data-[active=true]:bg-transparent";
 
 /**
  * The highlight behind the current page. It is one shared element (layoutId), so
@@ -70,109 +66,91 @@ function ActivePill() {
   );
 }
 
-function Page({ item }: { item: NavItem }) {
+/** Rows in the footer that are icons only, side by side: Notifications, Docs, Settings. */
+const ICON_ROW = new Set(["/notifications", "/docs", "/settings"]);
+
+/** One sidebar row. It stays highlighted while any page of its family is open (its tabs). */
+function Page({ item }: Readonly<{ item: NavItem }>) {
   const { pathname } = useLocation();
-  const { state, isMobile, setOpenMobile } = useSidebar();
-  const closeDrawer = () => setOpenMobile(false);
-  // Collapsed to icons there is no room for a sub-list, so sub-pages become plain icons.
-  const iconOnly = state === "collapsed" && !isMobile;
-  const kids = item.children;
-  const insideKids = kids?.some((k) => pathname === k.path) ?? false;
-  // Sub-pages open by themselves when you are on one; the chevron overrides that.
-  const [chosen, setChosen] = useState<boolean>();
-  const open = chosen ?? insideKids;
-
-  const parentButton = (
-    <SidebarMenuButton asChild isActive={pathname === item.path} tooltip={item.label} className={row}>
-      <NavLink to={item.path} end viewTransition onClick={closeDrawer}>
-        {pathname === item.path && <ActivePill />}
-        <item.icon strokeWidth={1.7} />
-        <span>{item.label}</span>
-        {item.path === "/settings" && <UpdateDot />}
-      </NavLink>
-    </SidebarMenuButton>
-  );
-
-  if (iconOnly) {
-    return (
-      <>
-        <SidebarMenuItem>{parentButton}</SidebarMenuItem>
-        {kids?.map((k) => (
-          <SidebarMenuItem key={k.path}>
-            <SidebarMenuButton asChild isActive={pathname === k.path} tooltip={k.label} className={row}>
-              <NavLink to={k.path} end viewTransition onClick={closeDrawer}>
-                {pathname === k.path && <ActivePill />}
-                <k.icon strokeWidth={1.7} />
-                <span>{k.label}</span>
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
-      </>
-    );
-  }
-
+  const { setOpenMobile } = useSidebar();
+  const active = sidebarPathOf(pathname) === item.path;
   return (
-    <Collapsible open={open} onOpenChange={setChosen} asChild>
-      <SidebarMenuItem>
-        {parentButton}
-        {kids && (
-          <>
-            <CollapsibleTrigger asChild>
-              <SidebarMenuAction
-                aria-label={`${open ? "Hide" : "Show"} ${item.label} pages`}
-                className="top-1.5 data-[state=open]:rotate-90 [&>svg]:size-3.5"
-              >
-                <ChevronRight />
-              </SidebarMenuAction>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarMenuSub className="gap-0 py-0">
-                {kids.map((k) => (
-                  <SidebarMenuSubItem key={k.path}>
-                    <SidebarMenuSubButton asChild isActive={pathname === k.path} className={subRow}>
-                      <NavLink to={k.path} end viewTransition onClick={closeDrawer}>
-                        {pathname === k.path && <ActivePill />}
-                        <span>{k.label}</span>
-                      </NavLink>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                ))}
-              </SidebarMenuSub>
-            </CollapsibleContent>
-          </>
-        )}
-      </SidebarMenuItem>
-    </Collapsible>
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={active} tooltip={item.label} className={row}>
+        <Link to={item.path} viewTransition onClick={() => setOpenMobile(false)} aria-current={active ? "page" : undefined}>
+          {active && <ActivePill />}
+          <item.icon strokeWidth={1.7} />
+          <span>{item.label}</span>
+          {item.path === "/settings" && <UpdateDot />}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }
 
-function Group({ group }: { group: NavGroup }) {
+/** A footer page shown as an icon alone (its name in the tooltip and for screen readers). */
+function IconPage({ item }: Readonly<{ item: NavItem }>) {
+  const { pathname } = useLocation();
+  const { setOpenMobile } = useSidebar();
+  const active = sidebarPathOf(pathname) === item.path;
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        isActive={active}
+        tooltip={item.label}
+        className="relative isolate size-8 justify-center p-0 data-[active=true]:bg-transparent [&>svg]:size-[17px]"
+      >
+        <Link to={item.path} viewTransition onClick={() => setOpenMobile(false)} aria-label={item.label} aria-current={active ? "page" : undefined}>
+          {active && <ActivePill />}
+          <item.icon strokeWidth={1.7} />
+          {item.path === "/settings" && <UpdateDot />}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+type GroupProps = {
+  name: string;
+  items: NavItem[];
+  /** Home's group has no heading. */
+  heading?: boolean;
+  /** Coming soon: folded until opened, not remembered, and left off the folded rail. */
+  soon?: boolean;
+};
+
+function Group({ name, items, heading = true, soon = false }: Readonly<GroupProps>) {
   const { state, isMobile } = useSidebar();
-  const closed = useUi((s) => s.closedGroups.includes(group.name));
+  const closed = useUi((s) => s.closedGroups.includes(name));
   const setGroupOpen = useUi((s) => s.setGroupOpen);
-  // Collapsed to icons there are no headings, so every page stays reachable.
+  const [soonOpen, setSoonOpen] = useState(false);
+  // Folded to icons there are no headings, so every page there stays reachable.
   const iconOnly = state === "collapsed" && !isMobile;
-  const open = iconOnly || !closed;
+  if (iconOnly && soon) return null;
+  const open = iconOnly || !heading || (soon ? soonOpen : !closed);
+  const onOpenChange = (o: boolean) => (soon ? setSoonOpen(o) : setGroupOpen(name, o));
 
   return (
-    <Collapsible open={open} onOpenChange={(o) => setGroupOpen(group.name, o)} className="group/collapsible">
+    <Collapsible open={open} onOpenChange={onOpenChange} className="group/collapsible">
       <SidebarGroup className="px-2 py-0.5 group-data-[collapsible=icon]:py-0">
-        <SidebarGroupLabel
-          asChild
-          data-ui="nav-group"
-          className="h-6 cursor-pointer font-mono text-[11px] uppercase tracking-[0.06em] text-ink-3 hover:text-ink group-data-[collapsible=icon]:hidden"
-        >
-          <CollapsibleTrigger>
-            {group.name}
-            <ChevronRight className="ms-auto size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-          </CollapsibleTrigger>
-        </SidebarGroupLabel>
-        <hr className="mx-auto my-1 hidden w-6 border-0 border-t border-sidebar-border group-data-[collapsible=icon]:block" />
+        {heading && (
+          <SidebarGroupLabel
+            asChild
+            data-ui="nav-group"
+            className="h-6 cursor-pointer font-mono text-[11px] uppercase tracking-[0.06em] text-ink-3 hover:text-ink group-data-[collapsible=icon]:hidden"
+          >
+            <CollapsibleTrigger>
+              {name}
+              <ChevronRight className="ms-auto size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+            </CollapsibleTrigger>
+          </SidebarGroupLabel>
+        )}
+        {heading && <hr className="mx-auto my-1 hidden w-6 border-0 border-t border-sidebar-border group-data-[collapsible=icon]:block" />}
         <CollapsibleContent>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
-              {group.items.map((item) => (
+              {items.map((item) => (
                 <Page key={item.path} item={item} />
               ))}
             </SidebarMenu>
@@ -182,6 +160,14 @@ function Group({ group }: { group: NavGroup }) {
     </Collapsible>
   );
 }
+
+// The sidebar's parts, from nav.ts: built pages only; the System group as the footer pinned to
+// the bottom; everything not built yet under Coming soon.
+const MAIN = NAV.filter((g) => g.name !== FOOTER_GROUP)
+  .map((g) => ({ name: g.name, items: g.items.filter((i) => i.built) }))
+  .filter((g) => g.items.length > 0);
+const FOOTER = NAV.find((g) => g.name === FOOTER_GROUP)?.items.filter((i) => i.built) ?? [];
+const SOON = NAV.flatMap((g) => g.items.filter((i) => !i.built));
 
 export function AppSidebar() {
   const { setOpenMobile } = useSidebar();
@@ -213,11 +199,26 @@ export function AppSidebar() {
           </SidebarHeader>
           <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-hidden [scrollbar-width:none]">
             <nav aria-label="Pages" className="flex flex-col py-1 group-data-[collapsible=icon]:py-0.5">
-              {NAV.map((group) => (
-                <Group key={group.name} group={group} />
+              {MAIN.map((g) => (
+                <Group key={g.name} name={g.name} items={g.items} heading={g.name !== HOME_GROUP} />
               ))}
+              {SOON.length > 0 && <Group name="Coming soon" items={SOON} soon />}
             </nav>
           </SidebarContent>
+          <SidebarFooter className="gap-1 px-2 pb-3">
+            <nav aria-label="System" className="flex flex-col gap-1">
+              <SidebarMenu className="gap-0.5">
+                {FOOTER.filter((i) => !ICON_ROW.has(i.path)).map((item) => (
+                  <Page key={item.path} item={item} />
+                ))}
+              </SidebarMenu>
+              <SidebarMenu data-ui="icon-row" className="flex-row gap-1 group-data-[collapsible=icon]:flex-col">
+                {FOOTER.filter((i) => ICON_ROW.has(i.path)).map((item) => (
+                  <IconPage key={item.path} item={item} />
+                ))}
+              </SidebarMenu>
+            </nav>
+          </SidebarFooter>
           <SidebarRail />
         </Sidebar>
       </MotionConfig>

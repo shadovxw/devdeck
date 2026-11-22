@@ -61,7 +61,7 @@ describe("pages", () => {
     mockServer();
     renderAt("/stacks");
     expect(await screen.findByRole("heading", { level: 1, name: "Stacks" })).toBeTruthy();
-    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Run locally/Stacks");
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Run/Stacks");
     expect(screen.queryByText(/Phase \d/)).toBeNull();
     expect(screen.queryByText("Local workspace")).toBeNull();
   });
@@ -93,23 +93,34 @@ describe("pages", () => {
     expect(bar.getByText("No workspace")).toBeTruthy();
   });
 
-  it("shows Group / Parent / Page in the breadcrumb of a sub-page, and marks only the sub-page current", async () => {
+  it("shows Group / Parent / Page in the breadcrumb of a family page, and its family as tabs", async () => {
     mockServer();
-    renderAt("/migrations");
-    await screen.findByRole("heading", { level: 1, name: "Migrations" });
-    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Data/Databases/Migrations");
-    const dock = within(screen.getByRole("navigation", { name: "Pages" }));
-    expect(dock.getAllByRole("link", { name: "Migrations" }).some((a) => a.getAttribute("aria-current") === "page")).toBe(true);
-    expect(dock.getByRole("link", { name: "Databases" }).getAttribute("aria-current")).toBeNull();
+    renderAt("/logs");
+    await screen.findByRole("heading", { level: 1, name: "Logs" });
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Run/Stacks/Logs");
+    const tabs = within(screen.getByRole("navigation", { name: "Stacks pages" }));
+    expect(tabs.getByRole("link", { name: "Logs" }).getAttribute("aria-current")).toBe("page");
+    expect(tabs.getByRole("link", { name: "Stacks" }).getAttribute("aria-current")).toBeNull();
+    expect(tabs.getByRole("link", { name: "Images and tags" })).toBeTruthy();
+    // Resources isn't built yet: a dimmed tab that says when it comes.
+    expect(tabs.getByText("Resources").getAttribute("title")).toBe("Comes in Phase 5");
   });
 
-  it("opens a parent's sub-pages when you are on one of them", async () => {
+  it("lists only built pages in the sidebar, the rest under Coming soon", async () => {
     mockServer();
     useUi.setState({ sidebarOpen: true });
-    renderAt("/sql");
-    await screen.findByRole("heading", { level: 1, name: "SQL console" });
-    const toggle = screen.getByRole("button", { name: "Hide Databases pages" });
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    renderAt("/stacks");
+    await screen.findByRole("heading", { level: 1, name: "Stacks" });
+    const dock = within(screen.getByRole("navigation", { name: "Pages" }));
+    expect(dock.queryByRole("link", { name: "Logs" })).toBeNull(); // a tab of Stacks now
+    expect(dock.queryByRole("link", { name: "Databases" })).toBeNull(); // not built: folded away
+    const soon = dock.getByRole("button", { name: "Coming soon" });
+    expect(soon.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(soon);
+    expect(dock.getByRole("link", { name: "Databases" })).toBeTruthy();
+    const footer = within(screen.getByRole("navigation", { name: "System" }));
+    expect(footer.getByRole("link", { name: "Connections" })).toBeTruthy();
+    expect(footer.getByRole("link", { name: "Settings" })).toBeTruthy();
   });
 
   it("starts collapsed and remembers when you expand the sidebar", async () => {
@@ -130,13 +141,13 @@ describe("pages", () => {
     useUi.setState({ sidebarOpen: true });
     renderAt("/stacks");
     await screen.findByRole("heading", { level: 1, name: "Stacks" });
-    const heading = screen.getByRole("button", { name: "Run locally" });
+    const heading = screen.getByRole("button", { name: "Run" });
     expect(heading.getAttribute("aria-expanded")).toBe("true");
 
     fireEvent.click(heading);
 
     expect(heading.getAttribute("aria-expanded")).toBe("false");
-    expect(JSON.parse(localStorage.getItem("devdeck.sidebar.groups") ?? "[]")).toEqual(["Run locally"]);
+    expect(JSON.parse(localStorage.getItem("devdeck.sidebar.groups") ?? "[]")).toEqual(["Run"]);
   });
 
   it("shows Not found for unknown paths", async () => {
@@ -145,13 +156,13 @@ describe("pages", () => {
     expect(await screen.findByRole("heading", { name: "Not found" })).toBeTruthy();
   });
 
-  it("marks the current page in the dock", async () => {
+  it("marks the current page's sidebar item, its family's first page for a tab", async () => {
     mockServer();
     renderAt("/logs");
     await screen.findByRole("heading", { name: "Logs" });
     const dock = screen.getByRole("navigation", { name: "Pages" });
-    expect(within(dock).getByRole("link", { name: "Logs" }).getAttribute("aria-current")).toBe("page");
-    expect(within(dock).getByRole("link", { name: "Stacks" }).getAttribute("aria-current")).toBeNull();
+    expect(within(dock).getByRole("link", { name: "Stacks" }).getAttribute("aria-current")).toBe("page");
+    expect(within(dock).getByRole("link", { name: "Workspaces" }).getAttribute("aria-current")).toBeNull();
   });
 
   it("shows a loading skeleton while the plugin list is on its way", async () => {
