@@ -46,3 +46,17 @@ Checked: typecheck, lint, all 589 web tests. In the browser, with a throwaway de
 - **Resources (P3b) waits for its data:** the page is still a placeholder; it is built with main plan Phase 5.
 
 Checked: typecheck, lint, all 601 web tests. In the browser with four demo stacks (one failing on purpose, all in the git-ignored dev data folder): Neon Home matches the mockup's layout, four cards in one row at 1440×900 with nothing below the fold; Flat Home compared with the committed `HomePage.tsx`: identical apart from the uptime counter.
+
+## 2026-11-22: P4, Effects, the orb, empty Home
+
+- **Effects setting** (`web/src/store/ui.ts`, Settings → Appearance → Effects: Off / Reduced / Full). Until chosen it follows the style (`effectiveEffects`: Flat Off, Neon Full); choosing keeps the choice in `devdeck.effects`. It sets `data-effects` on `<html>` (Off is no attribute, so Flat's page is unchanged), also before first paint (`index.html`). Tests in `store/ui.test.ts`.
+- **The orb**, ported from the mockup:
+  - `design/orb/scene.ts`: the three.js scene (2,600 points on a Fibonacci sphere displaced in the shader, coloured by height from the theme's primary through a mix to its critical colour, additive blending; a fresnel core; two rings in ink and a satellite in the "live" colour; tilts toward the pointer). State `idle` / `thinking` / `ok` (all in the success colour). Pixel ratio at most 2, at most 60 fps, everything disposed.
+  - `design/orb/loop.ts`: the frame loop, without three.js so it is tested (`loop.test.ts`, 6 tests): the first frame at once, a frame-rate cap, one still frame and no loop when still, stopped while the page is hidden and started again when shown, stopped for good on unmount.
+  - `design/orb/OrbCanvas.tsx`: reads the colours from the theme on `<html>` and again when the theme or style changes (a `MutationObserver`).
+  - `design/EmptyOrb.tsx`: the orb only in Neon with Effects above Off where WebGL works; otherwise the page's usual art. Reduce motion (devdeck's or the system's) or Reduced effects give a still frame. `OrbCanvas` is `React.lazy`, so **three.js is its own chunk** (`OrbCanvas-*.js`, 537 KB, 134 KB gzipped; the main bundle has none of it, checked in the build). Tests in `design/empty-orb.test.tsx`.
+- **Empty Home in Neon** (`pages/home/NeonEmptyHome.tsx`): without a workspace, the hero (the orb at about 440px with its state under it, `00 $ BOOT · NO STACKS RUNNING`, "Your workspace is ready **to connect**.", Configure workspace and Setup guide); with a workspace but nothing running, the quiet kind (one mono line and *Open stacks*, no orb). The mockup's `devdeck init` and `Ctrl K` chips are replaced by `devdeck help`: there is no `init` command and no command palette yet. Tests in `pages/home/neon-empty-home.test.tsx`.
+- `three` 0.187.0 and `@types/three` 0.187.0, exact versions; `npm audit` clean.
+- **Plans updated** in the same PR, as decision 9 asks: the neon-look plan (Effects default; the WebGL exception) and the main plan (3D: the orb as the one exception).
+
+Checked: typecheck, lint, all web tests; the build splits three.js out. In the browser: the orb draws in the theme's colours on Neon's empty Home (the first screenshot was taken before its chunk loaded; it then drew, which led to drawing the first frame at once); the Effects row shows Full under Neon.

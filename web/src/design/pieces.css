@@ -292,3 +292,43 @@
   margin: 0;
   color: var(--ink);
 }
+
+/* --- Empty Home (pages/home/NeonEmptyHome.tsx) ----------------------------------------- */
+:root[data-look="neon"] [data-ui="orb-state"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root[data-look="neon"] [data-ui="hero-title"] {
+  font-size: 48px;
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  color: var(--ink);
+}
+
+:root[data-look="neon"] [data-ui="hero-text"] {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+:root[data-look="neon"] :is([data-ui="hero-chips"], [data-ui="quiet-line"]) {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root[data-look="neon"] [data-ui="hero-chips"] code {
+  padding: 4px 8px;
+  font-family: var(--font-code);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+  background: var(--neon-panel);
+}
