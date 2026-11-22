@@ -1,6 +1,6 @@
 # Sidebar: fewer items, families as tabs, a readable rail
 
-> 2026-11-22 · owner: Vrishank Warrier · from a review of the sidebar the owner brought in, asked for before the launcher work ([`2026-11-21-portfolio-look/`](../2026-11-21-portfolio-look/plan.md) §8a) · changes the nav grouping made there in P1 · status: **S1 to S4 built (2026-11-22), see [`changes.md`](changes.md); S5 not started; S6 proposed.**
+> 2026-11-22 · owner: Vrishank Warrier · from a review of the sidebar the owner brought in, asked for before the launcher work ([`2026-11-21-portfolio-look/`](../2026-11-21-portfolio-look/plan.md) §8a) · changes the nav grouping made there in P1 · status: **S1 to S5 built (2026-11-22), see [`changes.md`](changes.md); S6 proposed.**
 
 ## 1. The problem
 

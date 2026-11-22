@@ -114,6 +114,7 @@ describe("pages", () => {
     await screen.findByRole("heading", { level: 1, name: "Stacks" });
     const dock = within(screen.getByRole("navigation", { name: "Pages" }));
     expect(dock.queryByRole("link", { name: "Logs" })).toBeNull(); // a tab of Stacks now
+    expect(dock.getByRole("link", { name: "Stacks" }).getAttribute("aria-keyshortcuts")).toBe("G S");
     expect(dock.queryByRole("link", { name: "Databases" })).toBeNull(); // not built: folded away
     const soon = dock.getByRole("button", { name: "Coming soon" });
     expect(soon.getAttribute("aria-expanded")).toBe("false");
