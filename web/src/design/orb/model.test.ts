@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { orbPalette, spherePoints, thinks, type OrbColors } from "./model";
+import { orbPalette, orbRadiusPx, spherePoints, thinks, type OrbColors } from "./model";
 
 const colors: OrbColors = { primary: "#c27aff", critical: "#ef4444", good: "#22c55e", warning: "#fbbf24", ink: "#ffffff", live: "#22d3ee" };
 
@@ -57,5 +57,11 @@ describe("spherePoints", () => {
     expect(spherePoints(50)).toEqual(spherePoints(50));
     const one = spherePoints(1);
     expect(Math.hypot(one.positions[0], one.positions[1], one.positions[2])).toBeCloseTo(1, 5);
+  });
+});
+
+describe("orbRadiusPx", () => {
+  it("is about a third of the canvas, the sphere's size on screen", () => {
+    expect(orbRadiusPx(316)).toBeCloseTo(103.4, 1);
   });
 });

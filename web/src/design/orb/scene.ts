@@ -29,7 +29,7 @@ import {
 } from "three";
 
 import { startLoop } from "./loop";
-import { orbPalette, spherePoints, thinks, type OrbColors, type OrbState } from "./model";
+import { ORB_CAMERA, orbPalette, spherePoints, thinks, type OrbColors, type OrbState } from "./model";
 
 export type { OrbColors, OrbState } from "./model";
 
@@ -79,8 +79,8 @@ export function createOrb(canvas: HTMLCanvasElement, opts: { state: OrbState; co
   const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new Scene();
-  const camera = new PerspectiveCamera(40, 1, 0.1, 50);
-  camera.position.set(0, 0, 4.2);
+  const camera = new PerspectiveCamera(ORB_CAMERA.fov, 1, 0.1, 50);
+  camera.position.set(0, 0, ORB_CAMERA.z);
   const group = new Group();
   scene.add(group);
 
