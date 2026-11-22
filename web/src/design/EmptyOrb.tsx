@@ -2,7 +2,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { effectiveEffects, useUi } from "../store/ui";
-import type { OrbState } from "./orb/scene";
+import type { OrbState } from "./orb/model";
 
 // three.js loads only here, and only when the orb is shown: it is its own chunk.
 const OrbCanvas = lazy(() => import("./orb/OrbCanvas"));

@@ -62,3 +62,12 @@ Checked: typecheck, lint, all 601 web tests. In the browser with four demo stack
 Checked: typecheck, lint, all web tests; the build splits three.js out. In the browser: the orb draws in the theme's colours on Neon's empty Home (the first screenshot was taken before its chunk loaded; it then drew, which led to drawing the first frame at once); the Effects row shows Full under Neon.
 
 **Fix (owner's report): a glow around the whole page after clicking it.** The page's `<main>` has `tabindex="-1"` so the skip link and page changes can move focus to it; clicking the page focused it, and Neon's focus glow (a box-shadow) drew around it, its top hidden under the sticky top bar. Flat never showed it, because its ring is an outline and `<main>` turns that off. The glow now skips anything with `tabindex="-1"` (focus targets, not controls). Checked: clicking the page draws nothing; Tab onto a button still glows.
+
+**Fix for SonarQube on PR #57 (quality gate: new-code coverage 42.4%, needed 80%; and one issue).**
+- `design/orb/model.ts` (new): the orb's plain parts, out of the WebGL file: `spherePoints` (the Fibonacci sphere and a seed per point, now always in [0, 1)) and `orbPalette` (accent → gradient middle → error colour; "ok" all in the success colour; uses `colord`'s mix, already a dependency). Tested in `model.test.ts`.
+- `design/orb/orb-canvas.test.tsx` (new): `OrbCanvas` with the scene stubbed: colours read from the theme, new colours on a theme change, a state change without rebuilding, a rebuild when stillness changes, everything let go on unmount. It found a small bug, fixed: the state effect returned `setState`'s result, which React takes as a clean-up function.
+- `EmptyOrb`'s WebGL check has its own test.
+- `sonar-project.properties`: `web/src/design/orb/scene.ts` added to `sonar.coverage.exclusions`, with the reason (it needs a real GPU; its logic is in the tested `model.ts` and `loop.ts`), as the Wails window already is.
+- The issue (`aria-hidden` on the canvas): removed; the box around it (`EmptyOrb`) is `aria-hidden`.
+
+Checked: typecheck, lint, all 628 web tests; the orb files at about 97% line coverage without `scene.ts`; the build still puts three.js only in the `OrbCanvas` chunk; the orb draws as before in the browser.

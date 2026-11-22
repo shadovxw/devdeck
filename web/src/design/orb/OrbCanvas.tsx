@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
-import { createOrb, type Orb, type OrbColors, type OrbState } from "./scene";
+import type { OrbColors, OrbState } from "./model";
+import { createOrb, type Orb } from "./scene";
 
 /** The theme's colours for the orb, read from the page (the theme writes them on <html>). */
 export function readOrbColors(root: HTMLElement = document.documentElement): OrbColors {
@@ -36,7 +37,10 @@ export default function OrbCanvas({ state, still, className }: Readonly<{ state:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [still]);
 
-  useEffect(() => orb.current?.setState(state), [state]);
+  useEffect(() => {
+    orb.current?.setState(state);
+  }, [state]);
 
-  return <canvas ref={canvas} aria-hidden className={className} />;
+  // Decorative: the box around it (EmptyOrb) is aria-hidden.
+  return <canvas ref={canvas} className={className} />;
 }

@@ -51,6 +51,7 @@ Make the **Neon** style (Settings → Appearance → Style) look like the approv
 | P3 | Home with data (greeting; the name waits for Q3) | Matches the mockup at 1440×900; four stacks visible without scrolling |
 | P3b | Resources in the Neon look. **Waits for its data:** the page is still a placeholder (main plan Phase 5 collects CPU, memory and disk; the system-metrics plugin is only a stub). Built with Phase 5 | Matches the mockup with real numbers |
 | P4 | The Effects setting (decision 8), `EmptyOrb` hero (lazy, theme colours, off switches), Home's empty state; neon-look and main plans updated (decision 9) | `three` only in its own chunk; still frame with Reduce motion; stops when hidden (test); `EmptyArt` on Flat, Effects Off and without WebGL |
+| P3c, P3d | Home as a launcher, the dashboard to Overview: see §8a | See §8a |
 | P5a | Mini orb variants, part 1 (Workspaces, Repositories, Features, Stacks, Logs, Resources, Claude, Findings/Doctor) and the three kinds of empty | Each of those pages checked empty and filtered to nothing |
 | P5b | Mini orb variants, part 2 (the rest of the table) | Every nav page checked empty |
 | P6 | The remaining data pages restyled with the shared pieces | `grep` finds no hard-coded colour in any component |
@@ -85,6 +86,29 @@ The owner: "match the mockup and start; the theme will be Neon; we can customise
 - **Q5:** the primary button is solid white (ink), as in the mockups.
 - **Decision 3 dropped:** no built-in Neon theme. Colours come from the owner's own theme. Instead, Neon gets its own **options** later (PR P8): text size, the two fonts, and the gradient's colours (defaults from the theme's primary and critical).
 - **Q3** (the greeting's name) is still open; until answered, the greeting has no name.
+
+## 8a. Home as a launcher (decided 2026-11-22)
+
+After P4 the owner chose to make Neon's Home a **fixed launcher**: the same every time, a place to go somewhere from, not a dashboard whose content changes. Their answers:
+
+- **Neon only.** Flat's Home stays as it is.
+- **The command bar is page search** for now: a big "Where to?" box that finds pages by name and opens them. The real Ctrl K palette (pages, stacks, actions, from anywhere) stays hub milestone H2.
+- **The dashboard moves to a new Overview page:** what P3 built for Neon's Home (status strip, running-stack cards, Needs a look) becomes `/overview`, under `// OVERVIEW`. In Flat, Overview shows the same dashboard Flat's Home already shows. Home links to it.
+- **No login.** devdeck is local and single-user (auth stays deferred, `CLAUDE.md`). The greeting's name comes from a **Your name** setting; empty means "Good evening." (Proposed to the owner; confirm before P3d.)
+
+**The launcher, top to bottom:**
+1. **Header:** "Good evening, <name>." and the workspace switcher. No summary line (it would change).
+2. **The orb, always** (hero size). It is the one part that moves: idle when nothing is happening, "thinking" while devdeck works (a stack starting; later Doctor running, Claude busy), with its state in a mono line under it. Effects Off, Flat or no WebGL: the usual art.
+3. **The command bar:** "Where to?" as a large input; typing filters the nav pages (label, group, and the page's empty-state text), arrows move, Enter opens. The `Ctrl K` hint shows only once the palette exists.
+4. **The launch grid:** one large square tile per nav group (Run locally, Data, Automate, System; Overview's pages first as a row), each with its mono label (`// RUN LOCALLY`) and its pages as links. Built from `nav.ts`, so a new page appears by itself.
+5. **Not included:** "Recently opened" (it changes; the owner can ask for it later).
+
+The hero empty state of P4 ("Your workspace is ready to connect") moves to the **Workspaces** page's empty state in Neon, where configuring a workspace happens.
+
+| PR | What | Done when |
+|---|---|---|
+| P3c | `/overview` (new nav item under Overview): the P3 Neon dashboard and, in Flat, the dashboard Flat's Home shows today; tests move with it | Overview shows the stacks in both styles; Flat Home unchanged |
+| P3d | Neon Home as the launcher: header with name (the *Your name* setting), the orb with live state, the page-search bar, the launch grid; the hero empty state moves to Workspaces | Home looks the same with and without stacks; typing a page name and Enter opens it; every nav page is reachable from the grid |
 
 ## 9. Open questions (as first asked)
 

@@ -4,7 +4,8 @@
  * a ripple, stronger while "thinking"), coloured by height from the accent through the gradient's
  * middle to the error colour, with additive blending and brighter in front; a fresnel core in the
  * accent that pulses; two thin orbit rings in ink with one dot in the "live" colour. It tilts
- * toward the pointer. All colours come from the theme (OrbColors), never from here.
+ * toward the pointer. Where the points sit and which colours it uses are in model.ts (tested);
+ * this file is the WebGL part, which needs a real GPU and is left out of the coverage number.
  *
  * Only EmptyOrb loads this file, lazily, so three.js stays out of the main bundle.
  */
@@ -28,11 +29,9 @@ import {
 } from "three";
 
 import { startLoop } from "./loop";
+import { orbPalette, spherePoints, type OrbColors, type OrbState } from "./model";
 
-export type OrbState = "idle" | "thinking" | "ok";
-
-/** The theme colours the orb uses, as CSS colour strings. */
-export type OrbColors = { primary: string; critical: string; good: string; ink: string; live: string };
+export type { OrbColors, OrbState } from "./model";
 
 export type Orb = {
   setState: (state: OrbState) => void;
@@ -85,19 +84,8 @@ export function createOrb(canvas: HTMLCanvasElement, opts: { state: OrbState; co
   const group = new Group();
   scene.add(group);
 
-  // The particle shell: a Fibonacci sphere, displaced in the shader.
-  const pos = new Float32Array(POINTS * 3);
-  const seed = new Float32Array(POINTS);
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  for (let i = 0; i < POINTS; i++) {
-    const y = 1 - (i / (POINTS - 1)) * 2;
-    const r = Math.sqrt(1 - y * y);
-    const th = golden * i;
-    pos[i * 3] = Math.cos(th) * r;
-    pos[i * 3 + 1] = y;
-    pos[i * 3 + 2] = Math.sin(th) * r;
-    seed[i] = (Math.sin(i * 12.9898) * 43758.5453) % 1;
-  }
+  // The particle shell: a Fibonacci sphere (model.ts), displaced in the shader.
+  const { positions: pos, seeds: seed } = spherePoints(POINTS);
   const geo = new BufferGeometry();
   geo.setAttribute("position", new BufferAttribute(pos, 3));
   geo.setAttribute("aSeed", new BufferAttribute(seed, 1));
@@ -138,16 +126,14 @@ export function createOrb(canvas: HTMLCanvasElement, opts: { state: OrbState; co
 
   let state = opts.state;
   const setColors = (c: OrbColors) => {
-    // "ok" is the success colour all through; otherwise accent → gradient middle → error colour.
-    const top = new Color(state === "ok" ? c.good : c.primary);
-    const low = new Color(state === "ok" ? c.good : c.critical);
-    uniforms.cTop.value.copy(top);
-    uniforms.cLow.value.copy(low);
-    uniforms.cMid.value.lerpColors(top, low, 0.6);
-    coreU.uColor.value.copy(top);
-    (r1.material as LineBasicMaterial).color.set(c.ink);
-    (r2.material as LineBasicMaterial).color.set(c.ink);
-    satMaterial.color.set(c.live);
+    const p = orbPalette(c, state);
+    uniforms.cTop.value.set(p.top);
+    uniforms.cMid.value.set(p.mid);
+    uniforms.cLow.value.set(p.low);
+    coreU.uColor.value.set(p.top);
+    (r1.material as LineBasicMaterial).color.set(p.rings);
+    (r2.material as LineBasicMaterial).color.set(p.rings);
+    satMaterial.color.set(p.satellite);
   };
   let colors = opts.colors;
   setColors(colors);

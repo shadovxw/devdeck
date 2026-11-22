@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useUi } from "../store/ui";
-import { EmptyOrb } from "./EmptyOrb";
+import { EmptyOrb, supportsWebGL } from "./EmptyOrb";
 
 // The real canvas needs WebGL, which the test browser doesn't have.
 vi.mock("./orb/OrbCanvas", () => ({
@@ -17,6 +17,14 @@ afterEach(() => {
 const art = <div data-testid="art" />;
 
 describe("EmptyOrb", () => {
+  it("knows the test browser has no WebGL, and remembers the answer", () => {
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    expect(supportsWebGL()).toBe(false);
+    expect(supportsWebGL()).toBe(false);
+    expect(getContext.mock.calls.length).toBeLessThanOrEqual(2); // webgl2, then webgl, once
+    getContext.mockRestore();
+  });
+
   it("shows the page's art in Flat", () => {
     render(<EmptyOrb fallback={art} webgl />);
     expect(screen.getByTestId("art")).toBeTruthy();
