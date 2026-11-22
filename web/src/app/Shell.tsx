@@ -17,6 +17,7 @@ function TopBar() {
   const toggleMaximise = () => win?.toggleMaximise();
   return (
     <header
+      data-ui="topbar"
       className={cn("sticky top-0 z-10 flex h-14 items-center gap-3 bg-surface-1 px-3 md:px-5", desktop && "drag-region")}
       // In devdeck's own window a double click on the bar maximises it, as on any title bar.
       onDoubleClick={desktop ? (e) => e.target === e.currentTarget && toggleMaximise() : undefined}
@@ -26,6 +27,7 @@ function TopBar() {
         to="/workspaces"
         viewTransition
         title="No workspace yet"
+        data-ui="quiet"
         className="inline-flex h-9 items-center gap-2.5 px-3 text-[13px] font-medium text-ink transition-colors hover:bg-fill sm:w-60"
       >
         <Layers size={17} className="text-ink-3" aria-hidden />

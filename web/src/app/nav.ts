@@ -72,7 +72,7 @@ const GUIDE = "https://github.com/shadovxw/devdeck#readme";
 // To add a page: add an entry here.
 const GROUPS: GroupDef[] = [
   {
-    name: "Workspace",
+    name: "Overview",
     items: [
       {
         path: "/",
@@ -95,11 +95,6 @@ const GROUPS: GroupDef[] = [
           cta: { label: "Add workspace" },
         },
       },
-    ],
-  },
-  {
-    name: "Code",
-    items: [
       {
         path: "/repos",
         label: "Repositories",
@@ -156,11 +151,6 @@ const GROUPS: GroupDef[] = [
           text: "CPU, memory and disk per service show up once a stack is running.",
         },
       },
-    ],
-  },
-  {
-    name: "Run remotely",
-    items: [
       {
         path: "/hosts",
         label: "Remote hosts",
@@ -216,10 +206,21 @@ const GROUPS: GroupDef[] = [
           text: "Scripts you save from the SQL console are kept here with their parameters.",
         },
       },
+      {
+        path: "/storage",
+        label: "Storage",
+        icon: HardDrive,
+        phase: "Later",
+        empty: {
+          headline: "No storage connected yet",
+          text: "Connect an S3-compatible store to browse buckets and objects.",
+          cta: { label: "Add connection", to: "/connections" },
+        },
+      },
     ],
   },
   {
-    name: "Pipelines",
+    name: "Automate",
     items: [
       {
         path: "/flows",
@@ -262,11 +263,6 @@ const GROUPS: GroupDef[] = [
           cta: { label: "Open workspaces", to: "/workspaces" },
         },
       },
-    ],
-  },
-  {
-    name: "Explore",
-    items: [
       {
         path: "/flow-trace",
         label: "Flow trace",
@@ -277,17 +273,11 @@ const GROUPS: GroupDef[] = [
           text: "Follow a request across your services to see where the time and the errors go.",
         },
       },
-      {
-        path: "/storage",
-        label: "Storage",
-        icon: HardDrive,
-        phase: "Later",
-        empty: {
-          headline: "No storage connected yet",
-          text: "Connect an S3-compatible store to browse buckets and objects.",
-          cta: { label: "Add connection", to: "/connections" },
-        },
-      },
+    ],
+  },
+  {
+    name: "System",
+    items: [
       {
         path: "/secrets",
         label: "Secrets",
@@ -299,11 +289,6 @@ const GROUPS: GroupDef[] = [
           cta: { label: "Add connection", to: "/connections" },
         },
       },
-    ],
-  },
-  {
-    name: "Platform",
-    items: [
       { path: "/plugins", label: "Plugins", icon: Puzzle },
       {
         path: "/connections",
@@ -314,6 +299,17 @@ const GROUPS: GroupDef[] = [
           headline: "No connections yet",
           text: "Add GitHub accounts, registries and databases. Secrets stay in your OS keychain.",
           cta: { label: "Add connection", icon: Plus },
+        },
+      },
+      {
+        path: "/connections/github",
+        label: "GitHub",
+        icon: GitFork,
+        phase: "Phase 4",
+        empty: {
+          headline: "No GitHub account yet",
+          text: "Sign in with the GitHub CLI, then add a connection for each account you use.",
+          cta: { label: "Back to Connections", to: "/connections" },
         },
       },
       {
@@ -333,17 +329,6 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "Claude hasn’t asked yet",
           text: "Connect Claude Code to let it read your stacks and logs. It can only read.",
-        },
-      },
-      {
-        path: "/connections/github",
-        label: "GitHub",
-        icon: GitFork,
-        phase: "Phase 4",
-        empty: {
-          headline: "No GitHub account yet",
-          text: "Sign in with the GitHub CLI, then add a connection for each account you use.",
-          cta: { label: "Back to Connections", to: "/connections" },
         },
       },
       {

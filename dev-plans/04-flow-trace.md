@@ -1,5 +1,7 @@
 # devdeck: Flow Trace
 
+> **Superseded 2026-11-21** by [`2026-11-21-flow-trace/plan.md`](2026-11-21-flow-trace/plan.md), a general version for any set of repos. Kept for history; don't build from this file.
+
 > 2026-10-17 · owner: Vrishank Warrier · new feature for [`00-implementation-plan.md`](00-implementation-plan.md)
 > Design sample: [`ui-design/flow-trace.html`](../ui-design/flow-trace.html)
 

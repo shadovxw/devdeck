@@ -196,14 +196,19 @@ export function AppSidebar() {
               viewTransition
               aria-label="devdeck home"
               title="devdeck"
+              data-ui="logo"
               onClick={() => setOpenMobile(false)}
               className="grid size-7 shrink-0 place-items-center"
             >
               <Logo className="size-6" />
             </NavLink>
-            <span data-ui="wordmark" className="text-[15px] font-bold tracking-tight text-brand-dev group-data-[collapsible=icon]:hidden">
+            <span data-ui="wordmark" className="look-flat text-[15px] font-bold tracking-tight text-brand-dev group-data-[collapsible=icon]:hidden">
               dev
               <span className="bg-gradient-to-r from-brand-deck-from to-brand-deck-to bg-clip-text text-transparent">deck</span>
+            </span>
+            {/* Neon's wordmark: "dd." with the dot in the accent. Hidden in Flat (looks.css). */}
+            <span data-ui="wordmark-neon" className="look-neon group-data-[collapsible=icon]:hidden">
+              dd<span>.</span>
             </span>
           </SidebarHeader>
           <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-hidden [scrollbar-width:none]">
