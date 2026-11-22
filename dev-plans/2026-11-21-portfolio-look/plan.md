@@ -144,7 +144,7 @@ Rules for when it plays and how it degrades:
 - **Flat** gets the same strip and back-off in its own plain style, with no orb.
 
 **Orb carried across (P9c).**
-- From Home's orb, **Configure** opens Workspaces when there is no workspace.
+- With no workspace yet, Home's orb line reads `Idle · Set up a workspace` and opens Workspaces (the launcher has no separate Configure button). Any other way there (a tile, Where to?, `G W`) carries the orb too.
 - The orb travels to the Workspaces hero (`No workspace yet`, `+ Add workspace`, `← Home`) while the two pages slide across each other in about 0.9s. The nav diamond moves with them.
 - **How:** one View Transition with `view-transition-name: orb` on both slots, so no second WebGL scene is needed.
 - **Later:** the design's morph into three small orbs, which is shader work, waits for the P5a mini-orb variants.

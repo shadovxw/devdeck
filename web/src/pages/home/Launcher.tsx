@@ -124,6 +124,12 @@ export function Launcher() {
   const tiles = launchTiles();
   const date = new Date();
   const running = (runs.data?.length ?? 0) > 0;
+  // The orb's line leads on: to Overview while stacks run; with no workspace yet, to Workspaces,
+  // whose hero has the orb too, so it is carried across (P9c).
+  let goTo: { to: string; title: string; text?: string } | undefined;
+  if (orb.state === "warn") goTo = undefined;
+  else if (running) goTo = { to: "/overview", title: "Open Overview" };
+  else if (workspaces.data?.length === 0) goTo = { to: "/workspaces", title: "Configure a workspace", text: "Idle · Set up a workspace" };
 
   return (
     <div data-ui="launcher" className="flex flex-col items-center gap-0 pb-12">
@@ -139,10 +145,10 @@ export function Launcher() {
       </header>
 
       <EmptyOrb size="launcher" state={orb.state} fallback={<div className="py-8"><EmptyArt centerIcon={Terminal} /></div>} />
-      {running ? (
-        <Link to="/overview" viewTransition data-ui="orb-state" title="Open Overview" className="enter hover:text-ink" style={stagger(1)}>
+      {goTo ? (
+        <Link to={goTo.to} viewTransition data-ui="orb-state" data-state={orb.state} title={goTo.title} className="enter hover:text-ink" style={stagger(1)}>
           <span data-ui="orb-diamond" aria-hidden />
-          {orb.text}
+          {goTo.text ?? orb.text}
         </Link>
       ) : (
         <span data-ui="orb-state" data-state={orb.state} className="enter" style={stagger(1)}>

@@ -623,3 +623,34 @@
 :root[data-intro] [data-ui="orb"] {
   opacity: 0;
 }
+
+/* --- The orb carried across (P9c) -------------------------------------------------------
+   Home's orb and the Workspaces hero's share one view-transition name, so a page change
+   between them carries the orb from one slot to the other while the pages cross-fade. Only
+   the two big orbs, so the name stays unique on a page; only with full effects and motion. */
+:root[data-look="neon"][data-effects="full"]:not([data-motion="reduced"]) [data-ui="orb"]:is([data-size="launcher"], [data-size="hero"]) {
+  view-transition-name: orb;
+}
+
+::view-transition-group(orb) {
+  animation-duration: 900ms;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+::view-transition-old(orb),
+::view-transition-new(orb) {
+  height: 100%;
+  animation-duration: 900ms;
+}
+
+:root[data-input="keyboard"]::view-transition-group(orb),
+:root[data-input="keyboard"]::view-transition-old(orb),
+:root[data-input="keyboard"]::view-transition-new(orb) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ui="orb"] {
+    view-transition-name: none !important;
+  }
+}

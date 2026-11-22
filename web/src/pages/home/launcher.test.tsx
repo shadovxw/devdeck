@@ -84,6 +84,17 @@ describe("Neon Home, the launcher", () => {
     expect(screen.getByRole("navigation", { name: "Launch" })).toBeTruthy();
   });
 
+  it("with no workspace yet, the orb's line leads to Workspaces and its hero", async () => {
+    mockServer({ workspaces: [] });
+    useUi.setState({ look: "neon" });
+    renderAt("/");
+    const line = await screen.findByRole("link", { name: "Idle · Set up a workspace" });
+    expect(line.getAttribute("href")).toBe("/workspaces");
+    expect(line.getAttribute("title")).toBe("Configure a workspace");
+    fireEvent.click(line);
+    expect(await screen.findByRole("region", { name: "Get started" })).toBeTruthy();
+  });
+
   it("opens every sidebar page from the grid, a tile per group", async () => {
     mockServer();
     useUi.setState({ look: "neon" });

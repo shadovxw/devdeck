@@ -131,3 +131,13 @@ Checked: typecheck, lint, all 717 web tests. In the browser: with the page's req
 - Tests: `timeline.test.ts` (23), `intro.test.tsx` (10, with fake timers driving the frames and the 3D scene stubbed: the app mounts at 2.6s and Home's orb shows again at the end; it holds and continues once the server answers; offline ends it; a key or click skips; the svg and fade modes; once per session; never in Flat), `orb/model.test.ts` (`orbRadiusPx`).
 
 Checked: typecheck, lint, all 751 web tests, build. In the browser at 1440×900, timed from inside the page: the overlay was up at 0.16s, the first letter at 2.2s, the app underneath at 2.9s, the overlay gone at 4.4s, ending on Home with its orb. The D assembled and the lockup matched the design. The mark aimed at the sidebar's logo and the particles at the orb's slot (both measured). Effects Reduced gave the flat lockup with no canvas.
+
+## 2026-11-22: P9c, the orb carried from Home to Workspaces
+
+- `design/pieces.css`: Home's orb (`data-size="launcher"`) and the Workspaces hero's (`data-size="hero"`) share `view-transition-name: orb`. A page change between them (every link already uses the View Transitions API) carries the orb from one slot to the other in 900ms with an ease-in-out, while the pages cross-fade as before. No second WebGL scene is needed: the browser moves snapshots of the two canvases.
+- **When it happens:** only those two big orbs carry the name, so it stays unique on a page; only in Neon with Effects Full. With Reduce motion (the app's or the system's), or a keyboard-driven change, it is a plain page change.
+- `pages/home/Launcher.tsx`: with no workspace yet, the orb's line reads `Idle · Set up a workspace` and opens Workspaces, where the hero is. While stacks run it still opens Overview; while reconnecting it is not a link.
+- **Later:** the design's morph into three small orbs, which waits for the P5a mini-orb variants.
+- Test: `pages/home/launcher.test.tsx` (the line leads to Workspaces and its hero).
+
+Checked: typecheck, lint, all 752 web tests. In the browser at 1440×900, the transition was paused from inside the page: the `orb` group ran beside the page cross-fade, and moved from Home's slot (316px at x 588) through 378px at 450ms to the hero's slot (440px at x 521) at 900ms.
