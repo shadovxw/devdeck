@@ -15,6 +15,7 @@ import { useSocketStatus } from "../lib/socket";
 import type { RunStatus, ServiceStatus } from "../lib/types";
 import { useNow } from "../lib/use-now";
 import { useUi } from "../store/ui";
+import { NeonEmptyHome } from "./home/NeonEmptyHome";
 import { NeonHome } from "./home/NeonHome";
 import { ProblemRow, StopAll } from "./home/parts";
 
@@ -120,6 +121,7 @@ export function HomePage() {
 
   if (list.length === 0) {
     const hasWorkspace = (workspaces.data?.length ?? 0) > 0;
+    if (look === "neon") return <NeonEmptyHome hasWorkspace={hasWorkspace} empty={item.empty!} />;
     return (
       <>
         <PageHeader title={item.label} group={item.group} />

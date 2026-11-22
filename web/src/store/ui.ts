@@ -20,6 +20,28 @@ function applyLook(look: Look): void {
   else document.documentElement.dataset.look = look;
 }
 
+const EFFECTS_KEY = "devdeck.effects";
+
+/** How much motion and decoration the style adds: the orb, and later glow and transitions. */
+export type Effects = "off" | "reduced" | "full";
+
+function readEffects(): Effects | null {
+  const v = read(EFFECTS_KEY);
+  return v === "off" || v === "reduced" || v === "full" ? v : null;
+}
+
+/** The effects in use: the person's choice, or the style's default (Flat: off, Neon: full). */
+export function effectiveEffects(look: Look, chosen: Effects | null): Effects {
+  return chosen ?? (look === "neon" ? "full" : "off");
+}
+
+/** Sets data-effects on the page; off is no attribute at all, so Flat's page is as it was. */
+function applyEffects(effects: Effects): void {
+  if (typeof document === "undefined") return;
+  if (effects === "off") delete document.documentElement.dataset.effects;
+  else document.documentElement.dataset.effects = effects;
+}
+
 function read(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -65,6 +87,9 @@ type UiState = {
   /** Paper (the default) or Neon. Remembered between visits, in this browser. */
   look: Look;
   setLook: (look: Look) => void;
+  /** The effects chosen in Settings, or null to follow the style (Flat: off, Neon: full). Remembered in this browser. */
+  effects: Effects | null;
+  setEffects: (effects: Effects | null) => void;
   /** Sidebar expanded (labels) or collapsed (icons). Remembered between visits. */
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -85,7 +110,15 @@ export const useUi = create<UiState>((set, get) => ({
   setLook: (look) => {
     write(LOOK_KEY, look === "paper" ? null : look);
     applyLook(look);
+    applyEffects(effectiveEffects(look, get().effects));
     set({ look });
+  },
+
+  effects: readEffects(),
+  setEffects: (effects) => {
+    write(EFFECTS_KEY, effects);
+    applyEffects(effectiveEffects(get().look, effects));
+    set({ effects });
   },
 
   sidebarOpen: readSidebarOpen(),
@@ -105,3 +138,4 @@ export const useUi = create<UiState>((set, get) => ({
 
 applyMotion(useUi.getState().reduceMotion);
 applyLook(useUi.getState().look);
+applyEffects(effectiveEffects(useUi.getState().look, useUi.getState().effects));

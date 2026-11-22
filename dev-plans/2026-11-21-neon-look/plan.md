@@ -11,7 +11,7 @@ A dark, minimal, cyberpunk look you can turn on: one neon accent, glow on hover 
 ## 2. Decisions
 
 1. **Two settings, not one.**
-   - **Effects: Off / Reduced / Full** (new, Settings → Appearance). Off by default.
+   - **Effects: Off / Reduced / Full** (Settings → Appearance). **Changed 2026-11-22** ([`2026-11-21-portfolio-look/`](../2026-11-21-portfolio-look/plan.md), decision 8): until chosen, it follows the style, Off for Flat and Full for Neon (was: Off by default).
    - **Reduce motion** (exists) stays and wins over everything: with it on, nothing moves, whatever Effects says. It also follows Windows' "Show animations" setting, as today.
 2. **Effects work with any theme.** The glow colour comes from the theme's primary colour (and `--focus`), so a custom theme with your own accent gets a matching glow. No change to the theme file format in v1.
 3. **A built-in Neon theme** joins Paper and Paper Dark: near-black background, one cyan accent, the status colours tuned for a dark screen. Your own colours (for example your portfolio's) go in a custom theme made from it, exported to your private config repo, not into this repo.
@@ -33,7 +33,7 @@ A dark, minimal, cyberpunk look you can turn on: one neon accent, glow on hover 
 
    Grain, scanlines and the animated background are extra checkboxes under Full, off until ticked. The glitch split colours are two new tokens (`--glitch-a`, `--glitch-b`) set by the theme, with defaults worked out from the primary colour.
    "Minimal" still rules: one accent, few panels, no decoration that doesn't respond to something. The effects make what's there feel alive; they don't add things to the screen.
-6. **The animated background is one small canvas** (a slow grid or particle drift drawn with 2D canvas, no WebGL, no new library) behind the page area. It pauses when the window is hidden or minimised, and draws at most 30 frames a second.
+6. **The animated background is one small canvas** (a slow grid or particle drift drawn with 2D canvas, no WebGL, no new library) behind the page area. It pauses when the window is hidden or minimised, and draws at most 30 frames a second. **One exception (2026-11-22):** the orb on empty pages uses WebGL through three.js, lazy-loaded, only in Neon with Effects above Off; see the portfolio-look plan, decision 9.
 7. **Performance budget** (main plan §7.5) holds at Full. Blur is the costly part on WebView2, so it is used only on floating layers (never on lists or the logs view), and anything that misses the budget is cut.
 8. **The UI rules in `CLAUDE.md` change in the same PR** as the first effect: "flat, no shadows" stays the rule for Effects Off (the default); glow and glass are allowed only through the effect tokens, above Off.
 9. **Fonts:** Geist and Geist Mono stay the default. The portfolio uses Inter and JetBrains Mono, so a **font choice** (Geist / Inter, Geist Mono / JetBrains Mono) is added as PR L5. The fonts are bundled through `@fontsource` like Geist, never loaded from a CDN.

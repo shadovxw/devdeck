@@ -227,7 +227,9 @@
 }
 
 /* --- Focus: the ring glows -------------------------------------------------------- */
-:root[data-look="neon"] :focus-visible {
+/* Only on controls. Something with tabindex="-1" (the page's <main>, which the skip link and
+   page changes move focus to) is a focus target, not a control: it never glows. */
+:root[data-look="neon"] :focus-visible:not([tabindex="-1"]) {
   box-shadow: var(--neon-glow);
 }
 
