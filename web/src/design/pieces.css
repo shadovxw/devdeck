@@ -332,3 +332,67 @@
   color: var(--ink);
   background: var(--neon-panel);
 }
+
+/* --- Home as a launcher (pages/home/Launcher.tsx) ----------------------------------- */
+:root[data-look="neon"] [data-ui="launcher"] [data-ui="orb-state"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:root[data-look="neon"] [data-ui="orb-diamond"] {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--primary);
+}
+
+:root[data-look="neon"][data-effects="full"] [data-ui="orb-diamond"] {
+  box-shadow: 0 0 10px var(--primary);
+}
+
+:root[data-look="neon"] [data-ui="where-to-bar"] {
+  background: var(--neon-panel);
+  font-family: var(--font-code);
+  font-size: 15px;
+  cursor: text;
+}
+
+:root[data-look="neon"] [data-ui="where-to-bar"]:focus-within {
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+:root[data-look="neon"] [data-ui="where-to-bar"] input {
+  font: inherit;
+}
+
+:root[data-look="neon"] [data-ui="where-to-list"] {
+  background: var(--neon-panel);
+}
+
+:root[data-look="neon"] [data-ui="launch-grid"] {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+:root[data-look="neon"] [data-ui="launch-tile"] {
+  min-height: 104px;
+  background: var(--neon-panel);
+}
+
+:root[data-look="neon"] [data-ui="launch-label"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+:root[data-look="neon"] [data-ui="launch-link"] {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+:root[data-look="neon"] [data-ui="launch-link"]:hover {
+  color: var(--primary);
+}

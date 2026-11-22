@@ -5,11 +5,12 @@ import { PageHeader } from "../design/PageHeader";
 import { stagger } from "../lib/motion";
 import { Appearance } from "./appearance/Appearance";
 import { About } from "./settings/About";
+import { General } from "./settings/General";
 
 /** The settings sections. Those not built yet are listed so the page does not move when they arrive. */
 const SECTIONS = [
   { id: "appearance", label: "Appearance", built: true },
-  { id: "general", label: "General", built: false },
+  { id: "general", label: "General", built: true },
   { id: "terminal", label: "Terminal & editor", built: false },
   { id: "logs", label: "Logs", built: false },
   { id: "notifications", label: "Notifications", built: false },
@@ -23,6 +24,7 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 /** What each built section shows: a title, one line under it, and its content. */
 const CONTENT: Partial<Record<SectionId, { title: string; description: string; body: () => ReactNode }>> = {
   appearance: { title: "Appearance", description: "How devdeck looks on this machine.", body: () => <Appearance /> },
+  general: { title: "General", description: "About you, on this machine.", body: () => <General /> },
   about: { title: "About", description: "This devdeck’s version, and whether a newer one is out.", body: () => <About /> },
 };
 

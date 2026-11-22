@@ -4,6 +4,10 @@ const SIDEBAR_KEY = "devdeck.sidebar";
 const MOTION_KEY = "devdeck.reduce-motion";
 const GROUPS_KEY = "devdeck.sidebar.groups";
 const LOOK_KEY = "devdeck.look";
+const NAME_KEY = "devdeck.name";
+
+/** The longest name the greeting takes. */
+export const NAME_MAX = 40;
 
 /** The style of the app: its type, shape and details. Colours always come from the theme. */
 export type Look = "paper" | "neon";
@@ -90,6 +94,9 @@ type UiState = {
   /** The effects chosen in Settings, or null to follow the style (Flat: off, Neon: full). Remembered in this browser. */
   effects: Effects | null;
   setEffects: (effects: Effects | null) => void;
+  /** Your name, for Home's greeting ("Good evening, Sam."). Empty: no name. Remembered in this browser. */
+  name: string;
+  setName: (name: string) => void;
   /** Sidebar expanded (labels) or collapsed (icons). Remembered between visits. */
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -119,6 +126,13 @@ export const useUi = create<UiState>((set, get) => ({
     write(EFFECTS_KEY, effects);
     applyEffects(effectiveEffects(get().look, effects));
     set({ effects });
+  },
+
+  name: read(NAME_KEY) ?? "",
+  setName: (name) => {
+    const clean = name.slice(0, NAME_MAX);
+    write(NAME_KEY, clean.trim() ? clean : null);
+    set({ name: clean });
   },
 
   sidebarOpen: readSidebarOpen(),

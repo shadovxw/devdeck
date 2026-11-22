@@ -12,8 +12,10 @@ import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
 import { useDebounced } from "../lib/use-debounced";
 import { useCreateWorkspace, usePickFolder, useScanFolder, useValidateWorkspace, useWorkspaces } from "../lib/queries";
+import { useUi } from "../store/ui";
 import { WorkspaceCards } from "./workspaces/WorkspaceCards";
 import { WorkspaceDetail } from "./workspaces/WorkspaceDetail";
+import { NeonNoWorkspace } from "./workspaces/NeonNoWorkspace";
 
 const field =
   "h-10 w-full min-w-0 rounded-ctl bg-inset px-3 text-[14px] text-ink placeholder:text-ink-3 outline-none " +
@@ -125,6 +127,7 @@ export function WorkspacesPage() {
   const [params, setParams] = useSearchParams();
   const [adding, setAdding] = useState(false);
   const { data, isPending, isError } = useWorkspaces();
+  const look = useUi((s) => s.look);
 
   // The selected workspace is kept in the address (?open=) so a link can point at it. With none chosen, the first shows.
   const chosen = params.get("open") ?? undefined;
@@ -151,7 +154,11 @@ export function WorkspacesPage() {
         }
       />
 
-      {showEmpty && item.empty && <EmptyState icon={Boxes} empty={item.empty} onCta={() => setAdding(true)} />}
+      {showEmpty && item.empty && (look === "neon" ? (
+        <NeonNoWorkspace empty={item.empty} guide={navByPath("/").empty?.secondary} onAdd={() => setAdding(true)} />
+      ) : (
+        <EmptyState icon={Boxes} empty={item.empty} onCta={() => setAdding(true)} />
+      ))}
 
       {isPending && (
         <output aria-label="Loading workspaces…" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

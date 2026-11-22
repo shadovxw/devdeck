@@ -81,3 +81,21 @@ describe("effects", () => {
     expect(document.documentElement.dataset.effects).toBeUndefined();
   });
 });
+
+describe("your name", () => {
+  afterEach(() => useUi.getState().setName(""));
+
+  it("is empty by default and remembered once set; clearing it forgets it", () => {
+    expect(useUi.getState().name).toBe("");
+    useUi.getState().setName("Sam");
+    expect(useUi.getState().name).toBe("Sam");
+    expect(localStorage.getItem("devdeck.name")).toBe("Sam");
+    useUi.getState().setName("  ");
+    expect(localStorage.getItem("devdeck.name")).toBeNull();
+  });
+
+  it("keeps at most 40 characters", () => {
+    useUi.getState().setName("x".repeat(60));
+    expect(useUi.getState().name).toHaveLength(40);
+  });
+});

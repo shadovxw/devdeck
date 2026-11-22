@@ -23,7 +23,7 @@ export function greeting(date: Date): string {
 }
 
 /** "SUN 22 NOV", in the language of the page. */
-function shortDate(date: Date): string {
+export function shortDate(date: Date): string {
   const day = date.toLocaleDateString("en-GB", { weekday: "short" });
   const rest = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   return `${day} ${rest}`.toUpperCase();

@@ -26,8 +26,8 @@ const prefersReducedMotion = () => typeof window !== "undefined" && typeof windo
 type Props = {
   /** idle; thinking only while devdeck is really working; ok (in the success colour) for good-news empties. */
   state?: OrbState;
-  /** hero: about 440px, Home without a workspace only. mini: about 120px, other empty pages. */
-  size?: "hero" | "mini";
+  /** hero: about 440px, Workspaces with none yet. launcher: about 316px, Neon's Home. mini: about 120px, other empty pages. */
+  size?: "hero" | "launcher" | "mini";
   /** What shows instead of the orb: in Flat, with Effects off, or without WebGL. */
   fallback: ReactNode;
   /** For tests: skip the WebGL check. */
@@ -48,7 +48,7 @@ export function EmptyOrb({ state = "idle", size = "hero", fallback, webgl }: Rea
   if (look !== "neon" || effects === "off" || !(webgl ?? supportsWebGL())) return <>{fallback}</>;
 
   const still = reduceMotion || effects === "reduced" || prefersReducedMotion();
-  const box = size === "hero" ? "size-[min(440px,80vw)]" : "size-[120px]";
+  const box = { hero: "size-[min(440px,80vw)]", launcher: "size-[min(316px,70vw)]", mini: "size-[120px]" }[size];
   return (
     <div data-ui="orb" data-size={size} data-state={state} aria-hidden className={cn("relative shrink-0", box)}>
       <Suspense fallback={null}>
