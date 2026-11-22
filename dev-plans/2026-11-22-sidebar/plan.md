@@ -1,6 +1,6 @@
 # Sidebar: fewer items, families as tabs, a readable rail
 
-> 2026-11-22 · owner: Vrishank Warrier · from a review of the sidebar the owner brought in, asked for before the launcher work ([`2026-11-21-portfolio-look/`](../2026-11-21-portfolio-look/plan.md) §8a) · changes the nav grouping made there in P1 · status: **S1 to S3 built (2026-11-22), see [`changes.md`](changes.md); S4 and S5 not started.**
+> 2026-11-22 · owner: Vrishank Warrier · from a review of the sidebar the owner brought in, asked for before the launcher work ([`2026-11-21-portfolio-look/`](../2026-11-21-portfolio-look/plan.md) §8a) · changes the nav grouping made there in P1 · status: **S1 to S4 built (2026-11-22), see [`changes.md`](changes.md); S5 not started; S6 proposed.**
 
 ## 1. The problem
 
@@ -33,3 +33,4 @@ The sidebar lists 28 pages in 5 groups. Folded to icons it is a column of about 
 | S3 | Live status: running-stack count on Stacks, a dot on Health when Doctor finds problems | The counts follow the server's state |
 | S4 | Neon: the active diamond slides between items; the workspace switcher moves into the sidebar header | Matches the launcher designs |
 | S5 | Keyboard: `G` + letter jumps, `[` folds, shortcuts in tooltips | Each sidebar item has a working shortcut, listed in its tooltip |
+| S6 (proposed) | **A real current workspace:** the switcher chooses a workspace that every page follows (Stacks, Logs, Health, Features), remembered between visits; today each page picks its own default and takes `?workspace=` | Choosing a workspace in the sidebar changes what every page shows |

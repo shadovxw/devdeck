@@ -35,3 +35,12 @@ Checked: typecheck, lint, all 632 web tests. In the browser (Neon, folded): the 
 - **Tests:** `nav-status.test.ts` (the tones and words for each case, the default workspace) and `sidebar-status.test.tsx` (the rows' descriptions and count with a running stack and a Doctor failure; nothing when all is well; Doctor asked once for the default workspace).
 
 Checked: typecheck, lint, all 646 web tests. In the browser with a demo workspace made for the check and removed afterwards (two stacks, one failing on purpose): expanded, Stacks shows 2 and a red dot and Health a yellow dot (Doctor's warnings); folded, the dots sit on the icons.
+
+## 2026-11-22: S4, the sliding diamond and the switcher in the sidebar
+
+- **The diamond slides (Neon).** The current page's filled diamond used to be drawn on each active row, so it jumped. It is now drawn on the active highlight (`ActivePill`, one shared Motion element with `layoutId` that already slides between rows), placed exactly over the row's hollow diamond (the row's 8px padding plus the hollow one's 2px margin), so it slides with it. Reduce motion still turns the slide into a cut (the sidebar's `MotionConfig`).
+- **The workspace switcher moved into the sidebar header** (`app/WorkspaceSwitcher.tsx`, new), under the logo; the top bar keeps the sidebar toggle (and the window buttons in the desktop window). It was a placeholder that always said "No workspace"; now it says what is true: the workspace's name when there is one, "3 workspaces" when there are several, "No workspace" when none, and opens Workspaces. Folded, it is its icon with the name in the tooltip. A switcher that every page follows is S6 (proposed): devdeck has no current workspace yet, each page picks its own default.
+- **`looks.css`:** the diamond rules skip the switcher, as they skip the footer's icon row (they had hidden its icon and arrow).
+- **Tests:** `workspace-switcher.test.tsx` (the label for none, one and several; in the sidebar header, opens Workspaces, not in the top bar any more); the top bar test updated.
+
+Checked: typecheck, lint, all 651 web tests. In the browser: the filled diamond lines up over the hollow one; the switcher in Neon (expanded and folded) and Flat; the bug found there (Neon's diamond rule hiding the switcher's icons) is fixed.

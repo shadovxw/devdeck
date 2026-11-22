@@ -82,15 +82,16 @@ describe("pages", () => {
     expect(btn.title).toBe("Available in Phase 7");
   });
 
-  it("keeps the top bar to the sidebar toggle, the workspace picker and status controls", async () => {
+  it("keeps the top bar to the sidebar toggle; the workspace switcher is in the sidebar", async () => {
     mockServer();
     renderAt("/stacks");
     await screen.findByRole("heading", { level: 1, name: "Stacks" });
-    const bar = within(document.querySelector("header") as HTMLElement);
+    const bar = within(document.querySelector('[data-ui="topbar"]') as HTMLElement);
     expect(bar.queryByText("Git")).toBeNull();
     expect(bar.queryByText("Docker")).toBeNull();
     expect(bar.queryByText("No repo")).toBeNull();
-    expect(bar.getByText("No workspace")).toBeTruthy();
+    expect(bar.queryByText(/workspace/i)).toBeNull();
+    expect(bar.getByRole("button", { name: "Toggle Sidebar" })).toBeTruthy();
   });
 
   it("shows Group / Parent / Page in the breadcrumb of a family page, and its family as tabs", async () => {

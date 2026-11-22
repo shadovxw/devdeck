@@ -28,6 +28,7 @@ import { useUi } from "../store/ui";
 import { FOOTER_GROUP, HOME_GROUP, NAV, sidebarPathOf, type NavItem } from "./nav";
 import { useNavStatus, type NavStatus } from "./nav-status";
 import { useUpdateAvailable } from "./UpdateNotice";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 /** A dot on the Settings row when a newer devdeck is out (Settings → About installs it). */
 function UpdateDot() {
@@ -293,54 +294,57 @@ export function AppSidebar() {
   return (
     <LazyMotion features={loadMotionFeatures} strict>
       <StatusContext.Provider value={status}>
-      <MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>
-        <Sidebar collapsible="icon">
-          <SidebarHeader className="h-14 flex-row items-center gap-3 px-3 group-data-[collapsible=icon]:justify-center">
-            <NavLink
-              to="/"
-              viewTransition
-              aria-label="devdeck home"
-              title="devdeck"
-              data-ui="logo"
-              onClick={() => setOpenMobile(false)}
-              className="grid size-7 shrink-0 place-items-center"
-            >
-              <Logo className="size-6" />
-            </NavLink>
-            <span data-ui="wordmark" className="look-flat text-[15px] font-bold tracking-tight text-brand-dev group-data-[collapsible=icon]:hidden">
-              dev
-              <span className="bg-gradient-to-r from-brand-deck-from to-brand-deck-to bg-clip-text text-transparent">deck</span>
-            </span>
-            {/* Neon's wordmark: "dd." with the dot in the accent. Hidden in Flat (looks.css). */}
-            <span data-ui="wordmark-neon" className="look-neon group-data-[collapsible=icon]:hidden">
-              dd<span>.</span>
-            </span>
-          </SidebarHeader>
-          <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-hidden [scrollbar-width:none]">
-            <nav aria-label="Pages" className="flex flex-col py-1 group-data-[collapsible=icon]:py-0.5">
-              {MAIN.map((g) => (
-                <Group key={g.name} name={g.name} items={g.items} heading={g.name !== HOME_GROUP} />
-              ))}
-              {SOON.length > 0 && <Group name="Coming soon" items={SOON} soon />}
-            </nav>
-          </SidebarContent>
-          <SidebarFooter className="gap-1 px-2 pb-3">
-            <nav aria-label="System" className="flex flex-col gap-1">
-              <SidebarMenu className="gap-0.5">
-                {FOOTER.filter((i) => !ICON_ROW.has(i.path)).map((item) => (
-                  <Page key={item.path} item={item} />
+        <MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>
+          <Sidebar collapsible="icon">
+            <SidebarHeader className="gap-2 px-2 pb-2 pt-0">
+              <div className="flex h-14 items-center gap-3 px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+                <NavLink
+                  to="/"
+                  viewTransition
+                  aria-label="devdeck home"
+                  title="devdeck"
+                  data-ui="logo"
+                  onClick={() => setOpenMobile(false)}
+                  className="grid size-7 shrink-0 place-items-center"
+                >
+                  <Logo className="size-6" />
+                </NavLink>
+                <span data-ui="wordmark" className="look-flat text-[15px] font-bold tracking-tight text-brand-dev group-data-[collapsible=icon]:hidden">
+                  dev
+                  <span className="bg-gradient-to-r from-brand-deck-from to-brand-deck-to bg-clip-text text-transparent">deck</span>
+                </span>
+                {/* Neon's wordmark: "dd." with the dot in the accent. Hidden in Flat (looks.css). */}
+                <span data-ui="wordmark-neon" className="look-neon group-data-[collapsible=icon]:hidden">
+                  dd<span>.</span>
+                </span>
+              </div>
+              <WorkspaceSwitcher />
+            </SidebarHeader>
+            <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-hidden [scrollbar-width:none]">
+              <nav aria-label="Pages" className="flex flex-col py-1 group-data-[collapsible=icon]:py-0.5">
+                {MAIN.map((g) => (
+                  <Group key={g.name} name={g.name} items={g.items} heading={g.name !== HOME_GROUP} />
                 ))}
-              </SidebarMenu>
-              <SidebarMenu data-ui="icon-row" className="flex-row gap-1 group-data-[collapsible=icon]:flex-col">
-                {FOOTER.filter((i) => ICON_ROW.has(i.path)).map((item) => (
-                  <IconPage key={item.path} item={item} />
-                ))}
-              </SidebarMenu>
-            </nav>
-          </SidebarFooter>
-          <SidebarRail />
-        </Sidebar>
-      </MotionConfig>
+                {SOON.length > 0 && <Group name="Coming soon" items={SOON} soon />}
+              </nav>
+            </SidebarContent>
+            <SidebarFooter className="gap-1 px-2 pb-3">
+              <nav aria-label="System" className="flex flex-col gap-1">
+                <SidebarMenu className="gap-0.5">
+                  {FOOTER.filter((i) => !ICON_ROW.has(i.path)).map((item) => (
+                    <Page key={item.path} item={item} />
+                  ))}
+                </SidebarMenu>
+                <SidebarMenu data-ui="icon-row" className="flex-row gap-1 group-data-[collapsible=icon]:flex-col">
+                  {FOOTER.filter((i) => ICON_ROW.has(i.path)).map((item) => (
+                    <IconPage key={item.path} item={item} />
+                  ))}
+                </SidebarMenu>
+              </nav>
+            </SidebarFooter>
+            <SidebarRail />
+          </Sidebar>
+        </MotionConfig>
       </StatusContext.Provider>
     </LazyMotion>
   );

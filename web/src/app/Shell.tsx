@@ -1,6 +1,5 @@
-import { ChevronDown, Layers } from "lucide-react";
 import { useLayoutEffect } from "react";
-import { Link, Outlet } from "react-router";
+import { Outlet } from "react-router";
 
 import { cn } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -23,17 +22,7 @@ function TopBar() {
       onDoubleClick={desktop ? (e) => e.target === e.currentTarget && toggleMaximise() : undefined}
     >
       <SidebarTrigger className="size-9 text-ink-2" title="Expand or collapse the sidebar (Ctrl+B)" />
-      <Link
-        to="/workspaces"
-        viewTransition
-        title="No workspace yet"
-        data-ui="quiet"
-        className="inline-flex h-9 items-center gap-2.5 px-3 text-[13px] font-medium text-ink transition-colors hover:bg-fill sm:w-60"
-      >
-        <Layers size={17} className="text-ink-3" aria-hidden />
-        <span className="hidden flex-1 text-start sm:inline">No workspace</span>
-        <ChevronDown size={15} className="text-ink-3" aria-hidden />
-      </Link>
+      {/* The workspace switcher is in the sidebar's header (app/WorkspaceSwitcher.tsx). */}
       <span className="flex-1" />
       <WindowControls />
     </header>
