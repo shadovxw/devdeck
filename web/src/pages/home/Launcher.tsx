@@ -8,6 +8,7 @@ import { EmptyArt } from "../../design/EmptyArt";
 import { EmptyOrb } from "../../design/EmptyOrb";
 import { stagger } from "../../lib/motion";
 import { useRuns, useWorkspaces } from "../../lib/queries";
+import { useLink } from "../../lib/use-server-link";
 import { useUi } from "../../store/ui";
 import { launchTiles, orbStatus, searchPages } from "./launch";
 import { greeting, shortDate } from "./NeonHome";
@@ -118,7 +119,8 @@ export function Launcher() {
   const name = useUi((s) => s.name.trim());
   const workspaces = useWorkspaces();
   const runs = useRuns();
-  const orb = orbStatus(runs.data);
+  const link = useLink();
+  const orb = link.view === "reconnecting" ? { state: "warn" as const, text: "Thinking · Reconnecting" } : orbStatus(runs.data);
   const tiles = launchTiles();
   const date = new Date();
   const running = (runs.data?.length ?? 0) > 0;
@@ -143,7 +145,7 @@ export function Launcher() {
           {orb.text}
         </Link>
       ) : (
-        <span data-ui="orb-state" className="enter" style={stagger(1)}>
+        <span data-ui="orb-state" data-state={orb.state} className="enter" style={stagger(1)}>
           <span data-ui="orb-diamond" aria-hidden />
           {orb.text}
         </span>

@@ -12,6 +12,8 @@ import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
 import { useDebounced } from "../lib/use-debounced";
 import { useCreateWorkspace, usePickFolder, useScanFolder, useValidateWorkspace, useWorkspaces } from "../lib/queries";
+import { PAUSED_TITLE } from "../lib/server-link";
+import { useWritesPaused } from "../lib/use-server-link";
 import { useUi } from "../store/ui";
 import { WorkspaceCards } from "./workspaces/WorkspaceCards";
 import { WorkspaceDetail } from "./workspaces/WorkspaceDetail";
@@ -128,6 +130,7 @@ export function WorkspacesPage() {
   const [adding, setAdding] = useState(false);
   const { data, isPending, isError } = useWorkspaces();
   const look = useUi((s) => s.look);
+  const paused = useWritesPaused();
 
   // The selected workspace is kept in the address (?open=) so a link can point at it. With none chosen, the first shows.
   const chosen = params.get("open") ?? undefined;
@@ -146,7 +149,7 @@ export function WorkspacesPage() {
         group={item.group}
         actions={
           !showEmpty && (
-            <button type="button" onClick={() => setAdding(true)} className={primaryButton}>
+            <button type="button" onClick={() => setAdding(true)} disabled={paused} title={paused ? PAUSED_TITLE : undefined} className={primaryButton}>
               <Plus size={16} aria-hidden />
               Add workspace
             </button>

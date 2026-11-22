@@ -29,7 +29,7 @@ import {
 } from "three";
 
 import { startLoop } from "./loop";
-import { orbPalette, spherePoints, type OrbColors, type OrbState } from "./model";
+import { orbPalette, spherePoints, thinks, type OrbColors, type OrbState } from "./model";
 
 export type { OrbColors, OrbState } from "./model";
 
@@ -164,12 +164,12 @@ export function createOrb(canvas: HTMLCanvasElement, opts: { state: OrbState; co
   canvas.addEventListener("pointerleave", onLeave);
 
   let t = 0;
-  let think = state === "thinking" ? 1 : 0;
+  let think = thinks(state) ? 1 : 0;
   const stop = startLoop({
     still: opts.still,
     fps: 60,
     frame: (dt) => {
-      const target = state === "thinking" ? 1 : 0;
+      const target = thinks(state) ? 1 : 0;
       think += (target - think) * Math.min(dt * 3, 1);
       t += dt * (0.6 + 0.8 * think);
       uniforms.uTime.value = t;

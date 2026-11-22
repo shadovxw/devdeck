@@ -3,6 +3,7 @@ import { useEffect } from "react";
 
 import { api } from "./api";
 import { mergeRun } from "./runs";
+import { backoffMs, useServerLink } from "./server-link";
 import { useSocketStatus, useTopicHandler } from "./socket";
 import type { DoctorReport, Health, Plugin, RunStatus, ScanResult, StackSaved, Validation, WorkspaceDetail, WorkspaceSummary } from "./types";
 
@@ -14,13 +15,26 @@ export const keys = {
   runs: ["runs"] as const,
 };
 
-/** Polls the server. Fast while it is unreachable so the splash recovers by itself. */
+/**
+ * Polls the server and records each answer or failure in the server link (lib/server-link.ts)
+ * as it happens. While it is unreachable it checks again with back-off (1s, 2s, 4s… up to 15s),
+ * so the splash and the reconnecting strip recover by themselves.
+ */
 export function useHealth() {
   return useQuery({
     queryKey: keys.health,
-    queryFn: ({ signal }) => api.get<Health>("/health", signal),
+    queryFn: async ({ signal }) => {
+      try {
+        const health = await api.get<Health>("/health", signal);
+        useServerLink.getState().answered();
+        return health;
+      } catch (err) {
+        if (!signal.aborted) useServerLink.getState().failed();
+        throw err;
+      }
+    },
     retry: false,
-    refetchInterval: (query) => (query.state.status === "error" ? 3_000 : 30_000),
+    refetchInterval: (query) => (query.state.status === "error" ? Math.max(backoffMs(useServerLink.getState().failures), 1_000) : 30_000),
   });
 }
 

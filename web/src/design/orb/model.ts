@@ -8,10 +8,14 @@ extend([mixPlugin]);
  * colours it draws with. scene.ts turns them into the WebGL scene.
  */
 
-export type OrbState = "idle" | "thinking" | "ok";
+/** warn: the server is gone and devdeck reconnects; drawn in the warning colour, and it thinks. */
+export type OrbState = "idle" | "thinking" | "ok" | "warn";
+
+/** Whether the orb "thinks" (moves faster, ripples more) in this state. */
+export const thinks = (state: OrbState) => state === "thinking" || state === "warn";
 
 /** The theme colours the orb uses, as CSS colour strings. */
-export type OrbColors = { primary: string; critical: string; good: string; ink: string; live: string };
+export type OrbColors = { primary: string; critical: string; good: string; warning: string; ink: string; live: string };
 
 /** What each part is drawn in. */
 export type OrbPalette = {
@@ -28,11 +32,13 @@ export type OrbPalette = {
 /**
  * The colours for a state: the accent at the top through the gradient's middle (60% of the way
  * to the error colour, as --neon-gradient) to the error colour at the bottom; "ok" is the success
- * colour all through, since a good-news empty page is never purple.
+ * colour all through, since a good-news empty page is never purple; "warn" is the warning colour
+ * all through.
  */
 export function orbPalette(c: OrbColors, state: OrbState): OrbPalette {
-  const top = state === "ok" ? c.good : c.primary;
-  const low = state === "ok" ? c.good : c.critical;
+  const whole = { ok: c.good, warn: c.warning }[state as "ok" | "warn"] as string | undefined;
+  const top = whole ?? c.primary;
+  const low = whole ?? c.critical;
   const a = colord(top);
   const b = colord(low);
   const mid = a.isValid() && b.isValid() ? a.mix(b, 0.6).toHex() : top;

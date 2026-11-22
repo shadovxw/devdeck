@@ -7,6 +7,7 @@ import { useDesktopWindow } from "../lib/desktop";
 import { useReportUiState } from "../lib/ui-state";
 import { useUi } from "../store/ui";
 import { AppSidebar } from "./AppSidebar";
+import { LinkStrip } from "./LinkStrip";
 import { UpdateNotice } from "./UpdateNotice";
 import { WindowControls } from "./WindowControls";
 
@@ -74,6 +75,7 @@ export function Shell() {
       {/* The top bar is a banner, so it sits beside <main>, not inside it. */}
       <div className="relative flex min-h-svh min-w-0 flex-1 flex-col bg-bg">
         <TopBar />
+        <LinkStrip />
         <main id="main" tabIndex={-1} className="page-area mx-auto w-full max-w-[1440px] px-3 py-3 outline-none md:px-5 md:py-4">
           <Outlet />
         </main>

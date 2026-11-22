@@ -15,6 +15,8 @@ import { useDeleteStack, useRestartService, useRuns, useStartService, useStartSt
 import { formatUptime, isComposeId, serviceLabel } from "../lib/runs";
 import type { DoctorReport, RunState, RunStatus, ServiceState, StackDef, WorkspaceDetail } from "../lib/types";
 import { useNow } from "../lib/use-now";
+import { PAUSED_TITLE } from "../lib/server-link";
+import { useWritesPaused } from "../lib/use-server-link";
 import { StackEditor, stackTemplate } from "./StackEditor";
 import { StackLogs } from "./StackLogs";
 
@@ -110,7 +112,8 @@ const rowButton =
 
 function ServiceRow({ service: s, now, controls, logsTo }: { service: RunStatus["services"][number]; now: number; controls: Controls; logsTo: string }) {
   const isCompose = s.kind === "compose" || isComposeId(s.id);
-  const busy = controls.busy === s.id;
+  const paused = useWritesPaused();
+  const busy = controls.busy === s.id || paused;
   const name = serviceLabel(s.id);
   const upFor = s.state === "ready" && s.ready_at ? formatUptime(now - Date.parse(s.ready_at)) : "";
   return (
@@ -137,7 +140,7 @@ function ServiceRow({ service: s, now, controls, logsTo }: { service: RunStatus[
               type="button"
               onClick={() => controls.onStop(s.id)}
               disabled={busy || !stoppable.includes(s.state)}
-              title="Stop it and leave it stopped"
+              title={paused ? PAUSED_TITLE : "Stop it and leave it stopped"}
               aria-label={`Stop ${name}`}
               className={rowButton}
             >
@@ -147,7 +150,7 @@ function ServiceRow({ service: s, now, controls, logsTo }: { service: RunStatus[
               type="button"
               onClick={() => controls.onStart(s.id)}
               disabled={busy || !startable.includes(s.state)}
-              title="Start it"
+              title={paused ? PAUSED_TITLE : "Start it"}
               aria-label={`Start ${name}`}
               className={rowButton}
             >
@@ -158,11 +161,11 @@ function ServiceRow({ service: s, now, controls, logsTo }: { service: RunStatus[
                 type="button"
                 onClick={() => controls.onRestart(s.id)}
                 disabled={busy}
-                title={s.state === "failed" || s.state === "blocked" ? "Try again" : "Restart"}
+                title={paused ? PAUSED_TITLE : s.state === "failed" || s.state === "blocked" ? "Try again" : "Restart"}
                 aria-label={`Restart ${name}`}
                 className={rowButton}
               >
-                <RotateCw size={15} className={busy ? "animate-spin" : undefined} aria-hidden />
+                <RotateCw size={15} className={busy && !paused ? "animate-spin" : undefined} aria-hidden />
               </button>
             )}
           </span>
@@ -202,6 +205,7 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
   const ref = { workspace: workspace.id, stack: stack.name };
   const byId = Object.fromEntries((run?.services ?? []).map((s) => [s.id, s]));
   const stopping = run?.state === "stopping" || stop.isPending;
+  const paused = useWritesPaused();
 
   return (
     <section aria-label={`Stack ${stack.name}`} className="enter rounded-sheet bg-surface-1 pb-2" style={stagger(index + 1)}>
@@ -260,12 +264,12 @@ function StackCard({ workspace, stack, run, now, index }: { workspace: Workspace
           </>
         )}
         {run ? (
-          <button type="button" onClick={() => stop.mutate(ref)} disabled={stopping} className={stopButton}>
+          <button type="button" onClick={() => stop.mutate(ref)} disabled={stopping || paused} title={paused ? PAUSED_TITLE : undefined} className={stopButton}>
             <Square size={14} fill="currentColor" aria-hidden />
             {stopping ? "Stopping…" : "Stop"}
           </button>
         ) : (
-          <button type="button" onClick={() => start.mutate(ref)} disabled={start.isPending || Boolean(blockedWhy)} title={blockedWhy} className={startButton}>
+          <button type="button" onClick={() => start.mutate(ref)} disabled={start.isPending || Boolean(blockedWhy) || paused} title={paused ? PAUSED_TITLE : blockedWhy} className={startButton}>
             <Play size={14} fill="currentColor" aria-hidden />
             {start.isPending ? "Checking…" : "Start"}
           </button>

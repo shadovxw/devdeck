@@ -134,11 +134,11 @@ Rules for when it plays and how it degrades:
 - **Offline at start** (the Neon `Splash`):
   - the dimmed lockup, with the progress line turning red
   - `SERVER OFFLINE · 127.0.0.1:7070` and one sentence: it connects by itself once the server runs
-  - **Retry now**, the start command as a chip, and `RETRYING IN 4s · ATTEMPT 3`
+  - **Retry now**, the start command as a chip (`$ devdeck serve`, the installed command; the design's `mise run dev` is only for working on devdeck itself), and `RETRYING IN 4s · ATTEMPT 3`
   - retries back off: 1s, 2s, 4s… up to 15s (today it is a flat 3s)
 - **Reconnecting during use:** the page stays and keeps its last data.
   - After 2s without the server, a warn strip shows at the top: `RECONNECTING · 12s` and `ACTIONS PAUSED`. Shorter blips show nothing.
-  - Buttons that change things are disabled, with a tooltip saying why; reading still works. A `useServerUp()` hook drives this, and the shared write buttons read it.
+  - Writes wait: the API layer refuses every POST, PUT and DELETE while the strip shows (it says so, and nothing is sent), so no write anywhere slips through. The main action buttons (stack and service start, stop and restart; Stop all and Restart on Home and Overview; Add workspace) are also disabled with a tooltip saying why, through `useWritesPaused()`. Reading still works.
   - The orb turns warn-coloured and "thinks" (`THINKING · RECONNECTING`).
   - When the server is back, the strip turns green for 2s (`CONNECTED`), the data refreshes, and the strip goes away.
 - **Flat** gets the same strip and back-off in its own plain style, with no orb.

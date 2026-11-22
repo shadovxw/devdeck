@@ -11,6 +11,7 @@ export function readOrbColors(root: HTMLElement = document.documentElement): Orb
     primary: get("--primary", "#8b5cf6"),
     critical: get("--critical", "#ef4444"),
     good: get("--good", "#22c55e"),
+    warning: get("--warning", "#f59e0b"),
     ink: get("--ink", "#ffffff"),
     live: get("--link", "#22d3ee"),
   };
