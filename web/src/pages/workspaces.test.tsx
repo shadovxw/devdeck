@@ -130,11 +130,12 @@ function mockServer(
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return router;
 }
 
 afterEach(() => {
@@ -151,58 +152,54 @@ describe("workspaces page", () => {
   it("shows the empty state when there are none, and its button opens the add form", async () => {
     mockServer();
     renderAt("/workspaces");
-    const hero = within(await screen.findByRole("region", { name: "No workspaces yet" }));
+    const hero = within(await screen.findByRole("region", { name: "No projects yet" }));
 
-    const add = hero.getByRole("button", { name: /Create workspace/ }) as HTMLButtonElement;
+    const add = hero.getByRole("button", { name: /New project/ }) as HTMLButtonElement;
     expect(add.disabled).toBe(false);
     fireEvent.click(add);
 
-    const drawer = within(await screen.findByRole("dialog", { name: "Add a workspace" }));
+    const drawer = within(await screen.findByRole("dialog", { name: "New project" }));
     expect(drawer.getByLabelText(/Folder that contains/)).toBeTruthy();
   });
 
-  it("shows each workspace as a card with its counts, its problems and its mix of types", async () => {
+  it("shows each project as a card: its number and folder, its state, its shape and its mix of types", async () => {
     mockServer({ list: [demo, sample] });
     renderAt("/workspaces");
 
-    const card = within(await screen.findByRole("button", { name: "Workspace demo" }));
-    expect(card.getByText("Yours")).toBeTruthy();
-    expect(card.getByText("~/code")).toBeTruthy();
-    expect(card.getByText("repos").previousElementSibling?.textContent).toBe("3");
-    expect(card.getByText("stacks").previousElementSibling?.textContent).toBe("1");
-    expect(card.getByText("flows").previousElementSibling?.textContent).toBe("0");
-    expect(card.getByText("problems").previousElementSibling?.textContent).toMatch(/2$/);
+    const card = within(await screen.findByRole("button", { name: "Project demo" }));
+    expect(card.getByText(/PRJ_01 \/\/ ~\/code/)).toBeTruthy();
+    expect(card.getByText("2 problems")).toBeTruthy();
+    expect(card.getByText("3 repos · 1 run mode")).toBeTruthy();
     expect(card.getByRole("img", { name: "Repos by type: go 1, node 1, other 1" })).toBeTruthy();
 
-    const other = within(screen.getByRole("button", { name: "Workspace acme-shop" }));
+    const other = within(screen.getByRole("button", { name: "Project acme-shop" }));
     expect(other.getByText("Example")).toBeTruthy();
-    expect(other.getByText("problems").previousElementSibling?.textContent).toBe("0");
+    expect(other.getByText("Stopped")).toBeTruthy();
     expect(other.queryByRole("img")).toBeNull(); // no types to show
   });
 
-  it("puts Add workspace on the title's line, and opens the drawer from it or from the tile", async () => {
+  it("puts New project on the title's line, and opens the drawer from it or from the tile", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces");
-    const add = await screen.findByRole("button", { name: /^Add workspace/ });
-    await screen.findByRole("button", { name: "Workspace demo" });
-    expect(add.closest("header")).toBeTruthy();
-    expect(within(add.closest("header") as HTMLElement).getByRole("heading", { level: 1, name: "Workspaces" })).toBeTruthy();
+    await screen.findByRole("button", { name: "Project demo" });
+    const title = screen.getByRole("heading", { level: 1, name: "Projects" });
+    const add = within(title.closest("header") as HTMLElement).getByRole("button", { name: /^New project/ });
 
     fireEvent.click(add);
-    expect(await screen.findByRole("dialog", { name: "Add a workspace" })).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "New project" })).toBeTruthy();
 
     // the drawer closes again with Escape, and leaves the list as it was
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByRole("button", { name: "Workspace demo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Project demo" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /Add a workspace/ }));
-    expect(await screen.findByRole("dialog", { name: "Add a workspace" })).toBeTruthy();
+    fireEvent.click(within(screen.getByRole("list", { name: "Projects" })).getByRole("button", { name: /New project/ }));
+    expect(await screen.findByRole("dialog", { name: "New project" })).toBeTruthy();
   });
 
   it("shows the first workspace's repos with their git state, and filters them", async () => {
     mockServer({ list: [demo] });
-    renderAt("/workspaces");
+    renderAt("/workspaces/demo");
     const details = within(await screen.findByRole("region", { name: "Details of demo" }));
     const table = within(await details.findByRole("table", { name: "Repositories of demo" }));
 
@@ -237,31 +234,29 @@ describe("workspaces page", () => {
     expect(details.getByText("No repository matches.")).toBeTruthy();
   });
 
-  it("shows the details of the card that is chosen, and keeps the choice in the address", async () => {
+  it("lists only the cards and New project; a card opens its project on its own page", async () => {
     mockServer({ list: [demo, sample] });
-    renderAt("/workspaces");
-    const first = await screen.findByRole("button", { name: "Workspace demo" });
-    const second = screen.getByRole("button", { name: "Workspace acme-shop" });
-    expect(first.getAttribute("aria-pressed")).toBe("true"); // the first shows when none is chosen
-    expect(await screen.findByRole("region", { name: "Details of demo" })).toBeTruthy();
+    const router = renderAt("/workspaces");
+    const second = await screen.findByRole("button", { name: "Project acme-shop" });
+    expect(screen.queryByRole("region", { name: /Details of/ })).toBeNull(); // no details under the cards
 
     fireEvent.click(second);
-    await waitFor(() => expect(second.getAttribute("aria-pressed")).toBe("true"));
-    expect(first.getAttribute("aria-pressed")).toBe("false");
     expect(await screen.findByRole("region", { name: "Details of acme-shop" })).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Details of demo" })).toBeNull();
+    expect(router.state.location.pathname).toBe("/workspaces/acme-shop");
+    expect(screen.getByRole("heading", { level: 1, name: "acme-shop" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Work/Projects/acme-shop");
   });
 
-  it("opens the workspace named in the address, so a link can point at it", async () => {
+  it("sends an older link that named the project in the address to its page", async () => {
     mockServer({ list: [demo, sample] });
-    renderAt("/workspaces?open=acme-shop");
+    const router = renderAt("/workspaces?open=acme-shop");
     expect(await screen.findByRole("region", { name: "Details of acme-shop" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Workspace acme-shop" }).getAttribute("aria-pressed")).toBe("true");
+    expect(router.state.location.pathname).toBe("/workspaces/acme-shop");
   });
 
   it("lists the problems by file with their lines, and links the ones in workspace.yaml to the editor", async () => {
     mockServer({ list: [demo] });
-    renderAt("/workspaces");
+    renderAt("/workspaces/demo");
     const details = within(await screen.findByRole("region", { name: "Details of demo" }));
     fireEvent.click(await details.findByRole("tab", { name: /Problems/ }));
 
@@ -280,7 +275,7 @@ describe("workspaces page", () => {
 
   it("lists the stacks with a way to open them, and the flows", async () => {
     mockServer({ list: [demo] });
-    renderAt("/workspaces");
+    renderAt("/workspaces/demo");
     const details = within(await screen.findByRole("region", { name: "Details of demo" }));
     fireEvent.click(await details.findByRole("tab", { name: /Stacks/ }));
     expect(details.getByText("full")).toBeTruthy();
@@ -288,13 +283,14 @@ describe("workspaces page", () => {
     expect(details.getByText("nightly")).toBeTruthy();
   });
 
-  it("has an Edit file button for the user's own workspaces only", async () => {
+  it("has an Edit file button for the user's own projects only", async () => {
     mockServer({ list: [demo, sample] });
-    renderAt("/workspaces");
+    renderAt("/workspaces/demo");
     const details = within(await screen.findByRole("region", { name: "Details of demo" }));
     expect(details.getByRole("link", { name: /Edit file/ }).getAttribute("href")).toBe("/workspaces/demo/edit");
+    cleanup();
 
-    fireEvent.click(screen.getByRole("button", { name: "Workspace acme-shop" }));
+    renderAt("/workspaces/acme-shop");
     const other = within(await screen.findByRole("region", { name: "Details of acme-shop" }));
     expect(other.queryByRole("link", { name: /Edit file/ })).toBeNull();
   });
@@ -307,7 +303,7 @@ describe("workspaces page", () => {
 
   it("deletes a workspace only after it is confirmed", async () => {
     mockServer({ list: [demo] });
-    renderAt("/workspaces");
+    renderAt("/workspaces/demo");
     const settings = await openSettings();
     expect(await settings.findByText("/code/demo/workspace.yaml")).toBeTruthy();
 
@@ -324,26 +320,26 @@ describe("workspaces page", () => {
     fireEvent.click(within(await screen.findByRole("group", { name: "Confirm deleting demo" })).getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(deleted()).toBe(true));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Workspace demo" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Project demo" })).toBeNull());
     // with none left, the page offers to add one
-    expect(await screen.findByRole("region", { name: "No workspaces yet" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "No projects yet" })).toBeTruthy();
   });
 
   it("says why a workspace could not be deleted and keeps it", async () => {
     mockServer({ list: [demo], deleteError: { status: 409, message: "stop its running stacks before deleting this workspace" } });
-    renderAt("/workspaces");
+    renderAt("/workspaces/demo");
     const settings = await openSettings();
 
     fireEvent.click(settings.getByRole("button", { name: /Delete demo/ }));
     fireEvent.click(within(await screen.findByRole("group", { name: "Confirm deleting demo" })).getByRole("button", { name: "Delete" }));
 
     expect((await screen.findByRole("alert")).textContent).toBe("stop its running stacks before deleting this workspace");
-    expect(screen.getByRole("button", { name: "Workspace demo" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Details of demo" })).toBeTruthy(); // still here, on its page
   });
 
   it("offers no delete on the sample workspace", async () => {
     mockServer({ list: [sample] });
-    renderAt("/workspaces");
+    renderAt("/workspaces/acme-shop");
     const settings = await openSettings("acme-shop");
     expect(await settings.findByText("Example (read only)")).toBeTruthy();
     expect(settings.queryByRole("button", { name: /Delete/ })).toBeNull();
@@ -352,7 +348,7 @@ describe("workspaces page", () => {
   it("scans a folder, shows the draft, and saves exactly what is in the box", async () => {
     mockServer();
     renderAt("/workspaces");
-    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
 
     fireEvent.change(await screen.findByLabelText(/Folder that contains/), { target: { value: "~/code" } });
     fireEvent.click(screen.getByRole("button", { name: /Scan folder/ }));
@@ -362,20 +358,20 @@ describe("workspaces page", () => {
     expect(posted).toContainEqual({ url: "/api/v1/workspaces/scan", body: { root: "~/code" } });
 
     fireEvent.change(box, { target: { value: draft + "# edited\n" } });
-    const create = screen.getByRole("button", { name: /Create workspace/ }) as HTMLButtonElement;
+    const create = screen.getByRole("button", { name: /Create project/ }) as HTMLButtonElement;
     await waitFor(() => expect(create.disabled).toBe(false));
     fireEvent.click(create);
 
     await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces", body: { yaml: draft + "# edited\n" } }));
     // the form closes and the new workspace is in the list
-    expect(await screen.findByRole("button", { name: "Workspace code" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Project code" })).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); // the drawer closes once it is saved
   });
 
   it("says why a folder couldn't be scanned", async () => {
     mockServer({ scanError: "that folder doesn't exist" });
     renderAt("/workspaces");
-    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
     fireEvent.change(await screen.findByLabelText(/Folder that contains/), { target: { value: "~/nope" } });
     fireEvent.click(screen.getByRole("button", { name: /Scan folder/ }));
 
@@ -385,7 +381,7 @@ describe("workspaces page", () => {
   it("fills in the folder from the system's dialog and scans it at once", async () => {
     mockServer();
     renderAt("/workspaces");
-    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Browse/ }));
 
     const box = (await screen.findByLabelText("workspace.yaml")) as HTMLTextAreaElement;
@@ -398,7 +394,7 @@ describe("workspaces page", () => {
   it("does nothing when the dialog is closed without choosing", async () => {
     mockServer({ pick: "cancel" });
     renderAt("/workspaces");
-    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
     const browse = await screen.findByRole("button", { name: /Browse/ });
     fireEvent.click(browse);
 
@@ -413,7 +409,7 @@ describe("workspaces page", () => {
   it("says when the dialog could not open, and the path can still be typed", async () => {
     mockServer({ pick: "error" });
     renderAt("/workspaces");
-    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Browse/ }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("type the folder");
@@ -424,7 +420,7 @@ describe("workspaces page", () => {
   it("shows that it is waiting while the dialog is open", async () => {
     mockServer({ pick: "wait" });
     renderAt("/workspaces");
-    fireEvent.click(await screen.findByRole("button", { name: /Add workspace/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Browse/ }));
 
     const waiting = (await screen.findByRole("button", { name: /Waiting for you/ })) as HTMLButtonElement;

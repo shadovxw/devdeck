@@ -125,14 +125,16 @@ const GROUPS: GroupDef[] = [
     items: [
       {
         path: "/workspaces",
-        label: "Workspaces",
-        hint: "a folder of repos",
+        // A project: one repo or a folder of them, and how they run (dev-plans/2026-11-22-projects).
+        // The files and the address still say workspace until PJ2 and PJ9.
+        label: "Projects",
+        hint: "your work, in one place",
         icon: Boxes,
         empty: {
-          headline: "No workspaces yet",
-          text: "Point devdeck at a folder of repositories to create your first workspace.",
-          cta: { label: "Create workspace" },
-          kicker: "00 $ Workspaces · none yet",
+          headline: "No projects yet",
+          text: "Point devdeck at one repo, or a folder of them, to create your first project.",
+          cta: { label: "New project" },
+          kicker: "00 $ Projects · none yet",
           command: "devdeck workspace check <folder>",
           orb: "workspaces",
         },
@@ -494,7 +496,13 @@ export function familyOf(path: string): NavItem[] | undefined {
 }
 
 /** The sidebar item a page is shown under: itself, or its family's first page. */
-export const sidebarPathOf = (path: string): string => familyOf(path)?.[0].path ?? path;
+export const sidebarPathOf = (path: string): string => {
+  const family = familyOf(path)?.[0].path;
+  if (family) return family;
+  if (NAV_ITEMS.some((i) => i.path === path)) return path;
+  // A page under a listed one (a project's own page, /workspaces/acme) shows under it.
+  return NAV_ITEMS.find((i) => i.path !== "/" && path.startsWith(i.path + "/"))?.path ?? path;
+};
 
 export const navByPath = (path: string): NavItem => {
   const item = NAV_ITEMS.find((i) => i.path === path);

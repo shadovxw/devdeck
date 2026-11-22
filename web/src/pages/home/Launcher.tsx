@@ -178,7 +178,7 @@ export function Launcher() {
   let goTo: { to: string; title: string; text?: string } | undefined;
   if (orb.state === "warn") goTo = undefined;
   else if (running) goTo = { to: "/overview", title: "Open Overview" };
-  else if (workspaces.data?.length === 0) goTo = { to: "/workspaces", title: "Configure a workspace", text: "Idle · Set up a workspace" };
+  else if (workspaces.data?.length === 0) goTo = { to: "/workspaces", title: "Set up a project", text: "Idle · Set up a project" };
 
   return (
     <div data-ui="launcher">
@@ -188,7 +188,7 @@ export function Launcher() {
             dd<span>.</span>
           </span>
           <span data-ui="kicker">
-            {workspaces.data?.length === 0 ? "No workspace yet" : `Workspace · ${workspaceLabel(workspaces.data)}`} · {shortDate(date)}
+            {workspaces.data?.length === 0 ? "No project yet" : `Project · ${workspaceLabel(workspaces.data)}`} · {shortDate(date)}
           </span>
         </div>
         <button ref={chip} type="button" data-ui="launcher-search" onClick={() => setSearching(true)} title="Find a page by name" aria-keyshortcuts="Control+K">

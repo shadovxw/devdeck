@@ -63,7 +63,7 @@ describe("Neon Home, the launcher", () => {
     renderAt("/");
     const h1 = await screen.findByRole("heading", { level: 1 });
     expect(h1.textContent).toMatch(/^Good (morning|afternoon|evening), Sam\.$/);
-    expect(await screen.findByText(/Workspace · Acme shop ·/)).toBeTruthy();
+    expect(await screen.findByText(/Project · Acme shop ·/)).toBeTruthy();
     expect(await screen.findByText("Idle · Ready")).toBeTruthy();
   });
 
@@ -85,11 +85,11 @@ describe("Neon Home, the launcher", () => {
   it("with no workspace yet, the orb's line leads to Workspaces and its hero", async () => {
     mockServer({ workspaces: [] });
     renderAt("/");
-    const line = await screen.findByRole("link", { name: "Idle · Set up a workspace" });
+    const line = await screen.findByRole("link", { name: "Idle · Set up a project" });
     expect(line.getAttribute("href")).toBe("/workspaces");
-    expect(line.getAttribute("title")).toBe("Configure a workspace");
+    expect(line.getAttribute("title")).toBe("Set up a project");
     fireEvent.click(line);
-    expect(await screen.findByRole("region", { name: "No workspaces yet" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "No projects yet" })).toBeTruthy();
   });
 
   it("has no sidebar: every page sits around the orb, with what it is for, and a legend", async () => {
@@ -128,7 +128,7 @@ describe("Neon Home, the launcher", () => {
     fireEvent.change(box, { target: { value: "work" } });
     const list = within(screen.getByRole("listbox", { name: "Pages" }));
     const options = list.getAllByRole("option");
-    expect(options[0].textContent).toContain("Workspaces");
+    expect(options[0].textContent).toContain("Projects");
     expect(options[0].getAttribute("aria-selected")).toBe("true");
     expect(box.getAttribute("aria-activedescendant")).toBe(options[0].id);
 
@@ -168,12 +168,12 @@ describe("empty pages: the mini-orb pattern", () => {
   it("Workspaces with none yet: one mono line, one headline, one action, one command", async () => {
     mockServer({ workspaces: [] });
     renderAt("/workspaces");
-    const empty = within(await screen.findByRole("region", { name: "No workspaces yet" }));
-    expect(empty.getByText("00 $ Workspaces · none yet")).toBeTruthy();
-    expect(empty.getByRole("heading", { level: 2 }).textContent).toBe("No workspaces yet");
+    const empty = within(await screen.findByRole("region", { name: "No projects yet" }));
+    expect(empty.getByText("00 $ Projects · none yet")).toBeTruthy();
+    expect(empty.getByRole("heading", { level: 2 }).textContent).toBe("No projects yet");
     expect(empty.getByText("$ devdeck workspace check <folder>")).toBeTruthy();
     expect(empty.getByRole("link", { name: /setup guide/i })).toBeTruthy();
-    fireEvent.click(empty.getByRole("button", { name: /Create workspace/ }));
+    fireEvent.click(empty.getByRole("button", { name: /New project/ }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 
@@ -182,7 +182,7 @@ describe("empty pages: the mini-orb pattern", () => {
     renderAt("/overview");
     expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
     expect((await screen.findByRole("link", { name: /Open workspaces/ })).getAttribute("href")).toBe("/workspaces");
-    expect(screen.queryByRole("region", { name: "No workspaces yet" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "No projects yet" })).toBeNull();
   });
 });
 

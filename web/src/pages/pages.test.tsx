@@ -183,7 +183,7 @@ describe("pages", () => {
     await screen.findByRole("heading", { name: "Logs" });
     const dock = screen.getByRole("navigation", { name: "Pages" });
     expect(within(dock).getByRole("link", { name: "Stacks" }).getAttribute("aria-current")).toBe("page");
-    expect(within(dock).getByRole("link", { name: "Workspaces" }).getAttribute("aria-current")).toBeNull();
+    expect(within(dock).getByRole("link", { name: "Projects" }).getAttribute("aria-current")).toBeNull();
   });
 
   it("shows a loading skeleton while the plugin list is on its way", async () => {

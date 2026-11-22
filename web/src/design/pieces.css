@@ -1014,3 +1014,120 @@
 [data-ui="launcher-intro"] [data-ui="greeting"] {
   font-size: clamp(36px, 3.2vw, 52px);
 }
+
+/* --- Project cards (pages/workspaces/WorkspaceCards.tsx; dev-plans/2026-11-22-projects §4.1) ---
+   From the design's Projects board: a thin gradient frame with two cut corners, a mono line, the
+   state as a chip. All colours are theme tokens; glow and scanlines only with Effects Full. */
+[data-ui="project-card"] {
+  --cut: 16px;
+  position: relative;
+  padding: 1px;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--link) 55%, transparent), color-mix(in srgb, var(--critical) 25%, transparent) 45%, color-mix(in srgb, var(--ink) 6%, transparent));
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+  transition: transform var(--dur-move) var(--ease-out), filter var(--dur-move) var(--ease-out);
+}
+
+[data-ui="project-card"]:hover {
+  transform: translateY(-3px);
+}
+
+:root[data-effects="full"] [data-ui="project-card"]:is(:hover, :focus-visible) {
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--link) 28%, transparent));
+}
+
+[data-ui="project-card-in"] {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  background: var(--neon-panel);
+  clip-path: inherit;
+}
+
+:root[data-effects="full"] [data-ui="project-card-in"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--ink) 2.5%, transparent) 0 1px, transparent 1px 3px);
+}
+
+[data-ui="project-kicker"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+}
+
+[data-ui="project-state"] {
+  --tone: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+
+[data-ui="project-state"][data-tone="good"] { --tone: var(--good); }
+[data-ui="project-state"][data-tone="warning"] { --tone: var(--warning); }
+[data-ui="project-state"][data-tone="critical"] { --tone: var(--critical); }
+
+[data-ui="project-diamond"] {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+  border: 1px solid var(--link);
+}
+
+[data-ui="project-card"]:is(:hover, :focus-visible) [data-ui="project-diamond"] {
+  background: var(--link);
+}
+
+[data-ui="project-name"] {
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+[data-ui="project-tag"] {
+  flex: none;
+  padding: 1px 6px;
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: var(--fill);
+}
+
+[data-ui="project-shape"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+[data-ui="project-add"] {
+  border: 1px dashed color-mix(in srgb, var(--link) 40%, transparent);
+  color: var(--link);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--dur-quick) var(--ease-out), border-color var(--dur-quick) var(--ease-out);
+}
+
+[data-ui="project-add"]:hover {
+  border-color: var(--link);
+  background: color-mix(in srgb, var(--link) 6%, transparent);
+}
+
+[data-ui="project-add-label"] {
+  font-family: var(--font-code);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
