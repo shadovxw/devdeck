@@ -152,7 +152,8 @@ describe("the settings layout and the gallery", () => {
     renderSettings();
     const nav = within(screen.getByRole("navigation", { name: "Settings sections" }));
     expect(nav.getByRole("link", { name: "Appearance" }).getAttribute("aria-current")).toBe("page");
-    expect(nav.getByText("General").getAttribute("aria-disabled")).toBe("true");
+    expect(nav.getByRole("link", { name: "General" }).getAttribute("aria-current")).toBeNull();
+    expect(nav.getByText("Keyboard").getAttribute("aria-disabled")).toBe("true");
     expect(nav.getAllByRole("listitem")).toHaveLength(8);
   });
 

@@ -94,13 +94,13 @@ After P4 the owner chose to make Neon's Home a **fixed launcher**: the same ever
 - **Neon only.** Flat's Home stays as it is.
 - **The command bar is page search** for now: a big "Where to?" box that finds pages by name and opens them. The real Ctrl K palette (pages, stacks, actions, from anywhere) stays hub milestone H2.
 - **The dashboard moves to a new Overview page:** what P3 built for Neon's Home (status strip, running-stack cards, Needs a look) becomes `/overview`, under `// OVERVIEW`. In Flat, Overview shows the same dashboard Flat's Home already shows. Home links to it.
-- **No login.** devdeck is local and single-user (auth stays deferred, `CLAUDE.md`). The greeting's name comes from a **Your name** setting; empty means "Good evening." (Proposed to the owner; confirm before P3d.)
+- **No login.** devdeck is local and single-user (auth stays deferred, `CLAUDE.md`). The greeting's name comes from a **Your name** setting; empty means "Good evening." It is in Settings → General, kept in this browser (built in P3d).
 
 **The launcher, top to bottom:**
 1. **Header:** "Good evening, <name>." and the workspace switcher. No summary line (it would change).
 2. **The orb, always** (hero size). It is the one part that moves: idle when nothing is happening, "thinking" while devdeck works (a stack starting; later Doctor running, Claude busy), with its state in a mono line under it. Effects Off, Flat or no WebGL: the usual art.
 3. **The command bar:** "Where to?" as a large input; typing filters the nav pages (label, group, and the page's empty-state text), arrows move, Enter opens. The `Ctrl K` hint shows only once the palette exists.
-4. **The launch grid:** one large square tile per nav group (Run locally, Data, Automate, System; Overview's pages first as a row), each with its mono label (`// RUN LOCALLY`) and its pages as links. Built from `nav.ts`, so a new page appears by itself.
+4. **The launch grid:** one tile per sidebar group that has a built page, in the sidebar's order (Overview, Work, Run, System today; Data and Automate appear once they have a page), each with its mono label (`// RUN`) and its sidebar pages as links (sub-pages are tabs of those, and "Where to?" finds them). Built from `nav.ts`, so a new page appears by itself.
 5. **Not included:** "Recently opened" (it changes; the owner can ask for it later).
 
 The hero empty state of P4 ("Your workspace is ready to connect") moves to the **Workspaces** page's empty state in Neon, where configuring a workspace happens.

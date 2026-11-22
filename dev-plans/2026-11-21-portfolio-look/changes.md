@@ -81,3 +81,21 @@ Checked: typecheck, lint, all 628 web tests; the orb files at about 97% line cov
 - **Plan:** §8b added: the launch intro, the loading states and the orb carried to Workspaces (P9a–P9c), from the owner's design canvas, after P3d.
 
 Checked: typecheck, lint, all 652 web tests.
+
+## 2026-11-22: P3d, Neon's Home as a launcher
+
+- **`pages/home/Launcher.tsx`** (Neon's Home; `HomePage` picks it by style, Flat keeps the dashboard):
+  - kicker (`Workspace · Acme shop · SUN 22 NOV`, or `No workspace yet`) and "Good afternoon, Sam." with the name from the new setting
+  - the orb at launcher size (about 316px) with its state under it; while stacks run the line links to Overview
+  - **Where to?**: a combobox that finds built pages by name, group, parent or what the page is for; arrows, Enter opens, Escape clears; each result shows its group and its `G` key. No `Ctrl K` hint until the palette exists.
+  - the launch grid: one tile per sidebar group with a built page (`// Overview`, `// Work`, `// Run`, `// System`), its pages as links. The dot after each link, so a wrapped line never starts with one.
+- **`pages/home/launch.ts`**, pure and table-tested (`launch.test.ts`): `launchTiles`, `searchPages`, `orbStatus` (thinking only while a stack starts or stops; otherwise idle, with what runs or what needs a look).
+- **Your name** (`store/ui.ts` `name`, `devdeck.name`, at most 40 characters): Settings → General is now built, with that one field (`pages/settings/General.tsx`).
+- **The hero empty state moved to Workspaces** in Neon (`pages/workspaces/NeonNoWorkspace.tsx`): the orb, `00 $ Boot · no workspace yet`, "Your workspace is ready to connect.", *Add workspace* opens the add form, *Setup guide*. Flat's Workspaces keeps its usual empty state.
+- Neon's empty **Overview** is the quiet kind (`pages/home/NeonEmptyOverview.tsx`, replacing `NeonEmptyHome.tsx`): with a workspace, *Open stacks*; without, *Open workspaces*.
+- `EmptyOrb` has a `launcher` size. `G V` opens Overview (`app/shortcuts.ts`).
+- Styles in `design/pieces.css` (Neon only, from tokens; the diamond's glow only with Effects Full).
+- Tests: `pages/home/launcher.test.tsx` (10: greeting with and without a name, same with stacks running, the grid, search with keys, Flat unchanged, the Workspaces hero in both styles, Overview's quiet empty, the name setting); `store/ui.test.ts` (the name); the Settings sections test (General is built now).
+- `launch.ts`, not `launcher.ts`: Windows treats `launcher.ts` and `Launcher.tsx` as the same name.
+
+Checked: typecheck, lint, all 694 web tests. In the browser at 1440×900: Neon Home matches the IntroToHome design's launcher (greeting, orb, Where to?, tiles); typing "log" lists Logs first and Enter opens it; Workspaces with none shows the hero; Flat Home unchanged.

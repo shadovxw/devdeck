@@ -9,6 +9,7 @@ import { NAV_ITEMS } from "./nav";
  */
 export const GO_KEYS: Record<string, string> = {
   "/": "h",
+  "/overview": "v",
   "/workspaces": "w",
   "/repos": "r",
   "/features": "f",

@@ -15,7 +15,8 @@ import { useSocketStatus } from "../lib/socket";
 import type { RunStatus, ServiceStatus } from "../lib/types";
 import { useNow } from "../lib/use-now";
 import { useUi } from "../store/ui";
-import { NeonEmptyHome } from "./home/NeonEmptyHome";
+import { Launcher } from "./home/Launcher";
+import { NeonEmptyOverview } from "./home/NeonEmptyOverview";
 import { NeonHome } from "./home/NeonHome";
 import { ProblemRow, StopAll } from "./home/parts";
 
@@ -97,8 +98,8 @@ function RunServices({ run, now, restarting, onRestart }: Readonly<{ run: RunSta
 
 
 /**
- * The stacks dashboard: what runs now, what needs a look. It is the Overview page, and Home until
- * Neon's Home becomes the launcher (dev-plans/2026-11-21-portfolio-look §8a).
+ * The stacks dashboard: what runs now, what needs a look. It is the Overview page, and Flat's Home
+ * (Neon's Home is the launcher, dev-plans/2026-11-21-portfolio-look §8a).
  */
 export function Dashboard({ path }: Readonly<{ path: "/" | "/overview" }>) {
   const item = navByPath(path);
@@ -125,7 +126,14 @@ export function Dashboard({ path }: Readonly<{ path: "/" | "/overview" }>) {
 
   if (list.length === 0) {
     const hasWorkspace = (workspaces.data?.length ?? 0) > 0;
-    if (look === "neon") return <NeonEmptyHome hasWorkspace={hasWorkspace} empty={item.empty!} />;
+    if (look === "neon") {
+      return (
+        <>
+          <PageHeader title={item.label} group={item.group} />
+          <NeonEmptyOverview hasWorkspace={hasWorkspace} />
+        </>
+      );
+    }
     return (
       <>
         <PageHeader title={item.label} group={item.group} />
@@ -234,7 +242,9 @@ export function Dashboard({ path }: Readonly<{ path: "/" | "/overview" }>) {
   );
 }
 
+/** Home: in Neon the launcher, the same every time; in Flat the dashboard, as before. */
 export function HomePage() {
-  return <Dashboard path="/" />;
+  const look = useUi((s) => s.look);
+  return look === "neon" ? <Launcher /> : <Dashboard path="/" />;
 }
 
