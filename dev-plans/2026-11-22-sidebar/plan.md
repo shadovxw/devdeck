@@ -33,4 +33,4 @@ The sidebar lists 28 pages in 5 groups. Folded to icons it is a column of about 
 | S3 | Live status: running-stack count on Stacks, a dot on Health when Doctor finds problems | The counts follow the server's state |
 | S4 | Neon: the active diamond slides between items; the workspace switcher moves into the sidebar header | Matches the launcher designs |
 | S5 | Keyboard: `G` + letter jumps, `[` folds, shortcuts in tooltips | Each sidebar item has a working shortcut, listed in its tooltip |
-| S6 (proposed) | **A real current workspace:** the switcher chooses a workspace that every page follows (Stacks, Logs, Health, Features), remembered between visits; today each page picks its own default and takes `?workspace=` | Choosing a workspace in the sidebar changes what every page shows |
+| S6 (skipped for now) | **A real current workspace:** the switcher chooses a workspace that every page follows (Stacks, Logs, Health, Features), remembered between visits; today each page picks its own default and takes `?workspace=` | Choosing a workspace in the sidebar changes what every page shows |

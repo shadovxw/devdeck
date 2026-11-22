@@ -96,8 +96,12 @@ function RunServices({ run, now, restarting, onRestart }: Readonly<{ run: RunSta
 }
 
 
-export function HomePage() {
-  const item = navByPath("/");
+/**
+ * The stacks dashboard: what runs now, what needs a look. It is the Overview page, and Home until
+ * Neon's Home becomes the launcher (dev-plans/2026-11-21-portfolio-look §8a).
+ */
+export function Dashboard({ path }: Readonly<{ path: "/" | "/overview" }>) {
+  const item = navByPath(path);
   const runs = useRuns();
   const workspaces = useWorkspaces();
   const restart = useRestartService();
@@ -229,3 +233,8 @@ export function HomePage() {
     </>
   );
 }
+
+export function HomePage() {
+  return <Dashboard path="/" />;
+}
+

@@ -162,6 +162,13 @@ describe("pages", () => {
     expect(flyout.getByText("Resources").getAttribute("title")).toBe("Comes in Phase 5"); // not built: no link
   });
 
+  it("has an Overview page under devdeck with its own empty state", async () => {
+    mockServer();
+    renderAt("/overview");
+    expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("devdeck/Overview");
+  });
+
   it("shows Not found for unknown paths", async () => {
     mockServer();
     renderAt("/nope");

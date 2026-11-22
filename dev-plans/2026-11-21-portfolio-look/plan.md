@@ -110,6 +110,52 @@ The hero empty state of P4 ("Your workspace is ready to connect") moves to the *
 | P3c | `/overview` (new nav item under Overview): the P3 Neon dashboard and, in Flat, the dashboard Flat's Home shows today; tests move with it | Overview shows the stacks in both styles; Flat Home unchanged |
 | P3d | Neon Home as the launcher: header with name (the *Your name* setting), the orb with live state, the page-search bar, the launch grid; the hero empty state moves to Workspaces | Home looks the same with and without stacks; typing a page name and Enter opens it; every nav page is reachable from the grid |
 
+## 8b. Launch intro, loading states, orb carried across (designed 2026-11-22)
+
+The owner's design canvas has three more screens: the **launch intro** that ends in the launcher Home with the **one orb** (`Intro`, `IntroToHome`, `IntroStoryboard`), the **loading states** (`LoadingStates`), and **Home → Workspaces with the orb carried across** (`OrbTransition`). They build on P3d, so they come after it. The design's hex colours (brand teal, theme purple) map to theme tokens (`accent`, `accent-2`, `warn`, `critical`), read at run time as `orb/model.ts` already does, so every theme reaches them.
+
+**Launch intro (P9b).** About 3.4s, then the app:
+1. *Gather* (0–1.1s): the particles drift in and form a ring.
+2. *Assemble* (0.35–1.35s): the D's stem flies in from depth and the ribbon swings shut on its hinge.
+3. *Prompt* (1.15–1.45s): the `>_` pops and the cursor blinks.
+4. *Lockup* (1.35–3.0s): the mark faces you and moves left, `devdeck` rises letter by letter, the tagline shows and a light sweeps across.
+5. *Hand-off* (3.0–3.45s): the lockup shrinks into the sidebar logo (`data-ui="logo"`), and the ring streams into Home's orb slot.
+6. *Home* (3.2–3.8s): the sidebar slides in, then the launcher rises.
+
+Rules for when it plays and how it degrades:
+- **When:** cold start only, at most once per app session (`sessionStorage`), never on reloads or page changes. Only on Neon with Effects Full; any other setting skips it.
+- **Skip:** any key or click jumps straight to Home.
+- **Server not up yet:** the intro plays while the server connects. If the server has not answered by 3.0s, the lockup holds with a thin progress line. If it is offline, the intro ends in the offline state (P9a) and carries on into Home once the server answers.
+- **Fallbacks:** with Reduce motion or Effects Reduced, a 300ms fade of the flat lockup. Without WebGL, the SVG lockup with the same letter reveal.
+- **One orb:** the intro's canvas lays its particles exactly on Home's orb (same sphere maths as `orb/model.ts`, sized from the slot's rect). It then fades out over the lazily loaded `EmptyOrb`, which takes over, so only one orb is ever seen.
+- **Code:** `design/intro/` holds the timeline (pure, table-tested), the scene and the overlay. `three` stays in the orb's lazy chunk.
+
+**Loading states (P9a).**
+- **Offline at start** (the Neon `Splash`):
+  - the dimmed lockup, with the progress line turning red
+  - `SERVER OFFLINE · 127.0.0.1:7070` and one sentence: it connects by itself once the server runs
+  - **Retry now**, the start command as a chip, and `RETRYING IN 4s · ATTEMPT 3`
+  - retries back off: 1s, 2s, 4s… up to 15s (today it is a flat 3s)
+- **Reconnecting during use:** the page stays and keeps its last data.
+  - After 2s without the server, a warn strip shows at the top: `RECONNECTING · 12s` and `ACTIONS PAUSED`. Shorter blips show nothing.
+  - Buttons that change things are disabled, with a tooltip saying why; reading still works. A `useServerUp()` hook drives this, and the shared write buttons read it.
+  - The orb turns warn-coloured and "thinks" (`THINKING · RECONNECTING`).
+  - When the server is back, the strip turns green for 2s (`CONNECTED`), the data refreshes, and the strip goes away.
+- **Flat** gets the same strip and back-off in its own plain style, with no orb.
+
+**Orb carried across (P9c).**
+- From Home's orb, **Configure** opens Workspaces when there is no workspace.
+- The orb travels to the Workspaces hero (`No workspace yet`, `+ Add workspace`, `← Home`) while the two pages slide across each other in about 0.9s. The nav diamond moves with them.
+- **How:** one View Transition with `view-transition-name: orb` on both slots, so no second WebGL scene is needed.
+- **Later:** the design's morph into three small orbs, which is shader work, waits for the P5a mini-orb variants.
+- With Reduce motion, it is a plain page change.
+
+| PR | What | Done when |
+|---|---|---|
+| P9a | Offline splash (Neon) with back-off, countdown, Retry now; reconnecting strip in both styles; write buttons paused; orb warn state | Stopping the server shows the strip after 2s and pauses writes; starting it shows Connected, then the strip goes away (tests with fake timers) |
+| P9b | Launch intro, ending in the launcher Home with the one orb; skip, once per session, fallbacks | Plays once on cold start in Neon Full; any key skips it; Reduce motion gives the fade; no WebGL gives the SVG lockup; Flat never shows it |
+| P9c | Home → Workspaces with the orb carried across (View Transition) | The orb moves between the two slots; Reduce motion gives a plain page change |
+
 ## 9. Open questions (as first asked)
 
 1. **Replace or add:** this plan refines the existing Neon style (the brief's default). Confirm, or should it be a third style next to Flat and today's Neon?
