@@ -95,21 +95,39 @@ describe("Neon Home, the launcher", () => {
     expect(await screen.findByRole("region", { name: "Get started" })).toBeTruthy();
   });
 
-  it("opens every sidebar page from the grid, a tile per group", async () => {
+  it("has no sidebar: every page sits around the orb, with what it is for, and a legend", async () => {
     mockServer();
     useUi.setState({ look: "neon" });
     renderAt("/");
-    const grid = within(await screen.findByRole("navigation", { name: "Launch" }));
-    expect(grid.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["// Overview", "// Work", "// Run", "// System"]);
-    const run = within(grid.getByRole("region", { name: "Run" }));
-    expect(run.getByRole("link", { name: "Stacks" }).getAttribute("href")).toBe("/stacks");
-    expect(grid.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/overview");
+    const orbit = within(await screen.findByRole("navigation", { name: "Launch" }));
+    expect(orbit.getByRole("link", { name: /Stacks/ }).getAttribute("href")).toBe("/stacks");
+    expect(orbit.getByRole("link", { name: /Overview/ }).textContent).toContain("everything at a glance");
+    expect(orbit.queryByRole("link", { name: /^Home/ })).toBeNull();
+    expect(document.documentElement.dataset.homeBare).toBe("");
+    expect(document.querySelector('[data-ui="topbar"]')).toBeNull();
+    const legend = within(screen.getByRole("list", { name: "Groups" }));
+    expect(legend.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["// Workyour code", "// Runwhat's running", "// Systemsetup"]);
+  });
+
+  it("picking a page names it for the flight into the sidebar, and the sidebar comes back", async () => {
+    mockServer();
+    useUi.setState({ look: "neon" });
+    renderAt("/");
+    const stacks = within(await screen.findByRole("navigation", { name: "Launch" })).getByRole("link", { name: /Stacks/ });
+    fireEvent.click(stacks);
+    expect(document.documentElement.dataset.launch).toBe("");
+    expect(await screen.findByRole("heading", { level: 1, name: "Stacks" })).toBeTruthy();
+    expect(document.documentElement.dataset.homeBare).toBeUndefined();
   });
 
   it("finds a page by name and opens it with Enter; arrows move, Escape clears", async () => {
     mockServer();
     useUi.setState({ look: "neon" });
     const router = renderAt("/");
+    // Ctrl K opens the page search on Home.
+    expect(await screen.findByRole("button", { name: "Ctrl K" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Where to?" })).toBeNull();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     const box = await screen.findByRole("combobox", { name: "Where to?" });
     expect(box.getAttribute("aria-expanded")).toBe("false");
 

@@ -53,6 +53,8 @@ type NavDef = {
   phase?: string;
   /** The page's name on its family's tab strip, when it differs from its label (Health's own tab is "Doctor"). */
   tab?: string;
+  /** A few words on what the page is for, under its name on Neon's Home (the orb launcher). */
+  hint?: string;
   empty?: Empty;
 };
 
@@ -67,9 +69,10 @@ export type NavItem = NavDef & {
   built: boolean;
 };
 
-type GroupDef = { name: string; items: NavDef[] };
+/** blurb: what the group is about in two or three words, on Home's legend ("what's running"). */
+type GroupDef = { name: string; blurb?: string; items: NavDef[] };
 /** A sidebar group. Home's group ("devdeck") has no heading; System is the footer pinned to the bottom. */
-export type NavGroup = { name: string; items: NavItem[] };
+export type NavGroup = { name: string; blurb?: string; items: NavItem[] };
 
 /** The group shown as the sidebar's footer, and the one without a heading. */
 export const FOOTER_GROUP = "System";
@@ -98,6 +101,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/overview",
         label: "Overview",
+        hint: "everything at a glance",
         icon: LayoutDashboard,
         empty: {
           headline: "Nothing is running",
@@ -109,10 +113,12 @@ const GROUPS: GroupDef[] = [
   },
   {
     name: "Work",
+    blurb: "your code",
     items: [
       {
         path: "/workspaces",
         label: "Workspaces",
+        hint: "a folder of repos",
         icon: Boxes,
         empty: {
           headline: "No workspace yet",
@@ -123,6 +129,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/repos",
         label: "Repositories",
+        hint: "clone, branch, sync",
         icon: FolderGit2,
         empty: {
           headline: "No repository connected yet",
@@ -133,6 +140,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/features",
         label: "Features",
+        hint: "work items across repos",
         icon: GitBranch,
         empty: {
           headline: "No features yet",
@@ -144,10 +152,12 @@ const GROUPS: GroupDef[] = [
   },
   {
     name: "Run",
+    blurb: "what's running",
     items: [
       {
         path: "/stacks",
         label: "Stacks",
+        hint: "start services together",
         icon: Layers,
         empty: {
           headline: "No stack defined yet",
@@ -187,6 +197,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/hosts",
         label: "Remote hosts",
+        hint: "machines over SSH",
         icon: Server,
         empty: {
           headline: "No remote host yet",
@@ -196,6 +207,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/doctor",
         label: "Health",
+        hint: "Doctor and findings",
         tab: "Doctor",
         icon: Stethoscope,
         empty: {
@@ -218,6 +230,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     name: "Data",
+    blurb: "your data",
     items: [
       {
         path: "/databases",
@@ -275,6 +288,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     name: "Automate",
+    blurb: "flows and runs",
     items: [
       {
         path: "/flows",
@@ -311,10 +325,12 @@ const GROUPS: GroupDef[] = [
   },
   {
     name: "System",
+    blurb: "setup",
     items: [
       {
         path: "/connections",
         label: "Connections",
+        hint: "GitHub, Docker Hub, Claude",
         icon: KeyRound,
         empty: {
           headline: "No connections yet",
@@ -362,7 +378,7 @@ const GROUPS: GroupDef[] = [
           cta: { label: "Add connection", to: "/connections" },
         },
       },
-      { path: "/plugins", label: "Plugins", icon: Puzzle },
+      { path: "/plugins", label: "Plugins", hint: "extend devdeck", icon: Puzzle },
       {
         path: "/notifications",
         label: "Notifications",
@@ -377,6 +393,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/docs",
         label: "Docs",
+        hint: "guides and reference",
         icon: BookOpen,
         empty: {
           headline: "No guides",
@@ -386,6 +403,7 @@ const GROUPS: GroupDef[] = [
       {
         path: "/settings",
         label: "Settings",
+        hint: "look, shortcuts, about",
         icon: Settings,
         empty: {
           headline: "More settings are coming",
@@ -420,7 +438,7 @@ export const NAV: NavGroup[] = GROUPS.map((g) => {
       });
       return { ...i, group: g.name, children: children.length > 0 ? children : undefined, built: !i.phase };
     });
-  return { name: g.name, items };
+  return { name: g.name, blurb: g.blurb, items };
 });
 
 /** Every page, parents and sub-pages alike. */

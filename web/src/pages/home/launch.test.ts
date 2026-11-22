@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { NAV, NAV_ITEMS } from "../../app/nav";
 import type { RunStatus, ServiceStatus } from "../../lib/types";
-import { launchTiles, orbStatus, searchPages } from "./launch";
+import { launchLegend, launchTiles, orbitNodes, orbStatus, searchPages } from "./launch";
 
 const svc = (id: string, state: ServiceStatus["state"]): ServiceStatus => ({ id, kind: "command", state, restarts: 0 });
 const run = (stack: string, state: RunStatus["state"], services: ServiceStatus[] = [svc("api", "ready")]): RunStatus => ({
@@ -74,5 +74,47 @@ describe("orbStatus", () => {
     ["a failed service", [run("web", "degraded", [svc("api", "failed"), svc("db", "ready")])], "idle", "Idle · 1 service needs a look"],
   ] as const)("%s", (_, runs, state, text) => {
     expect(orbStatus(runs as RunStatus[] | undefined)).toEqual({ state, text });
+  });
+});
+
+describe("orbitNodes", () => {
+  const nodes = orbitNodes();
+
+  it("puts every built sidebar page but Home on the arc, in the sidebar's order", () => {
+    expect(nodes.map((n) => n.item.path)).toEqual(launchTiles().flatMap((t) => t.pages.map((p) => p.path)));
+    expect(nodes[0].item.path).toBe("/overview");
+  });
+
+  it("starts at the upper right and ends at the upper left", () => {
+    const first = nodes[0];
+    const last = nodes.at(-1)!;
+    expect(first.cos).toBeCloseTo(Math.SQRT1_2, 3);
+    expect(first.sin).toBeCloseTo(-Math.SQRT1_2, 3);
+    expect(last.cos).toBeCloseTo(-Math.SQRT1_2, 3);
+    expect(last.sin).toBeCloseTo(-Math.SQRT1_2, 3);
+  });
+
+  it("reads right-hand pages from their left edge and left-hand ones from their right", () => {
+    expect(nodes[0].side).toBe("right");
+    expect(nodes.at(-1)!.side).toBe("left");
+  });
+
+  it("colours a page by its group, Overview with Run", () => {
+    const tone = (p: string) => nodes.find((n) => n.item.path === p)?.tone;
+    expect([tone("/overview"), tone("/workspaces"), tone("/stacks"), tone("/settings")]).toEqual(["run", "work", "run", "system"]);
+  });
+
+  it("gives every page a hint", () => {
+    expect(nodes.filter((n) => !n.item.hint).map((n) => n.item.path)).toEqual([]);
+  });
+});
+
+describe("launchLegend", () => {
+  it("lists the groups with pages, with their words", () => {
+    expect(launchLegend().map((g) => [g.name, g.blurb])).toEqual([
+      ["Work", "your code"],
+      ["Run", "what's running"],
+      ["System", "setup"],
+    ]);
   });
 });

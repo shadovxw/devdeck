@@ -141,3 +141,26 @@ Checked: typecheck, lint, all 751 web tests, build. In the browser at 1440×900,
 - Test: `pages/home/launcher.test.tsx` (the line leads to Workspaces and its hero).
 
 Checked: typecheck, lint, all 752 web tests. In the browser at 1440×900, the transition was paused from inside the page: the `orb` group ran beside the page cross-fade, and moved from Home's slot (316px at x 588) through 378px at 450ms to the hero's slot (440px at x 521) at 900ms.
+
+## 2026-11-22: Home without a sidebar, the orb launcher (§8c)
+
+- **`pages/home/Launcher.tsx`**, rebuilt from the `OrbLauncher` design:
+  - `dd.` and the kicker top left, and a `Ctrl K` chip top right.
+  - The greeting, and one line on what devdeck is for.
+  - The orb in the middle, with its state line (still a link to Overview, or to Workspaces when there is none).
+  - Every built sidebar page around it on an arc, each with its hint and a diamond in its group's colour, plus a legend of the groups at the bottom.
+  - `Ctrl K` (or the chip) opens the page search ("Where to?"), which Escape closes.
+  - Picking a page gives it the view-transition name `launch-pick`, which the sidebar's current row takes on the next page, so the name flies into its row.
+- **`pages/home/launch.ts`**: `orbitNodes` (the arc from -45° to 225°, which side each page reads from, its tone) and `launchLegend`, table-tested in `launch.test.ts`.
+- **`app/nav.ts`**: a `hint` for each built page and a `blurb` for each group (the design's words).
+- **`app/Shell.tsx`**: on Neon's Home, `data-home-bare` on `<html>` parks the sidebar off-screen (hidden from the keyboard too) and gives the page the full width. The top bar is dropped, except in devdeck's own window, where it stays see-through for the window buttons. Leaving Home slides the sidebar in.
+- **`design/intro/Intro.tsx`**: the intro's mark now lands on Home's `dd.`, since there is no sidebar on Home.
+- Styles in `design/pieces.css`, from tokens. Under 900px wide (or 700px high), one column with the pages in a grid.
+- Tests: `launch.test.ts` (the arc, sides, tones, hints, legend) and `launcher.test.tsx` (no sidebar or top bar, every page around the orb with its hint, the legend, a pick names the flight and brings the sidebar back, `Ctrl K` opens the search).
+- **Not yet:** the design's orb flying into the destination page's mini orb and turning into a ring. It needs the mini orbs (§8d).
+- **Plan:** §8c (this) and §8d (the owner's new direction: Neon only, the full orb on Home only, mini orbs per page, three kinds of empty) added, with P10 and the revised P5a and P5b.
+
+Checked: typecheck, lint, all 759 web tests. In the browser:
+- At 1440×900 the launcher matches the design.
+- Picking Stacks ran the `launch-pick` transition, measured from inside the page: from the page's spot by the orb (x 581, y 808, 210px wide) to its 32px sidebar row, beside the page cross-fade. The sidebar was back.
+- At 375px the page is one column with no sideways scroll.

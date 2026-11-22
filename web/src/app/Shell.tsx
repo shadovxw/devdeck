@@ -1,5 +1,5 @@
 import { useLayoutEffect } from "react";
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 
 import { cn } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -11,10 +11,12 @@ import { LinkStrip } from "./LinkStrip";
 import { UpdateNotice } from "./UpdateNotice";
 import { WindowControls } from "./WindowControls";
 
-function TopBar() {
+function TopBar({ bare }: Readonly<{ bare: boolean }>) {
   const win = useDesktopWindow();
   const desktop = win !== null;
   const toggleMaximise = () => win?.toggleMaximise();
+  // On the bare Home there is no sidebar to toggle; devdeck's own window keeps its buttons.
+  if (bare && !desktop) return null;
   return (
     <header
       data-ui="topbar"
@@ -22,7 +24,7 @@ function TopBar() {
       // In devdeck's own window a double click on the bar maximises it, as on any title bar.
       onDoubleClick={desktop ? (e) => e.target === e.currentTarget && toggleMaximise() : undefined}
     >
-      <SidebarTrigger className="size-9 text-ink-2" title="Expand or collapse the sidebar (Ctrl+B)" />
+      {!bare && <SidebarTrigger className="size-9 text-ink-2" title="Expand or collapse the sidebar (Ctrl+B)" />}
       {/* The workspace switcher is in the sidebar's header (app/WorkspaceSwitcher.tsx). */}
       <span className="flex-1" />
       <WindowControls />
@@ -63,9 +65,30 @@ function useFirstLoad() {
   }, []);
 }
 
+/**
+ * Neon's Home is the orb launcher, with no sidebar (dev-plans/2026-11-21-portfolio-look §8c):
+ * data-home-bare on <html> parks the sidebar off-screen and frees the page's full width, and
+ * leaving Home slides the sidebar in (design/pieces.css).
+ */
+function useBareHome(): boolean {
+  const { pathname } = useLocation();
+  const look = useUi((s) => s.look);
+  const bare = look === "neon" && pathname === "/";
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (bare) root.dataset.homeBare = "";
+    else delete root.dataset.homeBare;
+    return () => {
+      delete root.dataset.homeBare;
+    };
+  }, [bare]);
+  return bare;
+}
+
 export function Shell() {
   const sidebarOpen = useUi((s) => s.sidebarOpen);
   const setSidebarOpen = useUi((s) => s.setSidebarOpen);
+  const bare = useBareHome();
   useFirstLoad();
   useReportUiState();
   return (
@@ -74,7 +97,7 @@ export function Shell() {
       <AppSidebar />
       {/* The top bar is a banner, so it sits beside <main>, not inside it. */}
       <div className="relative flex min-h-svh min-w-0 flex-1 flex-col bg-bg">
-        <TopBar />
+        <TopBar bare={bare} />
         <LinkStrip />
         <main id="main" tabIndex={-1} className="page-area mx-auto w-full max-w-[1440px] px-3 py-3 outline-none md:px-5 md:py-4">
           <Outlet />
