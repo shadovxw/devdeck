@@ -14,6 +14,7 @@ import { DocsPage } from "../pages/DocsPage";
 import { FeaturePage } from "../pages/features/FeaturePage";
 import { FeaturesPage } from "../pages/features/FeaturesPage";
 import { HomePage } from "../pages/HomePage";
+import { OverviewPage } from "../pages/OverviewPage";
 import { LogsPage } from "../pages/LogsPage";
 import { Placeholder } from "../pages/Placeholder";
 import { PluginsPage } from "../pages/PluginsPage";
@@ -32,6 +33,7 @@ const built: Record<string, ReactElement> = {
   "/plugins": <PluginsPage />,
   "/workspaces": <WorkspacesPage />,
   "/": <HomePage />,
+  "/overview": <OverviewPage />,
   "/stacks": <StacksPage />,
   "/doctor": <DoctorPage />,
   "/logs": <LogsPage />,

@@ -71,3 +71,13 @@ Checked: typecheck, lint, all web tests; the build splits three.js out. In the b
 - The issue (`aria-hidden` on the canvas): removed; the box around it (`EmptyOrb`) is `aria-hidden`.
 
 Checked: typecheck, lint, all 628 web tests; the orb files at about 97% line coverage without `scene.ts`; the build still puts three.js only in the `OrbCanvas` chunk; the orb draws as before in the browser.
+
+## 2026-11-22: P3c, the Overview page
+
+- **`/overview`** (new, `pages/OverviewPage.tsx`), in the devdeck group after Home (`app/nav.ts`, icon `LayoutDashboard`, its own empty state: "Nothing is running" and *Open stacks*). It shows the dashboard Home shows today: the P3 Neon dashboard in Neon, Flat's dashboard in Flat.
+- `pages/HomePage.tsx`: the page body is now `Dashboard({ path })`, shared by Home and Overview, so P3d can turn Neon's Home into the launcher without touching Overview. Home renders exactly as before.
+- `app/routes.tsx`: the route. `app/nav.test.ts`: Overview in the built list. `pages/pages.test.tsx`: Overview renders with its breadcrumb.
+- **Not yet:** the `G V` key for Overview waits for the sidebar's S5 (`shortcuts.ts`) to merge.
+- **Plan:** §8b added: the launch intro, the loading states and the orb carried to Workspaces (P9a–P9c), from the owner's design canvas, after P3d.
+
+Checked: typecheck, lint, all 652 web tests.

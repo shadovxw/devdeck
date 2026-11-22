@@ -44,3 +44,12 @@ Checked: typecheck, lint, all 646 web tests. In the browser with a demo workspac
 - **Tests:** `workspace-switcher.test.tsx` (the label for none, one and several; in the sidebar header, opens Workspaces, not in the top bar any more); the top bar test updated.
 
 Checked: typecheck, lint, all 651 web tests. In the browser: the filled diamond lines up over the hollow one; the switcher in Neon (expanded and folded) and Flat; the bug found there (Neon's diamond rule hiding the switcher's icons) is fixed.
+
+## 2026-11-22: S5, keyboard
+
+- **`web/src/app/shortcuts.ts`** (new): `GO_KEYS`, one key per built page: G H Home, G W Workspaces, G R Repositories, G F Features, G S Stacks, G L Logs, G I Images and tags, G O Remote hosts, G D Health (Doctor), G C Connections, G P Plugins, G ? Docs, G , Settings. `useGoShortcuts` listens once (in the sidebar): G, then the page's key within 1.5 s, opens it (with the page cross-fade); `[` folds or unfolds the sidebar. Ignored while typing (inputs, text areas, selects, editable areas, the code editor), with Ctrl, Alt or Meta held, on key repeat, and for keys something else already handled. The sidebar's own Ctrl+B stays.
+- **Not `react-hotkeys-hook`:** the plan named it, but the whole feature is one listener of about 40 lines, tested; no new dependency.
+- **Shown where you look:** each row's tooltip shows its keys as chips after the name (and the status words, S3); the rail flyout lists them beside each page. The chips are hidden from screen readers; the links carry `aria-keyshortcuts` ("G S") instead, so the name stays the page's name.
+- **Tests:** `shortcuts.test.tsx` (14: one key per page, only built pages, either case, the keys to show; what counts as typing; the listener: G then a key, too slow, an unknown key, while typing, with modifiers, `[`); the sidebar row announces its shortcut.
+
+Checked: typecheck, lint, all 665 web tests. In the browser: G then S on Settings opened Stacks; `[` folded and unfolded the sidebar; the folded rail's tooltip shows "Remote hosts G O".

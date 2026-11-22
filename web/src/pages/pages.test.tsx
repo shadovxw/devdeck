@@ -114,6 +114,7 @@ describe("pages", () => {
     await screen.findByRole("heading", { level: 1, name: "Stacks" });
     const dock = within(screen.getByRole("navigation", { name: "Pages" }));
     expect(dock.queryByRole("link", { name: "Logs" })).toBeNull(); // a tab of Stacks now
+    expect(dock.getByRole("link", { name: "Stacks" }).getAttribute("aria-keyshortcuts")).toBe("G S");
     expect(dock.queryByRole("link", { name: "Databases" })).toBeNull(); // not built: folded away
     const soon = dock.getByRole("button", { name: "Coming soon" });
     expect(soon.getAttribute("aria-expanded")).toBe("false");
@@ -160,6 +161,13 @@ describe("pages", () => {
     expect(flyout.getByRole("link", { name: "Health" }).getAttribute("href")).toBe("/doctor");
     expect(flyout.getByRole("link", { name: "Images and tags" })).toBeTruthy();
     expect(flyout.getByText("Resources").getAttribute("title")).toBe("Comes in Phase 5"); // not built: no link
+  });
+
+  it("has an Overview page under devdeck with its own empty state", async () => {
+    mockServer();
+    renderAt("/overview");
+    expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("devdeck/Overview");
   });
 
   it("shows Not found for unknown paths", async () => {

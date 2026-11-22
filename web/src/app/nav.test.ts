@@ -17,7 +17,7 @@ describe("nav config", () => {
       if (item.path === "/plugins") continue;
       expect(item.empty, item.path).toBeDefined();
       expect(item.empty!.headline.length, item.path).toBeGreaterThan(0);
-      const built = ["/", "/workspaces", "/repos", "/features", "/stacks", "/logs", "/images", "/hosts", "/doctor", "/connections", "/connections/github", "/connections/docker", "/claude", "/docs", "/settings"];
+      const built = ["/", "/overview", "/workspaces", "/repos", "/features", "/stacks", "/logs", "/images", "/hosts", "/doctor", "/connections", "/connections/github", "/connections/docker", "/claude", "/docs", "/settings"];
       expect(item.built, item.path).toBe(built.includes(item.path));
       expect(item.phase === undefined, item.path).toBe(item.built);
       const to = item.empty!.cta?.to;
