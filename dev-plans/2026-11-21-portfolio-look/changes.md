@@ -60,3 +60,5 @@ Checked: typecheck, lint, all 601 web tests. In the browser with four demo stack
 - **Plans updated** in the same PR, as decision 9 asks: the neon-look plan (Effects default; the WebGL exception) and the main plan (3D: the orb as the one exception).
 
 Checked: typecheck, lint, all web tests; the build splits three.js out. In the browser: the orb draws in the theme's colours on Neon's empty Home (the first screenshot was taken before its chunk loaded; it then drew, which led to drawing the first frame at once); the Effects row shows Full under Neon.
+
+**Fix (owner's report): a glow around the whole page after clicking it.** The page's `<main>` has `tabindex="-1"` so the skip link and page changes can move focus to it; clicking the page focused it, and Neon's focus glow (a box-shadow) drew around it, its top hidden under the sticky top bar. Flat never showed it, because its ring is an outline and `<main>` turns that off. The glow now skips anything with `tabindex="-1"` (focus targets, not controls). Checked: clicking the page draws nothing; Tab onto a button still glows.
