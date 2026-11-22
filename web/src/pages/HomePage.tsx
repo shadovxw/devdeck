@@ -1,5 +1,4 @@
-import { Layers, RotateCcw, Square, Terminal } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Layers, RotateCcw, Terminal } from "lucide-react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -7,15 +6,17 @@ import { navByPath } from "../app/nav";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { Panel } from "../design/Panel";
-import { SectionHeader } from "../design/SectionHeader";
 import { ServiceStateMark } from "../design/ServiceStateMark";
 import { StatusDot } from "../design/StatusDot";
 import { stagger } from "../lib/motion";
-import { useRestartService, useRuns, useStopStack, useWorkspaces } from "../lib/queries";
+import { useRestartService, useRuns, useWorkspaces } from "../lib/queries";
 import { formatUptime, isProblem, serviceLabel, tally } from "../lib/runs";
 import { useSocketStatus } from "../lib/socket";
 import type { RunStatus, ServiceStatus } from "../lib/types";
 import { useNow } from "../lib/use-now";
+import { useUi } from "../store/ui";
+import { NeonHome } from "./home/NeonHome";
+import { ProblemRow, StopAll } from "./home/parts";
 
 /** A big number under a small mono label (dev-plans/02-frontend-design-system.md, the `metric` style). */
 function Metric({ label, children }: Readonly<{ label: string; children: React.ReactNode }>) {
@@ -29,23 +30,6 @@ function Metric({ label, children }: Readonly<{ label: string; children: React.R
 
 const unit = "text-[13px] font-normal tracking-normal text-ink-3";
 
-/** A service that needs attention, pinned above the others with its one action. */
-function ProblemRow({ run, service, busy, onRestart }: Readonly<{ run: RunStatus; service: ServiceStatus; busy: boolean; onRestart: () => void }>) {
-  const name = serviceLabel(service.id);
-  return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 bg-inset px-3.5 py-3">
-      <span className="w-28 shrink-0 text-[13px]">
-        <ServiceStateMark state={service.state} />
-      </span>
-      <span className="font-mono text-[13px] font-medium text-ink">{name}</span>
-      {service.last_error && <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2" title={service.last_error}>{service.last_error}</span>}
-      <span className="flex-1" />
-      <Button size="sm" disabled={busy} onClick={onRestart} aria-label={`Restart ${name} in ${run.stack}`}>
-        Restart
-      </Button>
-    </li>
-  );
-}
 
 /** The port of a service: a link while it is ready, plain text before that, nothing without one. */
 function Port({ service }: Readonly<{ service: ServiceStatus }>) {
@@ -110,29 +94,6 @@ function RunServices({ run, now, restarting, onRestart }: Readonly<{ run: RunSta
   );
 }
 
-/** Stops every running stack. The first click asks; a second one within 3 seconds does it. */
-function StopAll({ runs }: Readonly<{ runs: RunStatus[] }>) {
-  const stop = useStopStack();
-  const [sure, setSure] = useState(false);
-  useEffect(() => {
-    if (!sure) return;
-    const timer = setTimeout(() => setSure(false), 3000);
-    return () => clearTimeout(timer);
-  }, [sure]);
-  return (
-    <Button
-      variant="secondary"
-      onClick={() => {
-        if (!sure) return setSure(true);
-        setSure(false);
-        for (const r of runs) stop.mutate({ workspace: r.workspace, stack: r.stack });
-      }}
-    >
-      <Square aria-hidden />
-      {sure ? "Confirm stop all?" : "Stop all"}
-    </Button>
-  );
-}
 
 export function HomePage() {
   const item = navByPath("/");
@@ -143,6 +104,7 @@ export function HomePage() {
   const now = useNow(list.length > 0);
   const t = tally(list);
   const socket = useSocketStatus();
+  const look = useUi((s) => s.look);
 
   if (runs.isPending) {
     return (
@@ -179,6 +141,24 @@ export function HomePage() {
   }
 
   const failed = list.flatMap((run) => run.services.filter(isProblem).map((service) => ({ run, service })));
+  const restartFailed = () => {
+    for (const { run, service } of failed) restart.mutate({ workspace: run.workspace, stack: run.stack, service: service.id });
+  };
+
+  // Neon has its own layout (dev-plans/2026-11-21-portfolio-look §4); Flat stays as below.
+  if (look === "neon") {
+    return (
+      <NeonHome
+        runs={list}
+        now={now}
+        live={socket === "open"}
+        restarting={restart.isPending ? restart.variables?.service : undefined}
+        onRestart={(run, service) => restart.mutate({ workspace: run.workspace, stack: run.stack, service })}
+        onRestartFailed={restartFailed}
+        restartBusy={restart.isPending}
+      />
+    );
+  }
   const oldest = Math.min(...list.map((r) => Date.parse(r.started_at)).filter((n) => !Number.isNaN(n)));
 
   return (
@@ -192,9 +172,7 @@ export function HomePage() {
             {failed.length > 0 && (
               <Button
                 disabled={restart.isPending}
-                onClick={() => {
-                  for (const { run, service } of failed) restart.mutate({ workspace: run.workspace, stack: run.stack, service: service.id });
-                }}
+                onClick={restartFailed}
               >
                 <RotateCcw aria-hidden />
                 Restart failed
@@ -221,7 +199,6 @@ export function HomePage() {
 
       <div className="enter mt-12 flex flex-wrap gap-x-14 gap-y-12" style={stagger(1)}>
         <div className="flex min-w-[min(560px,100%)] flex-[2] flex-col gap-12">
-          <SectionHeader index="01" verb="UP" name="STACKS" count={{ label: "TOTAL_STACKS", value: String(t.stacks).padStart(2, "0") }} title="Running stacks" />
           {list.map((run) => (
             <RunServices
               key={`${run.workspace}/${run.stack}`}

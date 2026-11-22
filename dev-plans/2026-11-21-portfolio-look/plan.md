@@ -48,7 +48,8 @@ Make the **Neon** style (Settings → Appearance → Style) look like the approv
 | P0 | This plan | Approved |
 | P1 | Neon tokens of decision 2 (square, borderless, panel shade, no orange), the nav regrouped as the mockup (§8) and styled, the top bar, buttons (decision 6) (`Tag` moved to P2) | Neon matches the mockups' shell (sidebar, top bar, buttons); Flat unchanged by screenshot |
 | P2 | `SectionHeader`, `Panel`, `StatusStrip`, `StageRail`, `Tag`, each tested; used on Home | Home's sections use them in both styles; Flat unchanged |
-| P3 | Home with data (greeting and the *Your name* setting) and Resources | Match the mockups at 1440×900; four stacks visible without scrolling |
+| P3 | Home with data (greeting; the name waits for Q3) | Matches the mockup at 1440×900; four stacks visible without scrolling |
+| P3b | Resources in the Neon look. **Waits for its data:** the page is still a placeholder (main plan Phase 5 collects CPU, memory and disk; the system-metrics plugin is only a stub). Built with Phase 5 | Matches the mockup with real numbers |
 | P4 | The Effects setting (decision 8), `EmptyOrb` hero (lazy, theme colours, off switches), Home's empty state; neon-look and main plans updated (decision 9) | `three` only in its own chunk; still frame with Reduce motion; stops when hidden (test); `EmptyArt` on Flat, Effects Off and without WebGL |
 | P5a | Mini orb variants, part 1 (Workspaces, Repositories, Features, Stacks, Logs, Resources, Claude, Findings/Doctor) and the three kinds of empty | Each of those pages checked empty and filtered to nothing |
 | P5b | Mini orb variants, part 2 (the rest of the table) | Every nav page checked empty |
