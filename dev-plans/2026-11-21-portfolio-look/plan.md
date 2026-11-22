@@ -114,7 +114,7 @@ The hero empty state of P4 ("Your workspace is ready to connect") moves to the *
 
 The owner's design canvas has three more screens: the **launch intro** that ends in the launcher Home with the **one orb** (`Intro`, `IntroToHome`, `IntroStoryboard`), the **loading states** (`LoadingStates`), and **Home → Workspaces with the orb carried across** (`OrbTransition`). They build on P3d, so they come after it. The design's hex colours (brand teal, theme purple) map to theme tokens (`accent`, `accent-2`, `warn`, `critical`), read at run time as `orb/model.ts` already does, so every theme reaches them.
 
-**Launch intro (P9b).** About 3.4s, then the app:
+**Launch intro (P9b).** About 4.2s, then the app (the storyboard's 3.4s plus the particles streaming into the orb, as in the IntroToHome design):
 1. *Gather* (0–1.1s): the particles drift in and form a ring.
 2. *Assemble* (0.35–1.35s): the D's stem flies in from depth and the ribbon swings shut on its hinge.
 3. *Prompt* (1.15–1.45s): the `>_` pops and the cursor blinks.

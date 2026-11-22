@@ -21,7 +21,7 @@ export function supportsWebGL(): boolean {
   return webglCache;
 }
 
-const prefersReducedMotion = () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const prefersReducedMotion = () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 type Props = {
   /** idle; thinking only while devdeck is really working; ok (in the success colour) for good-news empties. */

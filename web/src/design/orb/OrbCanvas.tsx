@@ -1,21 +1,10 @@
 import { useEffect, useRef } from "react";
 
-import type { OrbColors, OrbState } from "./model";
+import { readOrbColors, type OrbState } from "./model";
 import { createOrb, type Orb } from "./scene";
 
-/** The theme's colours for the orb, read from the page (the theme writes them on <html>). */
-export function readOrbColors(root: HTMLElement = document.documentElement): OrbColors {
-  const css = getComputedStyle(root);
-  const get = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
-  return {
-    primary: get("--primary", "#8b5cf6"),
-    critical: get("--critical", "#ef4444"),
-    good: get("--good", "#22c55e"),
-    warning: get("--warning", "#f59e0b"),
-    ink: get("--ink", "#ffffff"),
-    live: get("--link", "#22d3ee"),
-  };
-}
+// Read from the theme in model.ts (no three.js there), so the launch intro can use it too.
+export { readOrbColors };
 
 /** The orb's canvas. Loaded lazily by EmptyOrb, so three.js is its own chunk. */
 export default function OrbCanvas({ state, still, className }: Readonly<{ state: OrbState; still: boolean; className?: string }>) {
