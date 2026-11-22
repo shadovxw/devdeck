@@ -118,3 +118,12 @@ describe("launchLegend", () => {
     ]);
   });
 });
+
+describe("the bottom of the arc", () => {
+  it("spreads the pages there sideways, so they don't crowd", () => {
+    const nodes = orbitNodes();
+    const bottom = nodes.filter((n) => n.sin > 0.8);
+    const xs = bottom.map((n) => n.cos).sort((a, b) => a - b);
+    for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThan(0.5);
+  });
+});

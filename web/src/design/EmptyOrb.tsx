@@ -48,7 +48,7 @@ export function EmptyOrb({ state = "idle", size = "hero", fallback, webgl }: Rea
   if (effects === "off" || !(webgl ?? supportsWebGL())) return <>{fallback}</>;
 
   const still = reduceMotion || effects === "reduced" || prefersReducedMotion();
-  const box = { hero: "size-[min(440px,80vw)]", launcher: "size-[min(368px,70vw)]", mini: "size-[120px]" }[size];
+  const box = { hero: "size-[min(440px,80vw)]", launcher: "size-[var(--orb,368px)]", mini: "size-[120px]" }[size];
   return (
     <div data-ui="orb" data-size={size} data-state={state} aria-hidden className={cn("relative shrink-0", box)}>
       <Suspense fallback={null}>
