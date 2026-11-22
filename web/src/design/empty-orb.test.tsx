@@ -93,3 +93,17 @@ describe("the empty-state kinds", () => {
     expect(container.querySelector("canvas, [data-ui='mini-orb']")).toBeNull();
   });
 });
+
+describe("good news", () => {
+  it("marks Findings' and Notifications' empties so their line is green, not the accent", async () => {
+    const { MemoryRouter } = await import("react-router");
+    const { EmptyState } = await import("./EmptyState");
+    const { Bell } = await import("lucide-react");
+    const { container } = render(
+      <MemoryRouter>
+        <EmptyState icon={Bell} variant="notifications" empty={{ headline: "You're caught up", text: "x", kicker: "00 $ Notifications · nothing new" }} />
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('[data-ui="empty"]')!.hasAttribute("data-good")).toBe(true);
+  });
+});

@@ -69,7 +69,8 @@ describe("pages", () => {
   it("shows the page's own empty state", async () => {
     mockServer();
     renderAt("/databases");
-    expect(await screen.findByRole("heading", { name: "No database connected yet" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "No database connected" })).toBeTruthy();
+    expect(screen.getByText("00 $ Databases · none connected")).toBeTruthy();
     // its button leads somewhere real
     expect(screen.getByRole("link", { name: /Add connection/ }).getAttribute("href")).toBe("/connections");
   });
@@ -77,7 +78,7 @@ describe("pages", () => {
   it("disables the button on pages that are not built yet, with the phase in its tooltip", async () => {
     mockServer();
     renderAt("/flows");
-    const btn = (await screen.findByRole("button", { name: /Create flow/ })) as HTMLButtonElement;
+    const btn = (await screen.findByRole("button", { name: /New flow/ })) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
     expect(btn.title).toBe("Available in Phase 7");
   });

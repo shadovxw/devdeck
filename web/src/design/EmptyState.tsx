@@ -6,7 +6,7 @@ import { stagger } from "../lib/motion";
 import { primaryButton, quietButton } from "./buttons";
 import { EmptyArt } from "./EmptyArt";
 import { MiniOrb } from "./EmptyOrb";
-import type { MiniVariant } from "./orb/mini-model";
+import { isGoodNews, type MiniVariant } from "./orb/mini-model";
 
 type Props = {
   /** The icon on the plain art, shown instead of the orb with Effects off or without WebGL. */
@@ -28,6 +28,7 @@ type Props = {
  */
 export function EmptyState({ icon, empty, variant, phase, onCta }: Readonly<Props>) {
   const { cta, secondary } = empty;
+  const orb = variant ?? empty.orb ?? "plain";
   const CtaIcon = cta?.icon ?? Plus;
   const label = (
     <>
@@ -38,9 +39,9 @@ export function EmptyState({ icon, empty, variant, phase, onCta }: Readonly<Prop
   );
 
   return (
-    <section data-ui="empty" aria-label={empty.headline} title={empty.text} className="flex flex-col items-center px-2 pb-10 pt-6 text-center">
+    <section data-ui="empty" data-good={isGoodNews(orb) || undefined} aria-label={empty.headline} title={empty.text} className="flex flex-col items-center px-2 pb-10 pt-6 text-center">
       <div className="enter flex justify-center" style={stagger(1)}>
-        <MiniOrb variant={variant ?? empty.orb ?? "plain"} fallback={<EmptyArt centerIcon={icon} />} />
+        <MiniOrb variant={orb} fallback={<EmptyArt centerIcon={icon} />} />
       </div>
       {empty.kicker && (
         <p data-ui="empty-kicker" className="enter m-0 mt-3" style={stagger(2)}>

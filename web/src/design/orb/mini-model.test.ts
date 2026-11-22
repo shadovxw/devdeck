@@ -78,10 +78,57 @@ describe("the rest", () => {
     expect(heartbeat(0.9)).toBeLessThan(0.01);
   });
 
-  it("only Findings is good news, and it turns slowly", () => {
-    expect(MINI_VARIANTS.filter(isGoodNews)).toEqual(["findings"]);
+  it("only Findings and Notifications are good news, and turn slowly", () => {
+    expect(MINI_VARIANTS.filter(isGoodNews)).toEqual(["findings", "notifications"]);
     expect(miniSpin("findings")).toBeLessThan(miniSpin("plain"));
     expect(miniSpin("logs")).toBe(0);
     expect(miniSpin("workspaces")).toBe(0);
+  });
+});
+
+describe("the rest of the table (P5b)", () => {
+  const out = new Float32Array(MINI_POINTS * 3);
+
+  it("hosts: the satellite drifts away from the orb", () => {
+    const layout = miniLayout("hosts");
+    const a = miniPositions("hosts", layout, 0, out).slice();
+    const b = miniPositions("hosts", layout, 4, out).slice();
+    expect(b[0]).toBeGreaterThan(a[0]); // point 0 is on the satellite
+    expect(b[3]).toBe(a[3]); // point 1 is on the orb, which stays
+  });
+
+  it("data: a cylinder, still, every point at the same distance from its axis", () => {
+    const { base } = miniLayout("data");
+    const r = xs(base).map((x, i) => Math.hypot(x, base[i * 3 + 2]));
+    expect(Math.min(...r)).toBeCloseTo(0.62, 3);
+    expect(Math.max(...r)).toBeCloseTo(0.62, 3);
+    expect(miniSpin("data")).toBe(0);
+  });
+
+  it("flows: points travel from one node to the other and start again", () => {
+    const layout = miniLayout("flows");
+    const a = miniPositions("flows", layout, 0, out).slice();
+    const b = miniPositions("flows", layout, 0.2, out).slice();
+    expect(b[2 * 3]).toBeGreaterThan(a[2 * 3]); // point 2 travels the path
+    expect(xs(miniPositions("flows", layout, 7, out)).every((x) => x >= -1.2 && x <= 1.2)).toBe(true);
+  });
+
+  it("secrets: a shell with a small, dimmer core inside", () => {
+    const { base, glow } = miniLayout("secrets");
+    const core = Math.hypot(base[0], base[1], base[2]);
+    expect(core).toBeLessThan(0.3);
+    expect(glow[0]).toBeLessThan(1);
+  });
+
+  it("sockets: six empty sockets around a smaller orb", () => {
+    const { base } = miniLayout("sockets");
+    const sockets = xs(base).filter((_, i) => i % 3 === 0).map((x, j) => Math.hypot(x, base[j * 9 + 1]));
+    expect(Math.min(...sockets)).toBeGreaterThan(0.85);
+  });
+
+  it("notifications: tiny, quiet, and good news like Findings", () => {
+    const { base } = miniLayout("notifications");
+    expect(Math.max(...Array.from(base).map(Math.abs))).toBeLessThanOrEqual(0.41);
+    expect(isGoodNews("notifications")).toBe(true);
   });
 });

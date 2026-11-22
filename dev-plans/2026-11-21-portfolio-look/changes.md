@@ -224,3 +224,26 @@ Checked: typecheck, lint, all 752 web tests. `grep` finds no `data-look`, `look-
 - Tests: `mini-model.test.ts` (16), `empty-orb.test.tsx` (the three kinds, the mini orb's variant), `log-query.test.ts` (`filterSummary`), and the page tests updated for the new words (Repositories, Logs, Workspaces, the launcher).
 
 Checked: typecheck, lint, all 776 web tests, build. In the browser at 1440×900, in the owner's dark theme, all six pages were empty with no workspace. Each showed its variant: three orbs with the middle one lit, a ring, layers, a falling column, a beating orb with a flat line, and a green orb. The Workspaces row first spun into one line; it is now still.
+
+## 2026-11-22: P5b, the rest of the mini-orb table (§8d)
+
+- **`design/orb/mini-model.ts`**: six more variants, table-tested.
+  - **Hosts:** an orb with a satellite that drifts away and comes round again.
+  - **Data:** a dense, still cylinder of stacked rings, for Databases, Migrations and SQL.
+  - **Flows:** two small nodes, with points flowing along a gentle arc between them, for Flows and Runs.
+  - **Secrets:** a closed shell with a small, dimmer core inside.
+  - **Sockets:** an orb with six empty sockets around it, for Plugins and Connections.
+  - **Notifications:** tiny and quiet.
+  - Notifications joins Findings as good news: the success colour, a slow turn, and the mono line in green, never the accent (`data-good` on the empty state).
+- **`app/nav.ts`**, the pages not built yet:
+  - Databases, Migrations, SQL: "No database connected", *Add connection*.
+  - Flows: "No flows yet", *New flow*, `devdeck schema flow`.
+  - Runs: "No runs yet", *Run one*.
+  - Secrets: "No secrets stored", *Add secret*.
+  - Notifications: "You're caught up", no action.
+  - Each has its mono line and variant.
+- **`pages/HostsPage.tsx`**: "No hosts connected", *Add host*, `devdeck agent`, with the `workspace.yaml` example kept under it, since it shows how to set one up.
+- **Not wired:** Plugins and Connections always list something (the built-in plugins and connection kinds), so they never reach an empty state yet. The `sockets` variant is ready for when they can.
+- Tests: `mini-model.test.ts` (6 more), `empty-orb.test.tsx` (good news is marked), and `hosts-page.test.tsx` and `pages.test.tsx` updated for the new words.
+
+Checked: typecheck, lint, all 789 web tests. In the browser at 1440×900, each new variant was on its empty page: Hosts, Databases, Flows, Secrets and Notifications (a small green orb with a green line).

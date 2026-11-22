@@ -5,16 +5,29 @@
  */
 import { spherePoints } from "./model";
 
-/** The variants built so far (P5a); P5b adds the rest of the table. */
-export type MiniVariant = "plain" | "workspaces" | "repos" | "stacks" | "logs" | "resources" | "findings";
+/** One per kind of page in the §8d table. */
+export type MiniVariant =
+  | "plain"
+  | "workspaces"
+  | "repos"
+  | "stacks"
+  | "logs"
+  | "resources"
+  | "findings"
+  | "hosts"
+  | "data"
+  | "flows"
+  | "secrets"
+  | "sockets"
+  | "notifications";
 
-export const MINI_VARIANTS: readonly MiniVariant[] = ["plain", "workspaces", "repos", "stacks", "logs", "resources", "findings"];
+export const MINI_VARIANTS: readonly MiniVariant[] = ["plain", "workspaces", "repos", "stacks", "logs", "resources", "findings", "hosts", "data", "flows", "secrets", "sockets", "notifications"];
 
 /** Points per mini orb: enough to read as a shape at about 120px. */
 export const MINI_POINTS = 700;
 
 /** Good news: drawn in the success colour, calm, never the accent. */
-export const isGoodNews = (v: MiniVariant) => v === "findings";
+export const isGoodNews = (v: MiniVariant) => v === "findings" || v === "notifications";
 
 export type MiniLayout = {
   /** Where each point rests, x y z, radius about 1. */
@@ -75,6 +88,50 @@ export function miniLayout(variant: MiniVariant, n = MINI_POINTS): MiniLayout {
         else set3(base, i, x * 0.6, y * 0.6, z * 0.6);
         break;
       }
+      case "hosts": {
+        // An orb with a satellite: one point in 25 sits in a small cluster the motion carries away.
+        if (i % 25 === 0) set3(base, i, 1.0 + x * 0.06, 0.35 + y * 0.06, z * 0.06);
+        else set3(base, i, x * 0.72, y * 0.72, z * 0.72);
+        break;
+      }
+      case "data": {
+        // A dense, still cylinder: points on stacked rings.
+        const a = seeds[i] * Math.PI * 2;
+        const ring = Math.floor((i / n) * 14);
+        set3(base, i, Math.cos(a) * 0.62, ring / 13 * 1.6 - 0.8, Math.sin(a) * 0.62);
+        break;
+      }
+      case "flows": {
+        // Two small nodes and a path between them; a third of the points travel the path.
+        const k = i % 3;
+        if (k === 2) set3(base, i, seeds[i] * 1.6 - 0.8, 0, 0);
+        else set3(base, i, (k === 0 ? -0.95 : 0.95) + x * 0.2, y * 0.2, z * 0.2);
+        break;
+      }
+      case "secrets": {
+        // A closed shell with a small hidden core: every fourth point is the core.
+        const r = i % 4 === 0 ? 0.22 : 0.95;
+        set3(base, i, x * r, y * r, z * r);
+        glow[i] = i % 4 === 0 ? 0.5 : 1;
+        break;
+      }
+      case "sockets": {
+        // An orb with six empty sockets around it: small open rings, one point in three.
+        if (i % 3 === 0) {
+          const s6 = (i / 3) % 6;
+          const a = (s6 / 6) * Math.PI * 2;
+          const ra = seeds[i] * Math.PI * 2;
+          set3(base, i, Math.cos(a) * 1.05 + Math.cos(ra) * 0.1, Math.sin(a) * 1.05 + Math.sin(ra) * 0.1, 0);
+          glow[i] = 0.55;
+        } else set3(base, i, x * 0.55, y * 0.55, z * 0.55);
+        break;
+      }
+      case "notifications": {
+        // Tiny and quiet.
+        set3(base, i, x * 0.4, y * 0.4, z * 0.4);
+        glow[i] = 0.7;
+        break;
+      }
       default:
         set3(base, i, x, y, z);
     }
@@ -119,7 +176,16 @@ export function miniPositions(variant: MiniVariant, layout: MiniLayout, t: numbe
       y *= k;
       z *= k;
       x *= k;
-    } else if (variant === "findings") {
+    } else if (variant === "hosts" && i % 25 === 0) {
+      // The satellite drifts away, fades out of the frame, and comes round again.
+      const d = (t * 0.12) % 1;
+      x += d * 0.5;
+      y += d * 0.25;
+    } else if (variant === "flows" && i % 3 === 2) {
+      // Points flow from the left node to the right one, and start again.
+      x = ((x + 0.8 + t * 0.5) % 1.6) - 0.8;
+      y = Math.sin((x + 0.8) * Math.PI / 1.6) * 0.18;
+    } else if (variant === "findings" || variant === "notifications") {
       const k = 1 + 0.025 * Math.sin(t * 0.8);
       x *= k;
       y *= k;
@@ -133,4 +199,4 @@ export function miniPositions(variant: MiniVariant, layout: MiniLayout, t: numbe
 }
 
 /** How fast the whole thing turns (radians a second): calm for good news; still for Logs' column and Workspaces' row (turning it would line the orbs up). */
-export const miniSpin = (v: MiniVariant) => (v === "findings" ? 0.08 : v === "logs" || v === "workspaces" ? 0 : 0.25);
+export const miniSpin = (v: MiniVariant) => (isGoodNews(v) ? 0.08 : v === "logs" || v === "workspaces" || v === "data" || v === "flows" || v === "sockets" ? 0 : 0.25);

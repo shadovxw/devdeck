@@ -135,7 +135,8 @@ describe("the Remote hosts page", () => {
   it("explains how to add a host when there is none", async () => {
     mockServer({ hosts: [] });
     renderHosts();
-    expect(await screen.findByText("No remote host yet")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "No hosts connected" })).toBeTruthy();
+    expect(screen.getByText("$ devdeck agent")).toBeTruthy();
     expect(screen.getByText(/type: aws-ssm/)).toBeTruthy();
   });
 

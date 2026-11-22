@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 import { navByPath } from "../app/nav";
 import { LevelMark } from "../design/LevelMark";
+import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { pill, pillDanger, pillInput, pillPrimary, pillSelect, pillSmall } from "../design/pills";
 import {
@@ -516,16 +517,18 @@ export function HostsPage() {
     return (
       <>
         {header}
-        <section className="enter mt-4 flex flex-col gap-3 rounded-ctl bg-inset p-5" style={stagger(1)}>
-          <div className="flex items-center gap-3">
-            <Server size={20} aria-hidden className="text-ink-3" />
-            <h2 className="m-0 text-[16px] font-medium text-ink">No remote host yet</h2>
-          </div>
-          <p className="m-0 text-[13px] text-ink-2">
-            Add the machine to your workspace’s <code className="font-mono">workspace.yaml</code>, run <code className="font-mono">devdeck agent</code> on it, then come back here.
-          </p>
-          <pre className="m-0 overflow-x-auto rounded-ctl bg-sidebar p-3 font-mono text-[12px] text-ink">{example}</pre>
-        </section>
+        <EmptyState
+          icon={Server}
+          variant="hosts"
+          empty={{
+            headline: "No hosts connected",
+            text: "Add the machine to your workspace’s workspace.yaml, run devdeck agent on it, then come back here.",
+            kicker: "00 $ Hosts · none connected",
+            cta: { label: "Add host", to: "/workspaces" },
+            command: "devdeck agent",
+          }}
+        />
+        <pre className="enter mx-auto m-0 w-full max-w-[640px] overflow-x-auto rounded-ctl bg-sidebar p-3 font-mono text-[12px] text-ink" style={stagger(4)} title="In workspace.yaml">{example}</pre>
       </>
     );
   }

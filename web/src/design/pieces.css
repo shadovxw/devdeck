@@ -997,3 +997,8 @@
 [data-ui="no-results-clear"]:hover {
   text-decoration: underline;
 }
+
+/* Good news (Findings, Notifications) is never the accent: the line is in the success colour. */
+[data-ui="empty"][data-good] [data-ui="empty-kicker"] {
+  color: var(--good);
+}

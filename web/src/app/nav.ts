@@ -256,9 +256,11 @@ const GROUPS: GroupDef[] = [
         icon: Database,
         phase: "Phase 6",
         empty: {
-          headline: "No database connected yet",
+          headline: "No database connected",
           text: "Add a connection to browse tables, run SQL and apply migrations.",
           cta: { label: "Add connection", to: "/connections" },
+          kicker: "00 $ Databases · none connected",
+          orb: "data",
         },
       },
       {
@@ -267,8 +269,11 @@ const GROUPS: GroupDef[] = [
         icon: History,
         phase: "Phase 6",
         empty: {
-          headline: "No migrations tracked yet",
+          headline: "No database connected",
           text: "Connect a database and point devdeck at your migration folder.",
+          cta: { label: "Add connection", to: "/connections" },
+          kicker: "00 $ Migrations · nothing tracked",
+          orb: "data",
         },
       },
       {
@@ -277,8 +282,11 @@ const GROUPS: GroupDef[] = [
         icon: Terminal,
         phase: "Phase 6",
         empty: {
-          headline: "No database selected",
+          headline: "No database connected",
           text: "Connect a database to open a SQL console with history and saved scripts.",
+          cta: { label: "Add connection", to: "/connections" },
+          kicker: "00 $ SQL · no database",
+          orb: "data",
         },
       },
       {
@@ -316,7 +324,10 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "No flows yet",
           text: "Chain checks, builds and scans into a flow you can run again and again.",
-          cta: { label: "Create flow" },
+          cta: { label: "New flow" },
+          kicker: "00 $ Flows · none yet",
+          command: "devdeck schema flow",
+          orb: "flows",
         },
       },
       {
@@ -327,6 +338,9 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "No runs yet",
           text: "Every flow run is recorded here with its steps, timings and output.",
+          cta: { label: "Run one", to: "/flows" },
+          kicker: "00 $ Runs · none today",
+          orb: "flows",
         },
       },
       {
@@ -391,9 +405,11 @@ const GROUPS: GroupDef[] = [
         icon: Lock,
         phase: "Later",
         empty: {
-          headline: "No secrets store connected yet",
+          headline: "No secrets stored",
           text: "Connect a secrets manager to browse secret names. Values are never shown or sent anywhere.",
-          cta: { label: "Add connection", to: "/connections" },
+          cta: { label: "Add secret", to: "/connections" },
+          kicker: "00 $ Secrets · none stored",
+          orb: "secrets",
         },
       },
       { path: "/plugins", label: "Plugins", hint: "extend devdeck", icon: Puzzle },
@@ -403,9 +419,10 @@ const GROUPS: GroupDef[] = [
         icon: Bell,
         phase: "Phase 5",
         empty: {
-          headline: "No notification channels yet",
+          headline: "You're caught up",
           text: "Get an alert when a service goes down or a build fails.",
-          cta: { label: "Add channel" },
+          kicker: "00 $ Notifications · nothing new",
+          orb: "notifications",
         },
       },
       {
