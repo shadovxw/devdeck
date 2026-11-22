@@ -136,18 +136,29 @@ describe("pages", () => {
     expect(localStorage.getItem("devdeck.sidebar")).toBe("expanded");
   });
 
-  it("folds a group when you click its heading, and remembers it", async () => {
+  it("keeps groups open with plain labels; only Coming soon folds", async () => {
     mockServer();
     useUi.setState({ sidebarOpen: true });
     renderAt("/stacks");
     await screen.findByRole("heading", { level: 1, name: "Stacks" });
-    const heading = screen.getByRole("button", { name: "Run" });
-    expect(heading.getAttribute("aria-expanded")).toBe("true");
+    const dock = within(screen.getByRole("navigation", { name: "Pages" }));
+    expect(dock.queryByRole("button", { name: "Run" })).toBeNull();
+    expect(dock.getByText("Run")).toBeTruthy();
+    expect(dock.getByRole("link", { name: "Health" })).toBeTruthy(); // under Run until Flows ships
+    expect(dock.queryByText("Automate")).toBeNull(); // nothing built there yet
+    expect(dock.getByRole("button", { name: "Coming soon" })).toBeTruthy();
+  });
 
-    fireEvent.click(heading);
-
-    expect(heading.getAttribute("aria-expanded")).toBe("false");
-    expect(JSON.parse(localStorage.getItem("devdeck.sidebar.groups") ?? "[]")).toEqual(["Run"]);
+  it("reaches every page of a group from the folded rail's flyout", async () => {
+    mockServer();
+    renderAt("/stacks");
+    await screen.findByRole("heading", { level: 1, name: "Stacks" });
+    fireEvent.click(screen.getByRole("button", { name: "Run pages" }));
+    const flyout = within(await screen.findByRole("navigation", { name: "Run pages" }));
+    expect(flyout.getByRole("link", { name: "Logs" }).getAttribute("href")).toBe("/logs");
+    expect(flyout.getByRole("link", { name: "Health" }).getAttribute("href")).toBe("/doctor");
+    expect(flyout.getByRole("link", { name: "Images and tags" })).toBeTruthy();
+    expect(flyout.getByText("Resources").getAttribute("title")).toBe("Comes in Phase 5"); // not built: no link
   });
 
   it("shows Not found for unknown paths", async () => {

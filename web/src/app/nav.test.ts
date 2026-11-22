@@ -63,7 +63,7 @@ describe("families", () => {
 
   it("names the Doctor page Health, and groups the footer as System", () => {
     expect(navByPath("/doctor").label).toBe("Health");
-    expect(navByPath("/doctor").group).toBe("Automate");
+    expect(navByPath("/doctor").group).toBe("Run"); // until Flows ships, Automate would hold nothing built
     expect(NAV.find((g) => g.name === FOOTER_GROUP)?.items.map((i) => i.path)).toEqual(["/connections", "/secrets", "/plugins", "/notifications", "/docs", "/settings"]);
     expect(NAV[0].name).toBe(HOME_GROUP);
   });

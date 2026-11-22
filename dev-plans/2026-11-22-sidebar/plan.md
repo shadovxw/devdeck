@@ -1,6 +1,6 @@
 # Sidebar: fewer items, families as tabs, a readable rail
 
-> 2026-11-22 · owner: Vrishank Warrier · from a review of the sidebar the owner brought in, asked for before the launcher work ([`2026-11-21-portfolio-look/`](../2026-11-21-portfolio-look/plan.md) §8a) · changes the nav grouping made there in P1 · status: **S1 built (2026-11-22), see [`changes.md`](changes.md); S2 to S5 not started.**
+> 2026-11-22 · owner: Vrishank Warrier · from a review of the sidebar the owner brought in, asked for before the launcher work ([`2026-11-21-portfolio-look/`](../2026-11-21-portfolio-look/plan.md) §8a) · changes the nav grouping made there in P1 · status: **S1 and S2 built (2026-11-22), see [`changes.md`](changes.md); S3 to S5 not started.**
 
 ## 1. The problem
 
@@ -18,9 +18,10 @@ The sidebar lists 28 pages in 5 groups. Folded to icons it is a column of about 
    | **Health** (the Doctor page, renamed) | Doctor, Findings |
    | Connections | GitHub, Docker Hub, Claude access |
 
-2. **New groups:** Home on its own at the top; `// WORK` Workspaces, Repositories, Features; `// RUN` Stacks, Remote hosts; `// DATA` Databases, Storage; `// AUTOMATE` Flows, Health; and a **footer pinned to the bottom**: Connections, Secrets, Plugins, then a row of icons for Notifications, Docs and Settings. Breadcrumbs follow (Home's group is "devdeck").
+2. **New groups:** Home on its own at the top; `// WORK` Workspaces, Repositories, Features; `// RUN` Stacks, Remote hosts, Health; `// DATA` Databases, Storage; `// AUTOMATE` Flows; and a **footer pinned to the bottom**: Connections, Secrets, Plugins, then a row of icons for Notifications, Docs and Settings. Breadcrumbs follow (Home's group is "devdeck").
 3. **Pages that aren't built yet leave the sidebar.** A page with a `phase` in `nav.ts` is not built; stale markers on built pages are removed first. Unbuilt sidebar items are listed in one **Coming soon** group at the end, folded by default; an unbuilt tab shows dimmed and says which phase brings it. A group with nothing built doesn't show.
 4. **Both styles.** This is structure, so Flat changes with it, as with the first regrouping.
+6. **After the owner's second review (2026-11-22):** Health sits under `// RUN` (it is about the running stacks) and `// AUTOMATE` shows only once Flows is built; groups are always open with plain labels (one to three rows each, folding saves nothing), Coming soon is the only group that folds; Neon colours the logo with the theme's accent, so a screen has one accent. The review's other points are already planned: live status (S3), the workspace switcher in the sidebar header (S4), Home as a launcher (portfolio-look §8a).
 5. **Later slices** keep the rail and keyboard work separate: group gaps and mono initials on the folded rail with a hover flyout per group (Radix HoverCard, already in `radix-ui`); live status on items (stacks running, Health findings); the sliding active diamond and the workspace switcher in the sidebar header (Neon); keyboard jumps (`G` then a letter, `[` to fold) with `react-hotkeys-hook`, the library the design system already names. The Ctrl K palette stays hub milestone H2.
 
 ## 3. Order of work (small PRs)

@@ -182,6 +182,27 @@ const GROUPS: GroupDef[] = [
           text: "Add a host to your workspace to see its compose stacks, services and live logs through an SSM tunnel.",
         },
       },
+      {
+        path: "/doctor",
+        label: "Health",
+        tab: "Doctor",
+        icon: Stethoscope,
+        empty: {
+          headline: "Nothing checked yet",
+          text: "Check that your machine has everything a workspace needs. Tool status is already on the Plugins page.",
+          cta: { label: "See tool status", icon: Puzzle, to: "/plugins" },
+        },
+      },
+      {
+        path: "/findings",
+        label: "Findings",
+        icon: ShieldAlert,
+        phase: "Phase 8",
+        empty: {
+          headline: "No findings yet",
+          text: "Results from security and quality scanners are merged into one list.",
+        },
+      },
     ],
   },
   {
@@ -273,27 +294,6 @@ const GROUPS: GroupDef[] = [
         empty: {
           headline: "No trace loaded",
           text: "Follow a request across your services to see where the time and the errors go.",
-        },
-      },
-      {
-        path: "/doctor",
-        label: "Health",
-        tab: "Doctor",
-        icon: Stethoscope,
-        empty: {
-          headline: "Nothing checked yet",
-          text: "Check that your machine has everything a workspace needs. Tool status is already on the Plugins page.",
-          cta: { label: "See tool status", icon: Puzzle, to: "/plugins" },
-        },
-      },
-      {
-        path: "/findings",
-        label: "Findings",
-        icon: ShieldAlert,
-        phase: "Phase 8",
-        empty: {
-          headline: "No findings yet",
-          text: "Results from security and quality scanners are merged into one list.",
         },
       },
     ],

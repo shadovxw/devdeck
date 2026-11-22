@@ -8,12 +8,8 @@
 
 /* Parts that exist in one style only. A Neon-only element is not drawn in Flat at all, so Flat
    stays as it was. */
-.look-neon {
+:root:not([data-look="neon"]) .look-neon {
   display: none !important;
-}
-
-:root[data-look="neon"] .look-neon {
-  display: revert !important;
 }
 
 :root[data-look="neon"] .look-flat {
@@ -234,7 +230,7 @@
 }
 
 /* --- Floating layers: glass ------------------------------------------------------- */
-:root[data-look="neon"] :is([role="menu"], [data-slot="sheet-content"], [data-slot="tooltip-content"]) {
+:root[data-look="neon"] :is([role="menu"], [data-slot="sheet-content"], [data-slot="tooltip-content"], [data-ui="rail-flyout"]) {
   background-color: var(--neon-glass);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   backdrop-filter: blur(14px) saturate(140%);
@@ -259,4 +255,26 @@
 
 :root[data-look="neon"] [data-ui="family-tabs"] > [aria-current="page"] {
   border-color: var(--primary);
+}
+
+/* --- The logo in the theme's accent, so a screen has one accent ------------------------- */
+/* The mark's three gradients (design/Logo.tsx: ids ending s, u, l) take the accent, from deep to
+   bright; CSS stop-color wins over the SVG's own stop colours. */
+:root[data-look="neon"] [data-ui="logo"] linearGradient[id$="s"] stop:nth-child(1) {
+  stop-color: color-mix(in srgb, var(--primary) 30%, var(--bg));
+}
+:root[data-look="neon"] [data-ui="logo"] linearGradient[id$="s"] stop:nth-child(n + 2) {
+  stop-color: var(--primary);
+}
+:root[data-look="neon"] [data-ui="logo"] linearGradient[id$="u"] stop {
+  stop-color: color-mix(in srgb, var(--primary) 80%, var(--ink));
+}
+:root[data-look="neon"] [data-ui="logo"] linearGradient[id$="l"] stop {
+  stop-color: color-mix(in srgb, var(--primary) 55%, var(--bg));
+}
+
+/* --- The folded rail's group initials ---------------------------------------------------- */
+:root[data-look="neon"] [data-ui="rail-initial"]::before {
+  content: "/";
+  opacity: 0.6;
 }

@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { LazyMotion, m, MotionConfig } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Popover } from "radix-ui";
 import { Link, NavLink, useLocation } from "react-router";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -18,6 +19,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 import { Logo } from "../design/Logo";
 import { useInputMode } from "../lib/input-mode";
 import { springSnappy } from "../lib/motion";
@@ -111,53 +113,137 @@ function IconPage({ item }: Readonly<{ item: NavItem }>) {
   );
 }
 
+/**
+ * On the folded rail: a group's initial, which opens a flyout with the group's pages and their
+ * tabs, so every page is reachable without expanding the sidebar. It opens on hover, on focus and
+ * on click, and closes when the pointer leaves or a page is chosen.
+ */
+function RailFlyout({ name, items, initial }: Readonly<{ name: string; items: NavItem[]; initial: string }>) {
+  const [open, setOpen] = useState(false);
+  const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const show = () => {
+    clearTimeout(closing.current);
+    setOpen(true);
+  };
+  const hide = () => {
+    clearTimeout(closing.current);
+    closing.current = setTimeout(() => setOpen(false), 150);
+  };
+  useEffect(() => () => clearTimeout(closing.current), []);
+  const link = (item: NavItem, sub = false) =>
+    item.built ? (
+      <Link key={item.path} to={item.path} viewTransition onClick={() => setOpen(false)} className={cn("block px-2.5 py-1.5 text-[13px] text-ink-2 hover:bg-fill hover:text-ink", sub && "ps-6 text-[12px]")}>
+        {sub ? (item.tab ?? item.label) : item.label}
+      </Link>
+    ) : (
+      <span key={item.path} aria-disabled="true" title={`Comes in ${item.phase}`} className={cn("block cursor-default px-2.5 py-1.5 text-[13px] text-ink-3 opacity-60", sub && "ps-6 text-[12px]")}>
+        {sub ? (item.tab ?? item.label) : item.label}
+      </span>
+    );
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          data-ui="rail-initial"
+          aria-label={`${name} pages`}
+          onPointerEnter={show}
+          onPointerLeave={hide}
+          className="mx-auto hidden h-5 w-8 items-center justify-center whitespace-nowrap font-mono text-[10px] uppercase text-ink-3 hover:text-ink group-data-[collapsible=icon]:flex"
+        >
+          {initial}
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          side="right"
+          align="start"
+          sideOffset={10}
+          data-ui="rail-flyout"
+          onPointerEnter={show}
+          onPointerLeave={hide}
+          className="z-50 min-w-48 bg-surface-float py-1.5 shadow-[var(--shadow-float)]"
+        >
+          <div className="px-2.5 pb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-3">{name}</div>
+          <nav aria-label={`${name} pages`}>
+            {items.map((item) => (
+              <div key={item.path}>
+                {link(item)}
+                {item.children?.map((c) => link(c, true))}
+              </div>
+            ))}
+          </nav>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
 type GroupProps = {
   name: string;
   items: NavItem[];
   /** Home's group has no heading. */
   heading?: boolean;
-  /** Coming soon: folded until opened, not remembered, and left off the folded rail. */
+  /** Coming soon: the one group that folds (shut until opened, not remembered). On the folded rail it is only its flyout. */
   soon?: boolean;
 };
 
+/**
+ * A sidebar group: a plain label (`// RUN`) over its rows, always open; groups hold one to three
+ * rows, so folding them saves nothing. Folded to icons, the label becomes an initial with a
+ * flyout, and groups sit 16px apart against 4px between rows, so the structure shows.
+ */
 function Group({ name, items, heading = true, soon = false }: Readonly<GroupProps>) {
   const { state, isMobile } = useSidebar();
-  const closed = useUi((s) => s.closedGroups.includes(name));
-  const setGroupOpen = useUi((s) => s.setGroupOpen);
   const [soonOpen, setSoonOpen] = useState(false);
-  // Folded to icons there are no headings, so every page there stays reachable.
   const iconOnly = state === "collapsed" && !isMobile;
-  if (iconOnly && soon) return null;
-  const open = iconOnly || !heading || (soon ? soonOpen : !closed);
-  const onOpenChange = (o: boolean) => (soon ? setSoonOpen(o) : setGroupOpen(name, o));
+  const initial = soon ? "…" : name.charAt(0);
 
-  return (
-    <Collapsible open={open} onOpenChange={onOpenChange} className="group/collapsible">
-      <SidebarGroup className="px-2 py-0.5 group-data-[collapsible=icon]:py-0">
-        {heading && (
-          <SidebarGroupLabel
-            asChild
-            data-ui="nav-group"
-            className="h-6 cursor-pointer font-mono text-[11px] uppercase tracking-[0.06em] text-ink-3 hover:text-ink group-data-[collapsible=icon]:hidden"
-          >
+  if (soon && iconOnly) {
+    return (
+      <SidebarGroup className="px-2 pt-4">
+        <RailFlyout name={name} items={items} initial={initial} />
+      </SidebarGroup>
+    );
+  }
+
+  const rows = (
+    <SidebarGroupContent>
+      <SidebarMenu className="gap-1">
+        {items.map((item) => (
+          <Page key={item.path} item={item} />
+        ))}
+      </SidebarMenu>
+    </SidebarGroupContent>
+  );
+  const gap = heading ? "group-data-[collapsible=icon]:pt-4" : "";
+
+  if (soon) {
+    return (
+      <Collapsible open={soonOpen} onOpenChange={setSoonOpen} className="group/collapsible">
+        <SidebarGroup className="px-2 py-0.5">
+          <SidebarGroupLabel asChild data-ui="nav-group" className="h-6 cursor-pointer font-mono text-[11px] uppercase tracking-[0.06em] text-ink-3 hover:text-ink">
             <CollapsibleTrigger>
               {name}
               <ChevronRight className="ms-auto size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
             </CollapsibleTrigger>
           </SidebarGroupLabel>
-        )}
-        {heading && <hr className="mx-auto my-1 hidden w-6 border-0 border-t border-sidebar-border group-data-[collapsible=icon]:block" />}
-        <CollapsibleContent>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
-              {items.map((item) => (
-                <Page key={item.path} item={item} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </CollapsibleContent>
-      </SidebarGroup>
-    </Collapsible>
+          <CollapsibleContent>{rows}</CollapsibleContent>
+        </SidebarGroup>
+      </Collapsible>
+    );
+  }
+
+  return (
+    <SidebarGroup className={cn("px-2 py-0.5 group-data-[collapsible=icon]:py-0", gap)}>
+      {heading && (
+        <SidebarGroupLabel data-ui="nav-group" className="h-6 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-3 group-data-[collapsible=icon]:hidden">
+          {name}
+        </SidebarGroupLabel>
+      )}
+      {heading && <RailFlyout name={name} items={items} initial={initial} />}
+      {rows}
+    </SidebarGroup>
   );
 }
 
