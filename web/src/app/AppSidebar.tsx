@@ -2,7 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { LazyMotion, m, MotionConfig } from "motion/react";
 import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
 import { Popover } from "radix-ui";
-import { Link, NavLink, useLocation } from "react-router";
+import { Link, NavLink, useLocation, useNavigate } from "react-router";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -27,6 +27,7 @@ import { springSnappy } from "../lib/motion";
 import { useUi } from "../store/ui";
 import { FOOTER_GROUP, HOME_GROUP, NAV, sidebarPathOf, type NavItem } from "./nav";
 import { useNavStatus, type NavStatus } from "./nav-status";
+import { shortcutKeys, useGoShortcuts } from "./shortcuts";
 import { useUpdateAvailable } from "./UpdateNotice";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
@@ -94,6 +95,31 @@ function RowStatus({ status, id }: Readonly<{ status: NavStatus; id: string }>) 
   );
 }
 
+/** A page's keys as small chips ("G" "S"), for tooltips and flyouts. */
+function Keys({ path }: Readonly<{ path: string }>) {
+  const keys = shortcutKeys(path);
+  if (!keys) return null;
+  return (
+    <span data-ui="keys" aria-hidden className="ms-3 inline-flex gap-0.5 font-mono text-[10px]">
+      {keys.map((k) => (
+        <kbd key={k} className="bg-fill px-1 py-px text-ink-2">
+          {k}
+        </kbd>
+      ))}
+    </span>
+  );
+}
+
+/** A row's tooltip: its name, what it says now, and its keys. */
+const tipFor = (item: NavItem, status?: NavStatus) => ({
+  children: (
+    <span className="inline-flex items-center">
+      {status ? `${item.label}: ${status.text}` : item.label}
+      <Keys path={item.path} />
+    </span>
+  ),
+});
+
 /** One sidebar row. It stays highlighted while any page of its family is open (its tabs). */
 function Page({ item }: Readonly<{ item: NavItem }>) {
   const { pathname } = useLocation();
@@ -103,13 +129,14 @@ function Page({ item }: Readonly<{ item: NavItem }>) {
   const active = sidebarPathOf(pathname) === item.path;
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={active} tooltip={status ? `${item.label}: ${status.text}` : item.label} className={row}>
+      <SidebarMenuButton asChild isActive={active} tooltip={tipFor(item, status)} className={row}>
         <Link
           to={item.path}
           viewTransition
           onClick={() => setOpenMobile(false)}
           aria-current={active ? "page" : undefined}
           aria-describedby={status ? statusId : undefined}
+          aria-keyshortcuts={shortcutKeys(item.path)?.join(" ")}
         >
           {active && <ActivePill />}
           <item.icon strokeWidth={1.7} />
@@ -132,10 +159,10 @@ function IconPage({ item }: Readonly<{ item: NavItem }>) {
       <SidebarMenuButton
         asChild
         isActive={active}
-        tooltip={item.label}
+        tooltip={tipFor(item)}
         className="relative isolate size-8 justify-center p-0 data-[active=true]:bg-transparent [&>svg]:size-[17px]"
       >
-        <Link to={item.path} viewTransition onClick={() => setOpenMobile(false)} aria-label={item.label} aria-current={active ? "page" : undefined}>
+        <Link to={item.path} viewTransition onClick={() => setOpenMobile(false)} aria-label={item.label} aria-keyshortcuts={shortcutKeys(item.path)?.join(" ")} aria-current={active ? "page" : undefined}>
           {active && <ActivePill />}
           <item.icon strokeWidth={1.7} />
           {item.path === "/settings" && <UpdateDot />}
@@ -164,8 +191,9 @@ function RailFlyout({ name, items, initial }: Readonly<{ name: string; items: Na
   useEffect(() => () => clearTimeout(closing.current), []);
   const link = (item: NavItem, sub = false) =>
     item.built ? (
-      <Link key={item.path} to={item.path} viewTransition onClick={() => setOpen(false)} className={cn("block px-2.5 py-1.5 text-[13px] text-ink-2 hover:bg-fill hover:text-ink", sub && "ps-6 text-[12px]")}>
+      <Link key={item.path} to={item.path} viewTransition onClick={() => setOpen(false)} aria-keyshortcuts={shortcutKeys(item.path)?.join(" ")} className={cn("flex items-center justify-between px-2.5 py-1.5 text-[13px] text-ink-2 hover:bg-fill hover:text-ink", sub && "ps-6 text-[12px]")}>
         {sub ? (item.tab ?? item.label) : item.label}
+        <Keys path={item.path} />
       </Link>
     ) : (
       <span key={item.path} aria-disabled="true" title={`Comes in ${item.phase}`} className={cn("block cursor-default px-2.5 py-1.5 text-[13px] text-ink-3 opacity-60", sub && "ps-6 text-[12px]")}>
@@ -288,7 +316,9 @@ const FOOTER = NAV.find((g) => g.name === FOOTER_GROUP)?.items.filter((i) => i.b
 const SOON = NAV.flatMap((g) => g.items.filter((i) => !i.built));
 
 export function AppSidebar() {
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, toggleSidebar } = useSidebar();
+  const navigate = useNavigate();
+  useGoShortcuts({ go: (path) => navigate(path, { viewTransition: true }), toggleSidebar });
   const reduceMotion = useUi((s) => s.reduceMotion);
   const status = useNavStatus();
   return (
