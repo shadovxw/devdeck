@@ -2,6 +2,7 @@ import { RotateCw, Stethoscope } from "lucide-react";
 import { useSearchParams } from "react-router";
 
 import { navByPath } from "../app/nav";
+import { defaultDoctorWorkspace } from "../app/nav-status";
 import { CheckRow } from "../design/CheckRow";
 import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
@@ -67,9 +68,10 @@ export function DoctorPage() {
   const [params, setParams] = useSearchParams();
   const workspaces = useWorkspaces();
 
-  // Default to the first workspace that has no errors, so Doctor has something to check.
+  // Default to the first workspace that has no errors, so Doctor has something to check (the sidebar's
+  // Health dot checks the same one).
   const list = workspaces.data ?? [];
-  const fallback = (list.find((w) => w.errors === 0) ?? list[0])?.id;
+  const fallback = defaultDoctorWorkspace(list);
   const workspace = params.get("workspace") ?? fallback;
   const stack = params.get("stack") ?? undefined;
 

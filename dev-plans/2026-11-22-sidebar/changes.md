@@ -26,3 +26,12 @@ Checked: typecheck, lint, all 631 web tests. In the browser: Neon expanded (9 ro
 - **Tests:** "groups stay open, only Coming soon folds", "the rail's flyout reaches every page of a group, unbuilt ones without a link", Health's group.
 
 Checked: typecheck, lint, all 632 web tests. In the browser (Neon, folded): the initials and the gaps between groups, the Run flyout with its tabs and Health, the logo in the accent; three bugs found there were fixed (the wordmark on the rail; the initial and its prefix wrapping onto two lines; Health showing as "Doctor" in the flyout).
+
+## 2026-11-22: S3, live status
+
+- **`web/src/app/nav-status.ts`** (new): `stacksStatus(runs)` (how many run; green when all are ready, yellow while something starts or waits, red when a service failed, blocked or is restarting; nothing when none runs) and `healthStatus(report)` (red for Doctor failures, yellow for warnings, nothing when all passed or not checked), each with the same in words. `useNavStatus()` puts them together for the sidebar. `defaultDoctorWorkspace` (the first workspace without errors, else the first) is now shared by the Health page and the sidebar, so both check the same workspace.
+- **Doctor in the background:** it used to run only when Health was opened. The sidebar now runs it **once when devdeck opens and every 15 minutes** (`useDoctor`'s new `every`), never on window focus, for that default workspace. The Health page shares the same result.
+- **`AppSidebar.tsx`:** the status is worked out once (a React context) and drawn at the row's end: the count (Stacks) and a 6px status dot; folded to icons, the dot sits on the icon's corner. Screen readers get the words as the row's description (`aria-describedby`), so the row's name stays the page's name; the tooltip shows them too ("Stacks: 2 running, 1 with a problem").
+- **Tests:** `nav-status.test.ts` (the tones and words for each case, the default workspace) and `sidebar-status.test.tsx` (the rows' descriptions and count with a running stack and a Doctor failure; nothing when all is well; Doctor asked once for the default workspace).
+
+Checked: typecheck, lint, all 646 web tests. In the browser with a demo workspace made for the check and removed afterwards (two stacks, one failing on purpose): expanded, Stacks shows 2 and a red dot and Health a yellow dot (Doctor's warnings); folded, the dots sit on the icons.

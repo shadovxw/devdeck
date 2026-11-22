@@ -125,8 +125,11 @@ export function useCreateWorkspace() {
   });
 }
 
-/** Checks the machine for a workspace, or for one of its stacks. Slow, so only on demand. */
-export function useDoctor(workspace: string | undefined, stack: string | undefined) {
+/**
+ * Checks the machine for a workspace, or for one of its stacks. Slow, so on demand; `every` (ms)
+ * re-checks in the background, for the sidebar's Health dot (app/nav-status.ts).
+ */
+export function useDoctor(workspace: string | undefined, stack: string | undefined, every?: number) {
   const query = new URLSearchParams({ workspace: workspace ?? "" });
   if (stack) query.set("stack", stack);
   return useQuery({
@@ -134,6 +137,7 @@ export function useDoctor(workspace: string | undefined, stack: string | undefin
     queryFn: ({ signal }) => api.get<DoctorReport>(`/doctor?${query}`, signal),
     enabled: Boolean(workspace),
     refetchOnWindowFocus: false,
+    refetchInterval: every,
     retry: false,
   });
 }
