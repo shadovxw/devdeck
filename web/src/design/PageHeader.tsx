@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 
+import { familyOf } from "../app/nav";
 import { stagger } from "../lib/motion";
+import { FamilyTabs } from "./FamilyTabs";
 
 type Props = {
   title: string;
@@ -20,7 +22,14 @@ type Props = {
 };
 
 /** Breadcrumb and the page title: all a page needs at the top. */
-export function PageHeader({ title, group, parent, parentTo, actions, description, summary }: Readonly<Props>) {
+export function PageHeader({ title, group, parent: parentGiven, parentTo: parentToGiven, actions, description, summary }: Readonly<Props>) {
+  // A page in a family (a tab of Stacks, of Databases…) shows its family's first page as its parent,
+  // unless the page names one itself.
+  const { pathname } = useLocation();
+  const head = familyOf(pathname)?.[0];
+  const inFamily = head !== undefined && head.path !== pathname;
+  const parent = parentGiven ?? (inFamily ? head.label : undefined);
+  const parentTo = parentToGiven ?? (inFamily ? head.path : undefined);
   return (
     <header className="enter" style={stagger(0)}>
       <nav aria-label="Breadcrumb" data-ui="crumbs" className="text-[13px] text-ink-3">
@@ -46,6 +55,7 @@ export function PageHeader({ title, group, parent, parentTo, actions, descriptio
       </div>
       {description && <p className="m-0 mt-1 text-[14px] text-ink-3">{description}</p>}
       {summary && <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-ink-2">{summary}</div>}
+      <FamilyTabs />
     </header>
   );
 }

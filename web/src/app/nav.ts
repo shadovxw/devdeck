@@ -48,8 +48,10 @@ type NavDef = {
   path: string;
   label: string;
   icon: LucideIcon;
-  /** The plan phase that builds the page; absent once the page is built. */
+  /** The plan phase that builds the page; absent once the page is built. A page with a phase isn't built yet, so the sidebar leaves it out (it is listed under Coming soon, or as a dimmed tab). */
   phase?: string;
+  /** The page's name on its family's tab strip, when it differs from its label (Health's own tab is "Doctor"). */
+  tab?: string;
   empty?: Empty;
 };
 
@@ -58,12 +60,19 @@ export type NavItem = NavDef & {
   group: string;
   /** For a sub-page: the parent page's label, shown in the breadcrumb. */
   parent?: string;
-  /** Sub-pages, listed under this item in the expanded sidebar. */
+  /** The pages of its family (FAMILIES), shown as tabs on each of them; the sidebar lists only this one. */
   children?: NavItem[];
+  /** Built: no phase. Unbuilt pages stay real routes but leave the sidebar. */
+  built: boolean;
 };
 
 type GroupDef = { name: string; items: NavDef[] };
+/** A sidebar group. Home's group ("devdeck") has no heading; System is the footer pinned to the bottom. */
 export type NavGroup = { name: string; items: NavItem[] };
+
+/** The group shown as the sidebar's footer, and the one without a heading. */
+export const FOOTER_GROUP = "System";
+export const HOME_GROUP = "devdeck";
 
 const GUIDE = "https://github.com/shadovxw/devdeck#readme";
 
@@ -72,7 +81,7 @@ const GUIDE = "https://github.com/shadovxw/devdeck#readme";
 // To add a page: add an entry here.
 const GROUPS: GroupDef[] = [
   {
-    name: "Overview",
+    name: "devdeck",
     items: [
       {
         path: "/",
@@ -85,6 +94,11 @@ const GROUPS: GroupDef[] = [
           secondary: { label: "View setup guide", href: GUIDE },
         },
       },
+    ],
+  },
+  {
+    name: "Work",
+    items: [
       {
         path: "/workspaces",
         label: "Workspaces",
@@ -99,7 +113,6 @@ const GROUPS: GroupDef[] = [
         path: "/repos",
         label: "Repositories",
         icon: FolderGit2,
-        phase: "Phase 4",
         empty: {
           headline: "No repository connected yet",
           text: "Connect a GitHub account, then pick the repositories this workspace uses.",
@@ -119,7 +132,7 @@ const GROUPS: GroupDef[] = [
     ],
   },
   {
-    name: "Run locally",
+    name: "Run",
     items: [
       {
         path: "/stacks",
@@ -135,7 +148,6 @@ const GROUPS: GroupDef[] = [
         path: "/logs",
         label: "Logs",
         icon: ScrollText,
-        phase: "Phase 3",
         empty: {
           headline: "No logs to show",
           text: "Start a stack and every service’s logs appear here, filterable by level, field or regex.",
@@ -152,12 +164,43 @@ const GROUPS: GroupDef[] = [
         },
       },
       {
+        path: "/images",
+        label: "Images and tags",
+        icon: Package,
+        empty: {
+          headline: "No images yet",
+          text: "Build and push Docker images by typing a tag.",
+          cta: { label: "Open workspaces", to: "/workspaces" },
+        },
+      },
+      {
         path: "/hosts",
         label: "Remote hosts",
         icon: Server,
         empty: {
           headline: "No remote host yet",
           text: "Add a host to your workspace to see its compose stacks, services and live logs through an SSM tunnel.",
+        },
+      },
+      {
+        path: "/doctor",
+        label: "Health",
+        tab: "Doctor",
+        icon: Stethoscope,
+        empty: {
+          headline: "Nothing checked yet",
+          text: "Check that your machine has everything a workspace needs. Tool status is already on the Plugins page.",
+          cta: { label: "See tool status", icon: Puzzle, to: "/plugins" },
+        },
+      },
+      {
+        path: "/findings",
+        label: "Findings",
+        icon: ShieldAlert,
+        phase: "Phase 8",
+        empty: {
+          headline: "No findings yet",
+          text: "Results from security and quality scanners are merged into one list.",
         },
       },
     ],
@@ -244,26 +287,6 @@ const GROUPS: GroupDef[] = [
         },
       },
       {
-        path: "/findings",
-        label: "Findings",
-        icon: ShieldAlert,
-        phase: "Phase 8",
-        empty: {
-          headline: "No findings yet",
-          text: "Results from security and quality scanners are merged into one list.",
-        },
-      },
-      {
-        path: "/images",
-        label: "Images and tags",
-        icon: Package,
-        empty: {
-          headline: "No images yet",
-          text: "Build and push Docker images by typing a tag.",
-          cta: { label: "Open workspaces", to: "/workspaces" },
-        },
-      },
-      {
         path: "/flow-trace",
         label: "Flow trace",
         icon: Route,
@@ -279,22 +302,9 @@ const GROUPS: GroupDef[] = [
     name: "System",
     items: [
       {
-        path: "/secrets",
-        label: "Secrets",
-        icon: Lock,
-        phase: "Later",
-        empty: {
-          headline: "No secrets store connected yet",
-          text: "Connect a secrets manager to browse secret names. Values are never shown or sent anywhere.",
-          cta: { label: "Add connection", to: "/connections" },
-        },
-      },
-      { path: "/plugins", label: "Plugins", icon: Puzzle },
-      {
         path: "/connections",
         label: "Connections",
         icon: KeyRound,
-        phase: "Phase 4",
         empty: {
           headline: "No connections yet",
           text: "Add GitHub accounts, registries and databases. Secrets stay in your OS keychain.",
@@ -305,7 +315,6 @@ const GROUPS: GroupDef[] = [
         path: "/connections/github",
         label: "GitHub",
         icon: GitFork,
-        phase: "Phase 4",
         empty: {
           headline: "No GitHub account yet",
           text: "Sign in with the GitHub CLI, then add a connection for each account you use.",
@@ -332,6 +341,18 @@ const GROUPS: GroupDef[] = [
         },
       },
       {
+        path: "/secrets",
+        label: "Secrets",
+        icon: Lock,
+        phase: "Later",
+        empty: {
+          headline: "No secrets store connected yet",
+          text: "Connect a secrets manager to browse secret names. Values are never shown or sent anywhere.",
+          cta: { label: "Add connection", to: "/connections" },
+        },
+      },
+      { path: "/plugins", label: "Plugins", icon: Puzzle },
+      {
         path: "/notifications",
         label: "Notifications",
         icon: Bell,
@@ -340,16 +361,6 @@ const GROUPS: GroupDef[] = [
           headline: "No notification channels yet",
           text: "Get an alert when a service goes down or a build fails.",
           cta: { label: "Add channel" },
-        },
-      },
-      {
-        path: "/doctor",
-        label: "Doctor",
-        icon: Stethoscope,
-        empty: {
-          headline: "Nothing checked yet",
-          text: "Check that your machine has everything a workspace needs. Tool status is already on the Plugins page.",
-          cta: { label: "See tool status", icon: Puzzle, to: "/plugins" },
         },
       },
       {
@@ -374,32 +385,52 @@ const GROUPS: GroupDef[] = [
   },
 ];
 
-// Pages that sit under another page in the sidebar. Both are still real routes:
-// the parent's chevron opens the list, clicking the parent's name opens its page.
-const NESTED: Record<string, string[]> = {
+// Families: a page and the pages that belong to it. The sidebar lists only the first; all of
+// them show as tabs under the page title (design/PageHeader). Every one is still its own route.
+// A family stays inside one group.
+const FAMILIES: Record<string, string[]> = {
+  "/stacks": ["/logs", "/resources", "/images"],
   "/databases": ["/migrations", "/sql", "/scripts"],
-  "/flows": ["/runs"],
-  "/connections": ["/connections/github", "/connections/docker"],
+  "/flows": ["/runs", "/flow-trace"],
+  "/doctor": ["/findings"],
+  "/connections": ["/connections/github", "/connections/docker", "/claude"],
 };
-const nestedPaths = new Set(Object.values(NESTED).flat());
+const nestedPaths = new Set(Object.values(FAMILIES).flat());
 
 export const NAV: NavGroup[] = GROUPS.map((g) => {
   const byPath = new Map(g.items.map((i) => [i.path, i]));
   const items = g.items
     .filter((i) => !nestedPaths.has(i.path))
     .map((i): NavItem => {
-      const children = (NESTED[i.path] ?? []).map((path): NavItem => {
+      const children = (FAMILIES[i.path] ?? []).map((path): NavItem => {
         const child = byPath.get(path);
         if (!child) throw new Error(`nav: ${path} is nested under ${i.path} but is not in group ${g.name}`);
-        return { ...child, group: g.name, parent: i.label };
+        return { ...child, group: g.name, parent: i.label, built: !child.phase };
       });
-      return { ...i, group: g.name, children: children.length > 0 ? children : undefined };
+      return { ...i, group: g.name, children: children.length > 0 ? children : undefined, built: !i.phase };
     });
   return { name: g.name, items };
 });
 
 /** Every page, parents and sub-pages alike. */
 export const NAV_ITEMS: NavItem[] = NAV.flatMap((g) => g.items.flatMap((i) => [i, ...(i.children ?? [])]));
+
+/**
+ * The family a page belongs to, parent first: what its tab strip shows. Undefined for a page
+ * with no family.
+ */
+export function familyOf(path: string): NavItem[] | undefined {
+  for (const g of NAV) {
+    for (const i of g.items) {
+      if (!i.children) continue;
+      if (i.path === path || i.children.some((c) => c.path === path)) return [i, ...i.children];
+    }
+  }
+  return undefined;
+}
+
+/** The sidebar item a page is shown under: itself, or its family's first page. */
+export const sidebarPathOf = (path: string): string => familyOf(path)?.[0].path ?? path;
 
 export const navByPath = (path: string): NavItem => {
   const item = NAV_ITEMS.find((i) => i.path === path);

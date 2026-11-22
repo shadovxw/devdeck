@@ -365,10 +365,11 @@ describe("Connections, the page above GitHub", () => {
   it("lists the kinds of connection, with GitHub and Docker Hub as the ones that are built", async () => {
     mockServer();
     renderAt("/connections");
-    const github = within(await screen.findByRole("main")).getByRole("link", { name: /GitHub/ });
+    // The cards, not the GitHub and Docker Hub tabs of the Connections family.
+    const github = (await screen.findAllByRole("link", { name: /GitHub/ })).find((a) => a.closest("main") && !a.closest('[data-ui="family-tabs"]'))!;
     expect(github.getAttribute("href")).toBe("/connections/github");
     expect(await within(github).findByText("2 connections · 2 accounts signed in with gh")).toBeTruthy();
-    expect(within(await screen.findByRole("main")).getByRole("link", { name: /Docker Hub/ }).getAttribute("href")).toBe("/connections/docker");
+    expect((await screen.findAllByRole("link", { name: /Docker Hub/ })).find((a) => a.closest("main") && !a.closest('[data-ui="family-tabs"]'))!.getAttribute("href")).toBe("/connections/docker");
     // the others say when they come, and are not links
     for (const [name, phase] of [["SonarQube", "Phase 8"], ["Postgres", "Phase 6"]]) {
       expect(screen.queryByRole("link", { name: new RegExp(name) })).toBeNull();
