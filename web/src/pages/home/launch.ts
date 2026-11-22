@@ -85,7 +85,9 @@ export function orbitNodes(groups = NAV): OrbitNode[] {
   const step = pages.length > 1 ? (ARC.to - ARC.from) / (pages.length - 1) : 0;
   return pages.map((item, i) => {
     const a = ((ARC.from + step * i) * Math.PI) / 180;
-    const cos = Math.round(Math.cos(a) * 1e4) / 1e4;
+    // Pages near the bottom spread sideways, so the three there don't crowd each other.
+    const spread = 1 + 0.6 * Math.max(0, Math.sin(a)) ** 2;
+    const cos = Math.round(Math.cos(a) * spread * 1e4) / 1e4;
     const sin = Math.round(Math.sin(a) * 1e4) / 1e4;
     const side = cos > 0.2 ? "right" : cos < -0.2 ? "left" : "center";
     return { item, tone: TONES[item.group] ?? "run", cos, sin, side };

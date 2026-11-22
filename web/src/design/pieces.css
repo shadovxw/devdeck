@@ -685,10 +685,13 @@
   background: transparent;
 }
 
+/* Everything scales with the window (the smaller of its width and height for the orb), so the
+   composition fills a 1920×1080 screen as well as a laptop's. */
 [data-ui="launcher"] {
-  --cy: 54.5%;
-  --rx: min(440px, 31vw);
-  --ry: clamp(170px, 25svh, 230px);
+  --cy: 52%;
+  --orb: clamp(340px, 46vmin, 540px);
+  --rx: clamp(260px, 31vw, 600px);
+  --ry: clamp(200px, 32vmin, 330px);
   position: relative;
   min-height: max(760px, 100svh);
   overflow: hidden;
@@ -775,9 +778,10 @@
   transform: translate(-50%, -50%);
 }
 
+/* Just under the orb, inside the ring, clear of the bottom destinations. */
 [data-ui="launcher"] > [data-ui="orb-state"] {
   position: absolute;
-  top: calc(var(--cy) + 158px);
+  top: calc(var(--cy) + var(--orb) * 0.36);
   left: 0;
   right: 0;
   width: max-content;
@@ -827,7 +831,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 17px;
+  font-size: clamp(15px, 1.2vw, 19px);
   font-weight: 600;
   transition: color var(--dur-quick) var(--ease-out);
 }
@@ -853,11 +857,12 @@
   box-shadow: 0 0 12px var(--tone);
 }
 
+/* What explains each place: a step larger and lighter than other mono labels, so it reads. */
 [data-ui="orbit-hint"] {
   font-family: var(--font-code);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+  font-size: clamp(12px, 0.85vw, 13px);
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--ink-3) 70%, var(--ink-2));
 }
 
 [data-ui="launch-legend"] {
@@ -870,18 +875,19 @@
   flex-wrap: wrap;
   gap: 10px 28px;
   font-family: var(--font-code);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
 
+/* A diamond, like the destinations' markers. */
 [data-ui="legend-dot"] {
   display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-inline-end: 8px;
-  border-radius: 50%;
+  width: 6px;
+  height: 6px;
+  margin-inline-end: 10px;
+  transform: rotate(45deg) translateY(-1px);
   background: var(--tone);
 }
 
@@ -904,6 +910,7 @@
 /* Narrow windows: the same parts in one column, the pages in a grid. */
 @media (max-width: 899px), (max-height: 699px) {
   [data-ui="launcher"] {
+    --orb: min(320px, 80vw);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1001,4 +1008,9 @@
 /* Good news (Findings, Notifications) is never the accent: the line is in the success colour. */
 [data-ui="empty"][data-good] [data-ui="empty-kicker"] {
   color: var(--good);
+}
+
+/* The one heading on Home grows with the window. */
+[data-ui="launcher-intro"] [data-ui="greeting"] {
+  font-size: clamp(36px, 3.2vw, 52px);
 }

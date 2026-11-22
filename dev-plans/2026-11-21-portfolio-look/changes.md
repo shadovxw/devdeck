@@ -247,3 +247,13 @@ Checked: typecheck, lint, all 776 web tests, build. In the browser at 1440×900,
 - Tests: `mini-model.test.ts` (6 more), `empty-orb.test.tsx` (good news is marked), and `hosts-page.test.tsx` and `pages.test.tsx` updated for the new words.
 
 Checked: typecheck, lint, all 789 web tests. In the browser at 1440×900, each new variant was on its empty page: Hosts, Databases, Flows, Secrets and Notifications (a small green orb with a green line).
+
+## 2026-11-22: Launcher proportions (owner's review at 1198×1107, 125%)
+
+- **Scales with the window** (`design/pieces.css`, `[data-ui="launcher"]`): the orb is `--orb: clamp(340px, 46vmin, 540px)` (the launcher size of `EmptyOrb` reads it), the ring is `--rx: clamp(260px, 31vw, 600px)` and `--ry: clamp(200px, 32vmin, 330px)`, and its centre moved up from 54.5% to 52%. The bigger orb fills the dead zone, and the bigger ring fills the empty bands above and below. On narrow windows the orb is at most 320px.
+- **Type:** the greeting is `clamp(36px, 3.2vw, 52px)`, page names `clamp(15px, 1.2vw, 19px)`, and hints `clamp(12px, 0.85vw, 13px)`, a step lighter (the text-3 token mixed toward text-2; no fixed hex, so every theme reaches it). The legend is 12px.
+- **The orb's line** sits just under the orb, inside the ring (`--cy + --orb × 0.36`), instead of on the ring among the bottom pages.
+- **The bottom of the arc spreads sideways** (`orbitNodes` in `launch.ts`, tested), so Health, Remote hosts and Stacks don't crowd.
+- The legend's dots are 6px diamonds, like the page markers.
+
+Checked: typecheck, lint, all 790 web tests. In the browser at 958×886 (the owner's window in CSS pixels) and at 1920×1080: the composition fills both, with no empty bands, and the line and the bottom three are clear of each other.
