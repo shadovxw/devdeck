@@ -1,6 +1,6 @@
 import { Boxes, FolderOpen, FolderSearch, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router";
+import { Navigate, useNavigate, useSearchParams } from "react-router";
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { navByPath } from "../app/nav";
@@ -10,11 +10,10 @@ import { IssueList } from "../design/IssueList";
 import { ApiError } from "../lib/api";
 import { stagger } from "../lib/motion";
 import { useDebounced } from "../lib/use-debounced";
-import { useCreateWorkspace, usePickFolder, useScanFolder, useValidateWorkspace, useWorkspaces } from "../lib/queries";
+import { useCreateWorkspace, usePickFolder, useRuns, useScanFolder, useValidateWorkspace, useWorkspaces } from "../lib/queries";
 import { PAUSED_TITLE } from "../lib/server-link";
 import { useWritesPaused } from "../lib/use-server-link";
 import { WorkspaceCards } from "./workspaces/WorkspaceCards";
-import { WorkspaceDetail } from "./workspaces/WorkspaceDetail";
 import { EmptyState } from "../design/EmptyState";
 
 const field =
@@ -113,7 +112,7 @@ function AddWorkspace({ onCreated }: { onCreated: (id: string) => void }) {
           <div>
             <button type="button" onClick={save} disabled={blocked} className={`${primaryButton} disabled:cursor-not-allowed disabled:opacity-45`}>
               <Plus size={18} aria-hidden />
-              Create workspace
+              Create project
             </button>
           </div>
         </>
@@ -124,18 +123,19 @@ function AddWorkspace({ onCreated }: { onCreated: (id: string) => void }) {
 
 export function WorkspacesPage() {
   const item = navByPath("/workspaces");
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const [adding, setAdding] = useState(false);
   const { data, isPending, isError } = useWorkspaces();
+  const runs = useRuns();
   const paused = useWritesPaused();
 
-  // The selected workspace is kept in the address (?open=) so a link can point at it. With none chosen, the first shows.
-  const chosen = params.get("open") ?? undefined;
-  const selected = data?.find((w) => w.id === chosen)?.id ?? data?.[0]?.id;
-
-  function open(id?: string) {
-    setParams(id ? { open: id } : {}, { replace: true });
+  // A project opens on its own page. Older links named it in the address (?open=); they go there too.
+  const navigate = useNavigate();
+  const chosen = params.get("open");
+  function open(id: string) {
+    navigate(`/workspaces/${encodeURIComponent(id)}`, { viewTransition: true });
   }
+  if (chosen) return <Navigate to={`/workspaces/${encodeURIComponent(chosen)}`} replace />;
 
   const showEmpty = data && data.length === 0;
 
@@ -148,7 +148,7 @@ export function WorkspacesPage() {
           !showEmpty && (
             <button type="button" onClick={() => setAdding(true)} disabled={paused} title={paused ? PAUSED_TITLE : undefined} className={primaryButton}>
               <Plus size={16} aria-hidden />
-              Add workspace
+              New project
             </button>
           )
         }
@@ -167,17 +167,16 @@ export function WorkspacesPage() {
 
       {data && data.length > 0 && (
         <div className="enter mt-4 flex flex-col gap-6" style={stagger(2)}>
-          <WorkspaceCards items={data} selected={selected} onSelect={open} onAdd={() => setAdding(true)} />
-          {selected && <WorkspaceDetail key={selected} id={selected} onDeleted={() => open()} />}
+          <WorkspaceCards items={data} runs={runs.data} onSelect={open} onAdd={() => setAdding(true)} />
         </div>
       )}
 
       <Sheet open={adding} onOpenChange={setAdding}>
         <SheetContent side="right" className="w-full gap-0 overflow-y-auto border-0 bg-surface-1 sm:max-w-2xl">
           <SheetHeader className="pe-12 pt-5">
-            <SheetTitle className="text-[18px] text-ink">Add a workspace</SheetTitle>
+            <SheetTitle className="text-[18px] text-ink">New project</SheetTitle>
             <SheetDescription className="text-[14px] leading-5 text-ink-3">
-              Choose the folder that contains your repositories. devdeck drafts a workspace file for you to review before anything is saved.
+              Choose one repo, or the folder that contains several. devdeck drafts the project's file for you to review before anything is saved.
             </SheetDescription>
           </SheetHeader>
           <AddWorkspace

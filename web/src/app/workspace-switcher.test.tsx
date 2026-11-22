@@ -13,10 +13,10 @@ const ws = (id: string, name = id) => ({ id, name, errors: 0 }) as WorkspaceSumm
 
 describe("workspaceLabel", () => {
   it.each([
-    ["not loaded yet", undefined, "Workspaces"],
-    ["none", [], "No workspace"],
+    ["not loaded yet", undefined, "Projects"],
+    ["none", [], "No project"],
     ["one: its name", [ws("acme", "Acme shop")], "Acme shop"],
-    ["several: how many", [ws("a"), ws("b"), ws("c")], "3 workspaces"],
+    ["several: how many", [ws("a"), ws("b"), ws("c")], "3 projects"],
   ])("%s", (_, list, want) => {
     expect(workspaceLabel(list)).toBe(want);
   });
@@ -48,10 +48,10 @@ describe("the workspace switcher", () => {
         <RouterProvider router={router} />
       </QueryClientProvider>,
     );
-    const link = await screen.findByRole("link", { name: "Workspace: Acme shop" });
+    const link = await screen.findByRole("link", { name: "Project: Acme shop" });
     expect(link.getAttribute("href")).toBe("/workspaces");
     expect(link.closest('[data-slot="sidebar-header"]')).toBeTruthy();
     // Not in the top bar any more.
-    expect(within(document.querySelector('[data-ui="topbar"]') as HTMLElement).queryByRole("link", { name: /Workspace/ })).toBeNull();
+    expect(within(document.querySelector('[data-ui="topbar"]') as HTMLElement).queryByRole("link", { name: /Project/ })).toBeNull();
   });
 });

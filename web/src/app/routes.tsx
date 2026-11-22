@@ -24,6 +24,7 @@ import { SettingsPage } from "../pages/SettingsPage";
 import { StacksPage } from "../pages/StacksPage";
 import { WorkspacesPage } from "../pages/WorkspacesPage";
 import { WorkspaceEditPage } from "../pages/workspace-edit/WorkspaceEditPage";
+import { ProjectPage } from "../pages/ProjectPage";
 import { FatalError, PageError } from "./ErrorPages";
 import { NAV_ITEMS } from "./nav";
 import { Shell } from "./Shell";
@@ -79,6 +80,7 @@ export const routes: RouteObject[] = [
             path: item.path,
             element: built[item.path] ?? <Placeholder item={item} />,
           })),
+          { path: "/workspaces/:id", element: <ProjectPage /> },
           { path: "/workspaces/:id/edit", element: <WorkspaceEditPage /> },
           { path: "/features/:workspace/:name", element: <FeaturePage /> },
           { path: "/docs/:id", element: <DocsPage /> },
