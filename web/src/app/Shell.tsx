@@ -66,14 +66,13 @@ function useFirstLoad() {
 }
 
 /**
- * Neon's Home is the orb launcher, with no sidebar (dev-plans/2026-11-21-portfolio-look §8c):
+ * Home is the orb launcher, with no sidebar (dev-plans/2026-11-21-portfolio-look §8c):
  * data-home-bare on <html> parks the sidebar off-screen and frees the page's full width, and
  * leaving Home slides the sidebar in (design/pieces.css).
  */
 function useBareHome(): boolean {
   const { pathname } = useLocation();
-  const look = useUi((s) => s.look);
-  const bare = look === "neon" && pathname === "/";
+  const bare = pathname === "/";
   useLayoutEffect(() => {
     const root = document.documentElement;
     if (bare) root.dataset.homeBare = "";

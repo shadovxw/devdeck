@@ -5,7 +5,7 @@ import { quietButton } from "../../design/buttons";
 import { stagger } from "../../lib/motion";
 
 /**
- * Overview with nothing running, in the Neon style: the quiet kind of empty, one mono line and a
+ * Overview with nothing running: the quiet kind of empty, one mono line and a
  * small action. Without a workspace it points to Workspaces, where the hero empty state is.
  */
 export function NeonEmptyOverview({ hasWorkspace }: Readonly<{ hasWorkspace: boolean }>) {

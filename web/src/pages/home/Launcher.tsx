@@ -142,7 +142,7 @@ function Node({ node, index }: Readonly<{ node: OrbitNode; index: number }>) {
 }
 
 /**
- * Home in the Neon style: the orb launcher, with no sidebar (the "Home without sidebar" design,
+ * Home: the orb launcher, with no sidebar (the "Home without sidebar" design,
  * dev-plans/2026-11-21-portfolio-look §8c). The greeting and what devdeck is for at the top, the
  * orb in the middle with every page around it, coloured by group, and a legend at the bottom.
  * Picking a page carries its name into the sidebar, which slides in. The same every time; what

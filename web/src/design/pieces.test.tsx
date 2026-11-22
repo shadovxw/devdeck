@@ -15,7 +15,6 @@ describe("SectionHeader", () => {
   it("writes the line like a command and puts the gradient on the heading's last word", () => {
     const { container } = render(<SectionHeader index="01" verb="UP" name="STACKS" count={{ label: "TOTAL_STACKS", value: "04" }} title="Running stacks" />);
     const root = container.querySelector('[data-ui="section-header"]')!;
-    expect(root.classList.contains("look-neon")).toBe(true); // Flat doesn't draw it
     expect(root.querySelector('[data-ui="section-index"]')!.textContent).toBe("01");
     expect(root.querySelector('[data-ui="section-verb"]')!.textContent).toBe("$ UP");
     expect(root.querySelector('[data-ui="section-count"]')!.textContent).toBe("TOTAL_STACKS: 04");
@@ -43,7 +42,6 @@ describe("Panel", () => {
     const section = screen.getByRole("region", { name: "Recent runs" });
     const heading = within(section).getByRole("heading", { level: 2 });
     expect(heading.textContent).toBe("02 $ Recent runs");
-    expect(heading.querySelector(".look-neon")!.textContent).toBe("02 $ ");
     expect(within(section).getByRole("link", { name: "View all" })).toBeTruthy();
     expect(within(section).getByText("content")).toBeTruthy();
   });
@@ -111,11 +109,10 @@ describe("StageRail", () => {
 });
 
 describe("Tag", () => {
-  it("says its word and carries its tone, with a Flat-only dot", () => {
+  it("says its word and carries its tone", () => {
     const { container } = render(<Tag tone="warning">WARN</Tag>);
     const tag = container.querySelector('[data-ui="tag"]')!;
     expect(tag.textContent).toBe("WARN");
     expect(tag.getAttribute("data-tone")).toBe("warning");
-    expect(tag.querySelector(".look-flat")).toBeTruthy();
   });
 });

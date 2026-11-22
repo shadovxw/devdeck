@@ -48,7 +48,7 @@ function renderAt(path: string) {
 afterEach(() => {
   cleanup();
   localStorage.clear();
-  useUi.setState({ look: "paper", effects: null, name: "", sidebarOpen: false, closedGroups: [] });
+  useUi.setState({ effects: null, name: "", sidebarOpen: false, closedGroups: [] });
   vi.unstubAllGlobals();
   useServerLink.getState().reset();
 });
@@ -59,7 +59,7 @@ const serverGone = () => act(() => useServerLink.setState({ everUp: true, failur
 describe("Neon Home, the launcher", () => {
   it("greets you by name, says the workspace, and shows the orb's state", async () => {
     mockServer();
-    useUi.setState({ look: "neon", name: "Sam" });
+    useUi.setState({ name: "Sam" });
     renderAt("/");
     const h1 = await screen.findByRole("heading", { level: 1 });
     expect(h1.textContent).toMatch(/^Good (morning|afternoon|evening), Sam\.$/);
@@ -69,14 +69,12 @@ describe("Neon Home, the launcher", () => {
 
   it("greets without a name when none is set", async () => {
     mockServer();
-    useUi.setState({ look: "neon" });
     renderAt("/");
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toMatch(/^Good (morning|afternoon|evening)\.$/);
   });
 
   it("looks the same with stacks running; the orb's line leads to Overview", async () => {
     mockServer({ runs: [running] });
-    useUi.setState({ look: "neon" });
     renderAt("/");
     const line = await screen.findByRole("link", { name: "Idle · 1 stack running" });
     expect(line.getAttribute("href")).toBe("/overview");
@@ -86,7 +84,6 @@ describe("Neon Home, the launcher", () => {
 
   it("with no workspace yet, the orb's line leads to Workspaces and its hero", async () => {
     mockServer({ workspaces: [] });
-    useUi.setState({ look: "neon" });
     renderAt("/");
     const line = await screen.findByRole("link", { name: "Idle · Set up a workspace" });
     expect(line.getAttribute("href")).toBe("/workspaces");
@@ -97,7 +94,6 @@ describe("Neon Home, the launcher", () => {
 
   it("has no sidebar: every page sits around the orb, with what it is for, and a legend", async () => {
     mockServer();
-    useUi.setState({ look: "neon" });
     renderAt("/");
     const orbit = within(await screen.findByRole("navigation", { name: "Launch" }));
     expect(orbit.getByRole("link", { name: /Stacks/ }).getAttribute("href")).toBe("/stacks");
@@ -111,7 +107,6 @@ describe("Neon Home, the launcher", () => {
 
   it("picking a page names it for the flight into the sidebar, and the sidebar comes back", async () => {
     mockServer();
-    useUi.setState({ look: "neon" });
     renderAt("/");
     const stacks = within(await screen.findByRole("navigation", { name: "Launch" })).getByRole("link", { name: /Stacks/ });
     fireEvent.click(stacks);
@@ -122,7 +117,6 @@ describe("Neon Home, the launcher", () => {
 
   it("finds a page by name and opens it with Enter; arrows move, Escape clears", async () => {
     mockServer();
-    useUi.setState({ look: "neon" });
     const router = renderAt("/");
     // Ctrl K opens the page search on Home.
     expect(await screen.findByRole("button", { name: "Ctrl K" })).toBeTruthy();
@@ -146,19 +140,11 @@ describe("Neon Home, the launcher", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Stacks" })).toBeTruthy();
     expect(router.state.location.pathname).toBe("/stacks");
   });
-
-  it("stays the dashboard in Flat", async () => {
-    mockServer({ runs: [running] });
-    renderAt("/");
-    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeTruthy();
-    expect(screen.queryByRole("combobox", { name: "Where to?" })).toBeNull();
-  });
 });
 
 describe("when the server goes away while in use", () => {
   it("the orb turns to its warning state and thinks; the strip says actions wait", async () => {
     mockServer();
-    useUi.setState({ look: "neon" });
     renderAt("/");
     await screen.findByText("Idle · Ready");
     serverGone();
@@ -181,7 +167,6 @@ describe("when the server goes away while in use", () => {
 describe("the hero empty state, now on Workspaces", () => {
   it("shows on Neon's Workspaces with none yet, and its button opens the add form", async () => {
     mockServer({ workspaces: [] });
-    useUi.setState({ look: "neon" });
     renderAt("/workspaces");
     const hero = within(await screen.findByRole("region", { name: "Get started" }));
     expect(hero.getByRole("heading", { level: 2 }).textContent).toBe("Your workspace is ready to connect.");
@@ -191,16 +176,8 @@ describe("the hero empty state, now on Workspaces", () => {
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 
-  it("is the usual empty state in Flat", async () => {
+  it("the empty Overview is the quiet kind, pointing to Workspaces when there is none", async () => {
     mockServer({ workspaces: [] });
-    renderAt("/workspaces");
-    expect(await screen.findByRole("heading", { name: "No workspace yet" })).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Get started" })).toBeNull();
-  });
-
-  it("Neon's empty Overview is the quiet kind, pointing to Workspaces when there is none", async () => {
-    mockServer({ workspaces: [] });
-    useUi.setState({ look: "neon" });
     renderAt("/overview");
     expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
     expect((await screen.findByRole("link", { name: /Open workspaces/ })).getAttribute("href")).toBe("/workspaces");

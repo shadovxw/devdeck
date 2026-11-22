@@ -21,7 +21,7 @@ afterEach(() => {
   draws.length = 0;
   disposed.mockClear();
   sessionStorage.clear();
-  useUi.setState({ look: "paper", effects: null, reduceMotion: false });
+  useUi.setState({ effects: null, reduceMotion: false });
 });
 
 /** Runs the frame clock for this many seconds. */
@@ -115,19 +115,20 @@ describe("the launch intro", () => {
 });
 
 describe("chooseIntro", () => {
-  it("plays in Neon on the first start of a session only", () => {
-    useUi.setState({ look: "neon", effects: "reduced" });
+  it("plays on the first start of a session only", () => {
+    useUi.setState({ effects: "reduced" });
     expect(chooseIntro()).toBe("fade");
     markIntroSeen();
     expect(chooseIntro()).toBe("none");
   });
 
-  it("never plays in Flat", () => {
+  it("never plays with Effects off", () => {
+    useUi.setState({ effects: "off" });
     expect(chooseIntro()).toBe("none");
   });
 
   it("is the SVG lockup where there is no WebGL (as in the test browser)", () => {
-    useUi.setState({ look: "neon", effects: "full" });
+    useUi.setState({ effects: "full" });
     expect(chooseIntro()).toBe("svg");
   });
 });

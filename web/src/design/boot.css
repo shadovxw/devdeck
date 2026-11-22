@@ -11,8 +11,8 @@ body {
   background: var(--bg);
 }
 
-/* The mark sits at the exact centre of the window in every state. The bar and
-   the note hang below it, so adding the note never moves the mark. */
+/* The mark sits at the exact centre of the window; the bar hangs below it. Offline is its own
+   screen (design/Splash.tsx, .splash-neon in pieces.css). */
 .splash {
   --mark-size: 96px;
   --below: calc(50% + var(--mark-size) / 2 + 28px);
@@ -56,24 +56,6 @@ body {
   border-radius: 2px;
   background: var(--brand);
   animation: splash-sweep 1.3s linear infinite;
-}
-
-.splash[data-state="offline"] .bar::after {
-  animation: none;
-  width: 100%;
-  background: var(--critical);
-}
-
-.splash .note {
-  position: absolute;
-  top: calc(var(--below) + 18px);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font: 13px/18px var(--font-sans, system-ui, sans-serif);
-  white-space: nowrap;
 }
 
 @keyframes splash-in {

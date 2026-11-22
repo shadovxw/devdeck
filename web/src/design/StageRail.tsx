@@ -10,9 +10,8 @@ type Props = {
 };
 
 /**
- * Progress through a fixed list of stages: marks joined by a line, labels under them. Flat draws
- * small squares, filled when done; Neon draws diamonds, filled in the accent when done
- * (design/pieces.css). The list itself says how far it got, for screen readers.
+ * Progress through a fixed list of stages: diamonds joined by a line, labels under them, filled
+ * in the accent when done (design/pieces.css). The list itself says how far it got, for screen readers.
  */
 export function StageRail({ stages, done, warn = false, compact = false }: Readonly<Props>) {
   const n = Math.max(0, Math.min(done, stages.length));

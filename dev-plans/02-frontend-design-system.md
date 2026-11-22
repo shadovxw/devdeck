@@ -1,6 +1,8 @@
 # devdeck: Frontend Design System ("Paper")
 
 > 2026-10-31 · owner: Vrishank Warrier · expands §7 of [`00-implementation-plan.md`](00-implementation-plan.md)
+
+> **2026-11-22:** the tokens here are still the base, but devdeck has one style, Neon, built on top of them ([`2026-11-21-portfolio-look/plan.md`](2026-11-21-portfolio-look/plan.md) §8d). Flat no longer exists.
 > Replaces the 2026-10-17 "Quiet Instrument" system. Reference mockup: board **F · Black and white** on the design canvas (Home page).
 > Scope: Paper is the light theme and the default. **Paper Dark** and custom themes are built from the same rules (§12); themes are data, not stylesheets.
 

@@ -53,7 +53,7 @@ type NavDef = {
   phase?: string;
   /** The page's name on its family's tab strip, when it differs from its label (Health's own tab is "Doctor"). */
   tab?: string;
-  /** A few words on what the page is for, under its name on Neon's Home (the orb launcher). */
+  /** A few words on what the page is for, under its name on Home (the orb launcher). */
   hint?: string;
   empty?: Empty;
 };

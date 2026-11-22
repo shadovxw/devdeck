@@ -1,6 +1,3 @@
-import { RotateCw } from "lucide-react";
-
-import { useUi } from "../store/ui";
 import { Logo } from "./Logo";
 
 /** Where the server listens, and the command that starts it. */
@@ -20,11 +17,11 @@ type Props = {
 const countdown = (nextIn: number, attempt: number) => `Retrying in ${Math.max(1, Math.ceil(nextIn / 1000))}s · attempt ${attempt}`;
 
 /**
- * Offline at start, in the Neon style (dev-plans/2026-11-21-portfolio-look §8b, P9a): the dimmed
+ * Offline at start (dev-plans/2026-11-21-portfolio-look §8b, P9a): the dimmed
  * lockup, the red line, the address it tried, what to do, Retry now, the start command, and when
  * it tries again. The moment the server answers, the app comes up by itself.
  */
-function NeonOffline({ onRetry, nextIn = 0, attempt = 1 }: Readonly<Omit<Props, "state">>) {
+function Offline({ onRetry, nextIn = 0, attempt = 1 }: Readonly<Omit<Props, "state">>) {
   return (
     <div className="splash splash-neon" data-state="offline" role="status" aria-live="polite">
       <div data-ui="splash-lockup" aria-hidden>
@@ -58,33 +55,15 @@ function NeonOffline({ onRetry, nextIn = 0, attempt = 1 }: Readonly<Omit<Props, 
   );
 }
 
-// The branded loading page. Shown while the app connects to the devdeck server.
+// The branded loading page. Shown while the app connects to the devdeck server; when it can't
+// be reached, the offline screen.
 export function Splash({ state = "loading", onRetry, nextIn, attempt }: Props) {
-  const look = useUi((s) => s.look);
-  if (state === "offline" && look === "neon") return <NeonOffline onRetry={onRetry} nextIn={nextIn} attempt={attempt} />;
-  const title = `devdeck can’t reach its server on ${SERVER_ADDRESS}. Start it with: ${START_COMMAND}`;
+  if (state === "offline") return <Offline onRetry={onRetry} nextIn={nextIn} attempt={attempt} />;
   return (
     <div className="splash" data-state={state} role="status" aria-live="polite">
       <Logo className="mark" />
       <div className="bar" />
-      {state === "offline" && (
-        <div className="note" title={attempt ? `${title}. ${countdown(nextIn ?? 0, attempt)}.` : title}>
-          <span className="inline-block size-2 bg-critical" aria-hidden />
-          <span>offline</span>
-          {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              aria-label="Retry"
-              title="Retry"
-              className="grid size-7 place-items-center rounded-ctl border-0 bg-transparent text-ink-3 hover:bg-accent-soft hover:text-ink"
-            >
-              <RotateCw size={15} />
-            </button>
-          )}
-        </div>
-      )}
-      {state === "loading" && <span className="sr-only">Loading devdeck…</span>}
+      <span className="sr-only">Loading devdeck…</span>
     </div>
   );
 }

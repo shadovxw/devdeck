@@ -114,12 +114,12 @@ export const skipTo = (t: number, ready: boolean) => Math.max(t, ready ? AT.end 
 export type IntroMode = "none" | "3d" | "fade" | "svg";
 
 /**
- * Cold start only, once per app session, and only in Neon with effects on. Reduce motion (the
+ * Cold start only, once per app session, and only with effects on. Reduce motion (the
  * app's or the system's) or Reduced effects: a short fade of the flat lockup. No WebGL: the
  * SVG lockup with the same letter reveal.
  */
-export function introMode(o: { seen: boolean; look: string; effects: "off" | "reduced" | "full"; reduceMotion: boolean; webgl: boolean }): IntroMode {
-  if (o.seen || o.look !== "neon" || o.effects === "off") return "none";
+export function introMode(o: { seen: boolean; effects: "off" | "reduced" | "full"; reduceMotion: boolean; webgl: boolean }): IntroMode {
+  if (o.seen || o.effects === "off") return "none";
   if (o.reduceMotion || o.effects === "reduced") return "fade";
   return o.webgl ? "3d" : "svg";
 }

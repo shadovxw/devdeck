@@ -164,3 +164,34 @@ Checked: typecheck, lint, all 759 web tests. In the browser:
 - At 1440×900 the launcher matches the design.
 - Picking Stacks ran the `launch-pick` transition, measured from inside the page: from the page's spot by the orb (x 581, y 808, 210px wide) to its 32px sidebar row, beside the page cross-fade. The sidebar was back.
 - At 375px the page is one column with no sideways scroll.
+
+## 2026-11-22: P10, Neon is the only style
+
+The owner's direction (§8d): Flat goes, and Neon is devdeck's one style. Light and dark themes stay; the style is built from theme tokens.
+
+- **CSS:**
+  - `design/looks.css` and `pieces.css` no longer wait for `data-look="neon"`: every rule applies always.
+  - The `.look-flat` and `.look-neon` switches are gone.
+  - The token block is `html:root`, so it beats `tokens.css` whatever order the stylesheets load in.
+  - `boot.css` loses the old small "offline" note.
+- **State:**
+  - `store/ui.ts` has no `look`. Effects are Full until chosen (`effectiveEffects(chosen)`).
+  - The old `devdeck.look` key is cleared on load.
+  - `index.html` no longer sets `data-look` before first paint, and Effects default to Full there too.
+- **Settings → Appearance:** the Style row is gone. Effects says what it covers now (the orb, the launch intro, glow).
+- **Flat-only code removed:**
+  - Home's Flat dashboard: `HomePage` is just the launcher, and `OverviewPage` owns the dashboard, which is `NeonHome`.
+  - Flat's small offline note: `Splash` shows the full offline screen.
+  - Flat's Workspaces empty state: always the hero, until P5a makes it the mini variant.
+  - Flat's wordmark in the sidebar, and Tag's dot.
+  - The `look` checks in the shell, `EmptyOrb`, the intro (`introMode` no longer takes a look) and `OrbCanvas`.
+- The launcher's orb is now 368px, the design's 120px sphere radius (it was 316px).
+- **Docs:** `CLAUDE.md`'s UI rules now say one style, built in `looks.css` and `pieces.css` from tokens, that every screen must work in a light and a dark theme, and that the full orb is Home's only. `docs/appearance.md` "Style" now describes the one style and Effects. A note at the top of the neon-look plan and `02-frontend-design-system.md` says Flat no longer exists.
+- **Tests:**
+  - Flat cases removed.
+  - The old Home dashboard tests now check Overview, and the Workspaces tests look for the hero.
+  - `store/ui.test.ts` checks the old key is cleared and Effects default to Full.
+
+Checked: typecheck, lint, all 752 web tests. `grep` finds no `data-look`, `look-flat`, `look-neon`, `setLook` or `s.look` in `web/src` or `index.html`. In the browser:
+- In the owner's dark theme: Inter in use, no `data-look`, the old key gone.
+- With the built-in light theme (Paper) applied to the page only, without changing the saved appearance: Home's launcher and Stacks read well, and Settings shows Mode, Effects and Reduce motion with no Style row.

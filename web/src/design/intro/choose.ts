@@ -25,13 +25,12 @@ export function markIntroSeen(): void {
 /** How the intro plays on this start, from the settings and what this machine can do. */
 export function chooseIntro(): IntroMode {
   const ui = useUi.getState();
-  const effects = effectiveEffects(ui.look, ui.effects);
+  const effects = effectiveEffects(ui.effects);
   return introMode({
     seen: seen(),
-    look: ui.look,
     effects,
     reduceMotion: ui.reduceMotion || prefersReducedMotion(),
     // Checked only when it matters: it creates a WebGL context.
-    webgl: ui.look === "neon" && effects === "full" && supportsWebGL(),
+    webgl: effects === "full" && supportsWebGL(),
   });
 }

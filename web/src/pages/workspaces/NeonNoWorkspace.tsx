@@ -14,7 +14,7 @@ type Props = Readonly<{
 }>;
 
 /**
- * Workspaces with none yet, in the Neon style: the one hero empty state, with the orb
+ * Workspaces with none yet: the one hero empty state, with the orb
  * (dev-plans/2026-11-21-portfolio-look §8a). It used to be Home's; Home is the launcher now, and
  * this is where a workspace is configured.
  */

@@ -15,9 +15,9 @@ export default function OrbCanvas({ state, still, className }: Readonly<{ state:
     const el = canvas.current;
     if (!el) return;
     orb.current = createOrb(el, { state, colors: readOrbColors(), still });
-    // A theme or style change rewrites <html>'s style and data attributes: take the new colours.
+    // A theme change rewrites <html>'s style: take the new colours.
     const watch = new MutationObserver(() => orb.current?.setColors(readOrbColors()));
-    watch.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-look"] });
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
     return () => {
       watch.disconnect();
       orb.current?.dispose();

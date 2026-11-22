@@ -11,7 +11,7 @@ vi.mock("./orb/OrbCanvas", () => ({
 
 afterEach(() => {
   cleanup();
-  useUi.setState({ look: "paper", effects: null, reduceMotion: false });
+  useUi.setState({ effects: null, reduceMotion: false });
 });
 
 const art = <div data-testid="art" />;
@@ -25,14 +25,8 @@ describe("EmptyOrb", () => {
     getContext.mockRestore();
   });
 
-  it("shows the page's art in Flat", () => {
-    render(<EmptyOrb fallback={art} webgl />);
-    expect(screen.getByTestId("art")).toBeTruthy();
-    expect(screen.queryByTestId("orb-canvas")).toBeNull();
-  });
-
-  it("shows the art in Neon with Effects off, and without WebGL", () => {
-    useUi.setState({ look: "neon", effects: "off" });
+  it("shows the art with Effects off, and without WebGL", () => {
+    useUi.setState({ effects: "off" });
     const { rerender } = render(<EmptyOrb fallback={art} webgl />);
     expect(screen.getByTestId("art")).toBeTruthy();
     useUi.setState({ effects: null });
@@ -40,8 +34,8 @@ describe("EmptyOrb", () => {
     expect(screen.getByTestId("art")).toBeTruthy();
   });
 
-  it("loads the orb in Neon with effects on, animated, decorative", async () => {
-    useUi.setState({ look: "neon", effects: null });
+  it("loads the orb with effects on, animated, decorative", async () => {
+    useUi.setState({ effects: null });
     const { container } = render(<EmptyOrb fallback={art} webgl state="thinking" size="mini" />);
     const canvas = await screen.findByTestId("orb-canvas");
     expect(canvas.getAttribute("data-orb-state")).toBe("thinking");
@@ -56,7 +50,7 @@ describe("EmptyOrb", () => {
     ["Reduce motion", { reduceMotion: true }],
     ["Reduced effects", { effects: "reduced" as const }],
   ])("draws a still frame with %s", async (_, state) => {
-    useUi.setState({ look: "neon", effects: null, ...state });
+    useUi.setState({ effects: null, ...state });
     render(<EmptyOrb fallback={art} webgl />);
     expect((await screen.findByTestId("orb-canvas")).getAttribute("data-still")).toBe("true");
   });

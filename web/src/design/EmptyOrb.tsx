@@ -26,9 +26,9 @@ export const prefersReducedMotion = () => typeof window !== "undefined" && typeo
 type Props = {
   /** idle; thinking only while devdeck is really working; ok (in the success colour) for good-news empties. */
   state?: OrbState;
-  /** hero: about 440px, Workspaces with none yet. launcher: about 316px, Neon's Home. mini: about 120px, other empty pages. */
+  /** hero: about 440px, Workspaces with none yet. launcher: about 368px, Home. mini: about 120px, other empty pages. */
   size?: "hero" | "launcher" | "mini";
-  /** What shows instead of the orb: in Flat, with Effects off, or without WebGL. */
+  /** What shows instead of the orb: with Effects off, or without WebGL. */
   fallback: ReactNode;
   /** For tests: skip the WebGL check. */
   webgl?: boolean;
@@ -36,19 +36,18 @@ type Props = {
 
 /**
  * The orb on empty pages (dev-plans/2026-11-21-portfolio-look §6.3), or the page's usual art.
- * The orb shows only with the Neon style and Effects above off, where WebGL works. Reduce motion
+ * The orb shows with Effects above off, where WebGL works. Reduce motion
  * or Reduced effects draw one still frame; a hidden window stops it. Decorative: the page's text
  * carries the message.
  */
 export function EmptyOrb({ state = "idle", size = "hero", fallback, webgl }: Readonly<Props>) {
-  const look = useUi((s) => s.look);
-  const effects = useUi((s) => effectiveEffects(s.look, s.effects));
+  const effects = useUi((s) => effectiveEffects(s.effects));
   const reduceMotion = useUi((s) => s.reduceMotion);
 
-  if (look !== "neon" || effects === "off" || !(webgl ?? supportsWebGL())) return <>{fallback}</>;
+  if (effects === "off" || !(webgl ?? supportsWebGL())) return <>{fallback}</>;
 
   const still = reduceMotion || effects === "reduced" || prefersReducedMotion();
-  const box = { hero: "size-[min(440px,80vw)]", launcher: "size-[min(316px,70vw)]", mini: "size-[120px]" }[size];
+  const box = { hero: "size-[min(440px,80vw)]", launcher: "size-[min(368px,70vw)]", mini: "size-[120px]" }[size];
   return (
     <div data-ui="orb" data-size={size} data-state={state} aria-hidden className={cn("relative shrink-0", box)}>
       <Suspense fallback={null}>

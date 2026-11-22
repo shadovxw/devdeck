@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 
 // The editor takes its colours from the Paper tokens, so every theme (light, dark, a custom one) reaches it
-// without a second palette. Flat: no borders or shadows, tight radii.
+// without a second palette. No borders or shadows, tight radii.
 
 const mono = "var(--font-mono)";
 

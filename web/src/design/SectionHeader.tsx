@@ -16,15 +16,14 @@ type Props = {
 };
 
 /**
- * The Neon style's section header (dev-plans/2026-11-21-portfolio-look, decision 5):
- * `[01] $ UP  STACKS ─── TOTAL_STACKS: 04`, then an optional big heading. Flat has no such
- * header, so it isn't drawn there at all (look-neon), and Flat pages stay as they are.
+ * The section header (dev-plans/2026-11-21-portfolio-look, decision 5):
+ * `[01] $ UP  STACKS ─── TOTAL_STACKS: 04`, then an optional big heading.
  */
 export function SectionHeader({ index, verb, name, count, title, aside }: Readonly<Props>) {
   const words = title?.trim().split(/\s+/) ?? [];
   const last = words.pop();
   return (
-    <div data-ui="section-header" className="look-neon">
+    <div data-ui="section-header">
       <div data-ui="section-line">
         <span data-ui="section-index">{index}</span>
         <span data-ui="section-verb">$ {verb}</span>
