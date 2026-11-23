@@ -713,7 +713,9 @@ func TestComposeOnlyStackRuns(t *testing.T) {
 }
 
 func TestLogSinkGetsDefaultsEnvAndLines(t *testing.T) {
-	s, _ := newSup(t)
+	// The fake Compose goes in through the options: set after New, the real Docker lookups for
+	// names and ports would stay in place and ask the machine's Docker.
+	s, _ := newSup(t, func(o *Options) { o.Compose = (&recorder{}).run })
 	secret := strings.Repeat("pw12", 4)
 
 	loud := fakeService(t, "loud", "-say", "hello")
@@ -722,7 +724,6 @@ func TestLogSinkGetsDefaultsEnvAndLines(t *testing.T) {
 	quiet := fakeService(t, "quiet")
 	spec := stackOf(loud, quiet)
 	spec.Compose = []ComposeSpec{{ID: "compose-kc", Dir: t.TempDir(), File: "c.yml", Logs: map[string]logs.Rule{"keycloak": {Store: logs.StoreOff}}}}
-	s.o.Compose = (&recorder{}).run
 
 	start(t, s, spec)
 	waitFor(t, s, "ready", func(st RunStatus) bool { return st.State == RunRunning })
