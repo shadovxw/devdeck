@@ -76,6 +76,14 @@ func plansRepo(t *testing.T) (gitx.Git, Env, string) {
 	return g, env, wt
 }
 
+// sameFolder says whether two paths are the same folder. Git prints a worktree's long path, while
+// t.TempDir can hold the short 8.3 form of it (RUNNER~1) on Windows, so the text differs.
+func sameFolder(a, b string) bool {
+	x, errA := os.Stat(a)
+	y, errB := os.Stat(b)
+	return errA == nil && errB == nil && os.SameFile(x, y)
+}
+
 func TestLoadPlans(t *testing.T) {
 	g, env, wt := plansRepo(t)
 	plans, err := LoadPlans(context.Background(), g, env)
@@ -90,7 +98,7 @@ func TestLoadPlans(t *testing.T) {
 		t.Fatalf("plans = %v: branches with a feature.yaml at the root, by name, and not plan/notes", names)
 	}
 	blob, broken, other := plans[0], plans[1], plans[2]
-	if blob.Branch != "plan/blob" || blob.ReadOnly || filepath.Clean(blob.Worktree) != filepath.Clean(wt) || blob.File == nil {
+	if blob.Branch != "plan/blob" || blob.ReadOnly || !sameFolder(blob.Worktree, wt) || blob.File == nil {
 		t.Errorf("blob = %+v (checked out, so it can be edited)", blob)
 	}
 	if !other.ReadOnly || other.Worktree != "" || other.File == nil || other.File.PRs[0].Title != "First" && other.File.PRs[0].Title != "Other first" {
