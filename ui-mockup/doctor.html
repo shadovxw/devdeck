@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Doctor · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Doctor (machine setup)</h1>
+<p>Checks this PC has what the current workspace needs. Each row comes from a plugin's <code>needs</code> list. Also used on a fresh PC to set everything up.</p>
+<p>[Re-check] [Install all missing] &nbsp; Installer: [winget ▾ / scoop / mise]</p>
+<table>
+  <tr><th>Check</th><th>Needed by</th><th>Found</th><th>Status</th><th></th></tr>
+  <tr><td>Docker Desktop running</td><td>docker, sonarqube, semgrep</td><td>27.x</td><td>ok</td><td></td></tr>
+  <tr><td>go ≥ 1.22</td><td>golang</td><td>1.24</td><td>ok</td><td></td></tr>
+  <tr><td>node ≥ 20</td><td>node</td><td>22</td><td>ok</td><td></td></tr>
+  <tr><td>git</td><td>git</td><td>2.47</td><td>ok</td><td></td></tr>
+  <tr><td>gh</td><td>github</td><td></td><td>missing</td><td>[install]</td></tr>
+  <tr><td>tilt</td><td>tilt</td><td></td><td>missing</td><td>[install]</td></tr>
+  <tr><td>gitleaks / trivy / regctl / golangci-lint</td><td>security, build</td><td></td><td>missing</td><td>[install]</td></tr>
+  <tr><td>Ports 5432, 8080-8090, 5173 free</td><td>stack full</td><td></td><td>ok</td><td></td></tr>
+  <tr><td>.env.local in each service</td><td>stack full</td><td>14 / 16</td><td>warn</td><td>[create from .env.example]</td></tr>
+  <tr><td><b>Global git identity</b></td><td>git</td><td>Vrishank Warrier &lt;vrishank.warrier@citiuscloud.com&gt;</td><td>ok</td><td></td></tr>
+  <tr><td>VS Code + recommended extensions</td><td>vscode</td><td>VS Code ok, 3 extensions missing</td><td>warn</td><td>[install]</td></tr>
+</table>
+
+<h3>Set up a new PC</h3>
+<ol>
+  <li>Download devdeck (installer / single .exe)</li>
+  <li>Doctor → Install all missing</li>
+  <li>Connections → sign in to GitHub accounts</li>
+  <li>Workspaces → Clone workspace "infrabot"</li>
+  <li>Stacks → Start "full"</li>
+</ol>
+</main></body></html>

@@ -1,0 +1,13 @@
+id: git
+name: Git
+category: vcs
+icon: git-branch
+description: "Local git repositories: status, branches, commits and pushes."
+needs:
+  - binary: git
+    min_version: "2.30"
+    install:
+      - method: winget
+        command: winget install --id Git.Git -e
+      - method: manual
+        command: https://git-scm.com/downloads

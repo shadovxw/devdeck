@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Connections · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Connections &amp; Accounts</h1>
+<p>Credentials for outside systems. Like infrabot providers: a plugin defines the connection type, and you create one or more connections of that type. Secrets are kept in Windows Credential Manager, never in the YAML.</p>
+<p>[+ Add connection ▾]</p>
+<table>
+  <tr><th>Name</th><th>Type</th><th>Login / URL</th><th>Commits as</th><th>Status</th><th></th></tr>
+  <tr><td><a href="connection.html">github-work</a></td><td>github</td><td>&lt;your work user&gt;</td><td>Vrishank Warrier &lt;vrishank.warrier@citiuscloud.com&gt;</td><td>ok</td><td>[test] [edit]</td></tr>
+  <tr><td>github-group</td><td>github</td><td>&lt;group user&gt; · org citiuscloud-services</td><td>&lt;name&gt; &lt;email&gt;</td><td>ok</td><td>[test] [edit]</td></tr>
+  <tr><td>dockerhub-citiuscloud</td><td>registry</td><td>docker.io / citiuscloud</td><td></td><td>ok</td><td>[test] [edit]</td></tr>
+  <tr><td>postgres-local</td><td>postgres</td><td>localhost:5432 · user postgres</td><td></td><td>ok</td><td>[test] [edit]</td></tr>
+  <tr><td>postgres-uat</td><td>postgres</td><td>port-forward :25432 · read-only role</td><td></td><td>tunnel off</td><td>[test] [edit]</td></tr>
+  <tr><td>sonarqube-local</td><td>sonarqube</td><td>http://localhost:9000</td><td></td><td>server stopped</td><td>[test] [edit]</td></tr>
+</table>
+
+<h3>Account rules (which repo uses which GitHub account)</h3>
+<table>
+  <tr><th>#</th><th>If remote matches</th><th>Use</th></tr>
+  <tr><td>1</td><td>github.com/citiuscloud-services/*</td><td>github-group</td></tr>
+  <tr><td>2</td><td>github.com/&lt;your-work-user&gt;/*</td><td>github-work</td></tr>
+  <tr><td>3</td><td>anything else</td><td>ask me</td></tr>
+</table>
+<p>[+ Add rule] &nbsp; Per-repo override is on the repo page.</p>
+<p class="small">How it works: devdeck sets a per-repo git credential + user.name/user.email (or uses <code>gh auth switch</code>), so plain git, VS Code's Source Control and devdeck's own buttons all push as the right account.</p>
+</main></body></html>

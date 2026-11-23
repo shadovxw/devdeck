@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Notifications · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Notifications</h1>
+<p>Get told when something needs you: a service won't come up, a Docker build finishes or fails, a flow fails. Every channel sends over <b>HTTPS (port 443)</b>, so it works on the office network where SMTP (ports 25/465/587) is blocked.</p>
+
+<h3>Channels</h3>
+<p>[+ Add channel ▾] <span class="small">Each channel is a connection; secrets (tokens, API keys) live in Windows Credential Manager.</span></p>
+<table>
+  <tr><th>Channel</th><th>Type</th><th>Goes to</th><th>How it sends</th><th>Status</th><th></th></tr>
+  <tr><td>desktop</td><td>Windows toast</td><td>this PC</td><td>built in, no internet needed</td><td>on</td><td>[send test]</td></tr>
+  <tr><td>phone</td><td>ntfy</td><td>ntfy app on your phone, topic <code>devdeck-7f3k9q…</code></td><td>HTTPS POST to ntfy.sh (or your own ntfy server)</td><td>on</td><td>[send test] [edit]</td></tr>
+  <tr><td>email</td><td>Email via Resend API</td><td>vrishank.warrier@citiuscloud.com</td><td>HTTPS API, no SMTP</td><td>on</td><td>[send test] [edit]</td></tr>
+  <tr><td>telegram</td><td>Telegram bot</td><td>your chat with @devdeck_bot</td><td>HTTPS Bot API</td><td>off</td><td>[set up]</td></tr>
+  <tr><td>teams</td><td>Microsoft Teams</td><td>a channel, via a Workflows webhook URL</td><td>HTTPS webhook</td><td>off</td><td>[set up]</td></tr>
+  <tr><td>webhook</td><td>Generic webhook</td><td>any URL (Slack, Discord, your own)</td><td>HTTPS POST JSON</td><td>off</td><td>[set up]</td></tr>
+</table>
+
+<div class="box">
+  <b>Email without SMTP: options</b>
+  <table>
+    <tr><th>Option</th><th>Free tier</th><th>Setup</th></tr>
+    <tr><td><b>Resend</b> (default)</td><td>3,000/month, 100/day</td><td>sign up, verify a sender domain or use their test sender, paste API key</td></tr>
+    <tr><td>Brevo</td><td>300/day</td><td>sign up, verify sender, paste API key</td></tr>
+    <tr><td>Gmail API</td><td>free</td><td>sign in with Google once (OAuth); sends from your own Gmail over HTTPS</td></tr>
+    <tr><td>Microsoft Graph (Outlook)</td><td>free with M365</td><td>needs your IT to allow the app; sends from your work mailbox</td></tr>
+  </table>
+  <span class="small">For "service is down" alerts, the phone push (ntfy/Telegram) is faster than email. Email suits failures you act on later, and the daily digest.</span>
+</div>
+
+<h3>Rules (event → channels)</h3>
+<p>[+ Add rule]</p>
+<table>
+  <tr><th>When</th><th>Filter</th><th>Send to</th><th>Behaviour</th></tr>
+  <tr><td>Service failed to start (after retries)</td><td>any stack</td><td>desktop, phone</td><td>immediately</td></tr>
+  <tr><td>Service crashed</td><td>any stack</td><td>desktop, phone</td><td>once per service per 10 min; "still down" every 30 min</td></tr>
+  <tr><td>Service recovered</td><td>after a crash alert</td><td>desktop, phone</td><td>immediately</td></tr>
+  <tr><td>Stack is up (all services ready)</td><td></td><td>desktop</td><td>immediately</td></tr>
+  <tr><td>Docker build succeeded</td><td>any repo</td><td>desktop, phone</td><td>includes image:tag and duration</td></tr>
+  <tr><td>Docker build / push failed</td><td>any repo</td><td>desktop, phone, email</td><td>includes the failing step</td></tr>
+  <tr><td>Flow run failed</td><td>pre-pr-check, build-and-push</td><td>desktop, email</td><td>includes the failed step</td></tr>
+  <tr><td>Migration failed</td><td>any DB</td><td>desktop, phone</td><td>immediately</td></tr>
+  <tr><td>New critical finding</td><td>severity = critical</td><td>email</td><td>in the daily digest</td></tr>
+  <tr><td>Disk almost full</td><td>&lt; 10% free</td><td>desktop, phone</td><td>once a day</td></tr>
+  <tr><td>Daily digest</td><td>18:00, weekdays</td><td>email</td><td>today's builds, failures, findings</td></tr>
+</table>
+
+<h3>General</h3>
+<p>Quiet hours: [22:00] – [08:00] (phone and email held, desktop still shows) &nbsp; ☑ Batch emails into one message per 15 min<br>
+☑ Never include log lines, SQL, tokens or file contents in messages, only names, status and a "open in devdeck" link<br>
+☑ Queue and retry if the internet is down</p>
+
+<h3>Example message (phone)</h3>
+<pre>🔴 devdeck · infrabot-catalog-service is down
+Failed to start 3 times: "failed to connect to postgres"
+Stack: full · 10:42 · open in devdeck</pre>
+
+<h3>Delivery log</h3>
+<table>
+  <tr><th>Time</th><th>Event</th><th>Channel</th><th>Result</th></tr>
+  <tr><td>10:42</td><td>catalog-service failed to start</td><td>phone</td><td>delivered</td></tr>
+  <tr><td>10:42</td><td>catalog-service failed to start</td><td>desktop</td><td>shown</td></tr>
+  <tr><td>09:15</td><td>build infrabot-ticket-service:1.0.57 succeeded</td><td>phone</td><td>delivered</td></tr>
+  <tr><td>09:15</td><td>build infrabot-ticket-service:1.0.57 succeeded</td><td>email</td><td>queued (batch 09:30)</td></tr>
+</table>
+<p class="small">devdeck sends notifications while it's running on this PC. If the PC sleeps or devdeck is closed, nothing is sent.</p>
+</main></body></html>

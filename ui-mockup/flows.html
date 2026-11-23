@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Flows · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Flows</h1>
+<p>A flow is a pipeline made of plugin steps, the developer version of an infrabot workflow. Stored as <code>flows/*.yaml</code>.</p>
+<p>[+ New flow] [Import from template ▾]</p>
+<table>
+  <tr><th>Flow</th><th>Trigger</th><th>Steps</th><th>Last run</th><th></th></tr>
+  <tr><td><a href="flow.html">pre-pr-check</a></td><td>manual · work item reaches "Checks"</td><td>lint → test → gitleaks → trivy → sonar → gate → claude review</td><td><a href="run.html">#41 failed</a></td><td>[Run ▾]</td></tr>
+  <tr><td>build-and-push</td><td>manual</td><td>next tag → buildx → trivy image → push → git tag</td><td>#12 passed</td><td>[Run ▾]</td></tr>
+  <tr><td>release</td><td>manual</td><td>pre-pr-check → PR summary → create PR → approval → merge</td><td>never</td><td>[Run ▾]</td></tr>
+  <tr><td>nightly-deps</td><td>schedule 02:00</td><td>git pull all → govulncheck → npm audit → notify</td><td>#7 passed</td><td>[Run ▾]</td></tr>
+</table>
+</main></body></html>

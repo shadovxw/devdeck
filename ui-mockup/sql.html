@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><title>SQL Console · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>SQL Console</h1>
+<p>Server: [postgres-local ▾] Database: [infrabot_ticket_db ▾] &nbsp; Mode: (•) SQL editor ( ) psql terminal &nbsp; <span class="small">env badge: LOCAL</span></p>
+
+<div class="box">
+<pre>-- Ctrl+Enter runs the statement under the cursor
+SELECT we.id, t.ticket_number, we.status, we.current_node_code, we.created_at
+FROM workflow_execution we
+JOIN tickets t ON t.id = we.ticket_id
+WHERE we.status = 'failed'
+ORDER BY we.created_at DESC
+LIMIT 20;</pre>
+[Run ▶] [Explain] [Format] [Save as script…] [Ask Claude to write a query…]
+</div>
+
+<h3>Result (2 rows · 4 ms)</h3>
+<table>
+  <tr><th>id</th><th>ticket_number</th><th>status</th><th>current_node_code</th><th>created_at</th></tr>
+  <tr><td>7c1…</td><td>TCK-1204</td><td>failed</td><td>EXE_02</td><td>10:41</td></tr>
+  <tr><td>3ad…</td><td>TCK-1188</td><td>failed</td><td>EXE_01</td><td>09:02</td></tr>
+</table>
+<p>[Export CSV] [Export JSON] [Copy as markdown for Claude]</p>
+
+<h3>Safety</h3>
+<ul class="small">
+  <li>UAT/prod connections are read-only (separate DB role, not just a UI check).</li>
+  <li>UPDATE/DELETE without WHERE asks for confirmation on every environment.</li>
+  <li>On dev, write statements run inside a transaction with [Commit] / [Rollback] buttons.</li>
+</ul>
+
+<h3>History</h3>
+<table>
+  <tr><th>When</th><th>Database</th><th>Statement</th><th>Rows</th></tr>
+  <tr><td>10:44</td><td>infrabot_ticket_db</td><td>SELECT we.id, t.ticket_number … failed</td><td>2</td></tr>
+  <tr><td>10:12</td><td>infrabot_catalog_db</td><td>SELECT * FROM playbook WHERE …</td><td>14</td></tr>
+</table>
+</main></body></html>

@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Saved Scripts · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Saved Scripts</h1>
+<p>The SQL you run again and again, saved once with parameters. Stored as plain <code>.sql</code> files in the workspace folder (<code>workspaces/infrabot/sql/</code>), so they're in git, editable in VS Code, and usable as a step in a <a href="flows.html">flow</a>.</p>
+<p>[+ New script] &nbsp; Filter: [database ▾] [tag ▾]</p>
+
+<table>
+  <tr><th>Script</th><th>Database</th><th>Params</th><th>Type</th><th>Allowed on</th><th></th></tr>
+  <tr><td>failed-executions</td><td>ticket</td><td>since (default 1 day)</td><td>read</td><td>all</td><td>[Run] [Edit]</td></tr>
+  <tr><td>stuck-automation-jobs</td><td>automation</td><td>minutes (default 30)</td><td>read</td><td>all</td><td>[Run] [Edit]</td></tr>
+  <tr><td>reset-workflow-execution</td><td>ticket</td><td>execution_id</td><td>write</td><td>local, dev</td><td>[Run] [Edit]</td></tr>
+  <tr><td>playbooks-for-provider</td><td>catalog</td><td>provider_code</td><td>read</td><td>all</td><td>[Run] [Edit]</td></tr>
+  <tr><td>seed-test-tenant</td><td>auth + catalog</td><td>tenant_name</td><td>write</td><td>local</td><td>[Run] [Edit]</td></tr>
+</table>
+
+<h3>Script file format</h3>
+<pre>-- name: reset-workflow-execution
+-- db: infrabot_ticket_db
+-- type: write
+-- allowed_envs: [local, dev]
+-- param: execution_id uuid "Execution to reset"
+-- description: put a failed execution back to its last node so it can be retried
+UPDATE workflow_execution
+SET status = 'running'
+WHERE id = :execution_id AND status = 'failed';</pre>
+
+<h3>Run: reset-workflow-execution</h3>
+<div class="box">
+  Server: [postgres-local ▾] &nbsp; execution_id: [__________________] <br>
+  [Preview SQL] [Run in transaction] → result: 1 row updated [Commit] [Rollback]
+</div>
+</main></body></html>

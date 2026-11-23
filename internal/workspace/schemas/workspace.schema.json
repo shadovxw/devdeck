@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devdeck.local/schemas/workspace.schema.json",
+  "title": "devdeck workspace",
+  "description": "workspace.yaml: the folder of repositories devdeck works on, and who owns each one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "name", "root"],
+  "properties": {
+    "version": { "const": 1, "description": "Schema version. Always 1 for now." },
+    "name": { "$ref": "#/$defs/id", "description": "Short name of the workspace: lowercase letters, digits and dashes." },
+    "description": { "type": "string", "maxLength": 200 },
+    "root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The folder that contains the repositories. Absolute, starting with ~, or relative to this file."
+    },
+    "default_connection": { "type": "string", "description": "Id of the connection used by repos that have no rule or override." },
+    "repos": { "type": "array", "items": { "$ref": "#/$defs/repo" } },
+    "connections": { "type": "array", "items": { "$ref": "#/$defs/connection" } },
+    "account_rules": { "type": "array", "items": { "$ref": "#/$defs/accountRule" } },
+    "hosts": { "type": "array", "items": { "$ref": "#/$defs/host" }, "description": "Remote machines that run devdeck's agent." },
+    "plans_repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "description": "The private git repository that holds the plans: one branch plan/<name> per feature.",
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "description": "The repository's folder. Absolute, starting with ~, or relative to this file." },
+        "worktrees": { "type": "string", "minLength": 1, "description": "Where each plan branch is checked out as its own worktree (same kinds of path)." }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,39}$"
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "path": { "type": "string", "minLength": 1, "description": "Folder of the repository, relative to the workspace root." },
+        "type": { "type": "string", "enum": ["go", "node", "python", "docker", "other"] },
+        "remote": { "type": "string", "description": "Where it lives, as host/owner/repo (no credentials)." },
+        "connection": { "type": "string", "description": "Overrides the account rules for this repo." },
+        "default_branch": { "type": "string" },
+        "local_only": {
+          "type": "boolean",
+          "description": "This folder is not meant to be a git repository (for example infrastructure that only runs locally): devdeck stops warning that it has no .git, and has no remote to check."
+        },
+        "images": {
+          "type": "array",
+          "description": "Docker images built from this repository.",
+          "items": { "$ref": "#/$defs/image" }
+        },
+        "layers": {
+          "type": "array",
+          "description": "The parts of this repository a change can touch (db, model, handlers...). A feature's steps name them.",
+          "items": { "$ref": "#/$defs/layer" }
+        }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "maxLength": 60, "description": "What the page shows (the id when empty)." },
+        "paths": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Globs, relative to the repository, of the files in this layer." }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "repository"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "repository": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*(/[a-z0-9]+([._-][a-z0-9]+)*)+$",
+          "description": "The Docker Hub repository, namespace/name, with no tag: for example acme/demo-api."
+        },
+        "dockerfile": { "type": "string", "minLength": 1, "description": "Relative to the repository. Default: Dockerfile." },
+        "context": { "type": "string", "minLength": 1, "description": "Build context, relative to the repository. Default: ." },
+        "platforms": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["linux/amd64", "linux/arm64", "linux/arm/v7"] },
+          "description": "What to build for, for example [linux/amd64]. Default: none, so docker builds for the platform of this machine."
+        },
+        "account": { "$ref": "#/$defs/id", "description": "A Docker account on this machine to push with, instead of the one that owns the namespace." },
+        "secrets": {
+          "type": "array",
+          "description": "Build secrets the Dockerfile asks for. Only where each comes from is written here, never its value.",
+          "items": { "$ref": "#/$defs/imageSecret" }
+        }
+      }
+    },
+    "imageSecret": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$",
+          "description": "What the Dockerfile asks for: RUN --mount=type=secret,id=<id>."
+        },
+        "from": {
+          "enum": ["github", "keyring"],
+          "description": "github: the token of the GitHub account devdeck picks for this repo. keyring: a named build secret saved in your OS keychain."
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+          "description": "For from: keyring, the name it was saved under (the id when left out)."
+        }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "$ref": "#/$defs/id", "description": "A plugin's connection type, such as github." },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "email"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "email": { "type": "string", "minLength": 3 }
+          },
+          "description": "The commit identity used with this connection."
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Non-secret settings such as a host name. Secrets never go in YAML; they live in the OS keychain."
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "maxLength": 80 },
+        "type": { "type": "string", "enum": ["aws-ssm"], "description": "How devdeck reaches it: aws-ssm opens an SSM port-forwarding session with the AWS CLI." },
+        "aws": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["instance", "region"],
+          "properties": {
+            "instance": { "type": "string", "pattern": "^(i|mi)-[0-9a-f]{8,17}$", "description": "The instance id, such as i-0123456789abcdef0." },
+            "region": { "type": "string", "pattern": "^[a-z]{2}(-[a-z]+)+-[0-9]$", "description": "Such as ap-south-1." },
+            "profile": { "type": "string", "pattern": "^[A-Za-z0-9_.@+=-]{1,64}$", "description": "The AWS CLI profile. Leave out for the default one." }
+          }
+        },
+        "agent_port": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "The agent's port on the host (7071 if left out)." }
+      }
+    },
+    "accountRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match", "connection"],
+      "properties": {
+        "match": { "type": "string", "minLength": 1, "description": "A remote pattern such as github.com/acme/*." },
+        "connection": { "type": "string" }
+      }
+    }
+  }
+}

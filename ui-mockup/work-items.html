@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Work Items · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Work Items</h1>
+<p>One work item = one feature or bug fix = one <code>dev-plans/&lt;date&gt;-&lt;name&gt;/</code> folder that Claude keeps up to date. It can touch several repos; devdeck creates the same branch in each.</p>
+<p>[+ New work item] &nbsp; Filter: [open ▾] [all repos ▾]</p>
+<table>
+  <tr><th>Name</th><th>Type</th><th>Repos</th><th>Branch</th><th>Plan</th><th>Code</th><th>Checks</th><th>Review</th><th>PR</th></tr>
+  <tr><td><a href="work-item.html">ocp-vm-provision</a></td><td>feature</td><td>frontend, catalog, automation-scripts</td><td>feature/ocp-vm-provision</td><td>✔</td><td>✔</td><td>✖ 2</td><td>…</td><td>…</td></tr>
+  <tr><td>fix-ticket-retry</td><td>bug</td><td>ticket-service</td><td>fix/ticket-retry</td><td>✔</td><td>in progress</td><td>…</td><td>…</td><td>…</td></tr>
+  <tr><td>playbook-popup</td><td>feature</td><td>frontend, catalog</td><td>feature/playbook-popup</td><td>✔</td><td>✔</td><td>✔</td><td>✔</td><td>#212 open</td></tr>
+</table>
+
+<h3>New work item</h3>
+<div class="box">
+  Name: [__________] Type: [feature ▾]<br>
+  Repos: ☑ infrabot-frontend ☐ infrabot-ticket-service ☑ infrabot-catalog-service …<br>
+  Base branch: [dev] → new branch: [feature/&lt;name&gt;]<br>
+  What's it about (goes into plan.md): [____________________]<br>
+  [Create: branches + dev-plans folder + open in VS Code]
+</div>
+</main></body></html>

@@ -1,0 +1,92 @@
+import { Compass, House } from "lucide-react";
+import type { ReactElement } from "react";
+import type { RouteObject } from "react-router";
+
+import { EmptyState } from "../design/EmptyState";
+import { PageHeader } from "../design/PageHeader";
+import { ClaudePage } from "../pages/ClaudePage";
+import { DockerHubPage } from "../pages/DockerHubPage";
+import { ImagesPage } from "../pages/ImagesPage";
+import { ConnectionsPage } from "../pages/ConnectionsPage";
+import { GitHubConnectionPage } from "../pages/GitHubConnectionPage";
+import { DoctorPage } from "../pages/DoctorPage";
+import { DocsPage } from "../pages/DocsPage";
+import { FeaturePage } from "../pages/features/FeaturePage";
+import { FeaturesPage } from "../pages/features/FeaturesPage";
+import { HomePage } from "../pages/HomePage";
+import { OverviewPage } from "../pages/OverviewPage";
+import { LogsPage } from "../pages/LogsPage";
+import { Placeholder } from "../pages/Placeholder";
+import { PluginsPage } from "../pages/PluginsPage";
+import { HostsPage } from "../pages/HostsPage";
+import { ReposPage } from "../pages/ReposPage";
+import { SettingsPage } from "../pages/SettingsPage";
+import { StacksPage } from "../pages/StacksPage";
+import { WorkspacesPage } from "../pages/WorkspacesPage";
+import { WorkspaceEditPage } from "../pages/workspace-edit/WorkspaceEditPage";
+import { ProjectPage } from "../pages/ProjectPage";
+import { FatalError, PageError } from "./ErrorPages";
+import { NAV_ITEMS } from "./nav";
+import { Shell } from "./Shell";
+
+// Pages that are built. Every other nav entry gets a placeholder until its phase.
+const built: Record<string, ReactElement> = {
+  "/plugins": <PluginsPage />,
+  "/workspaces": <WorkspacesPage />,
+  "/": <HomePage />,
+  "/overview": <OverviewPage />,
+  "/stacks": <StacksPage />,
+  "/doctor": <DoctorPage />,
+  "/logs": <LogsPage />,
+  "/connections": <ConnectionsPage />,
+  "/connections/github": <GitHubConnectionPage />,
+  "/repos": <ReposPage />,
+  "/hosts": <HostsPage />,
+  "/claude": <ClaudePage />,
+  "/images": <ImagesPage />,
+  "/connections/docker": <DockerHubPage />,
+  "/docs": <DocsPage />,
+  "/settings": <SettingsPage />,
+  "/features": <FeaturesPage />,
+};
+
+function NotFound() {
+  return (
+    <>
+      <PageHeader title="Not found" group="Workspace" />
+      <EmptyState
+        icon={Compass}
+        empty={{
+          headline: "This page doesn’t exist",
+          text: "The address may be mistyped, or the page has moved.",
+          cta: { label: "Back to Home", icon: House, to: "/" },
+        }}
+      />
+    </>
+  );
+}
+
+export const routes: RouteObject[] = [
+  {
+    element: <Shell />,
+    // The shell itself crashed: no sidebar to show, so a full-window page.
+    errorElement: <FatalError />,
+    children: [
+      {
+        // A page crashed: the error shows inside the shell, so the sidebar still works.
+        errorElement: <PageError />,
+        children: [
+          ...NAV_ITEMS.map((item) => ({
+            path: item.path,
+            element: built[item.path] ?? <Placeholder item={item} />,
+          })),
+          { path: "/workspaces/:id", element: <ProjectPage /> },
+          { path: "/workspaces/:id/edit", element: <WorkspaceEditPage /> },
+          { path: "/features/:workspace/:name", element: <FeaturePage /> },
+          { path: "/docs/:id", element: <DocsPage /> },
+          { path: "*", element: <NotFound /> },
+        ],
+      },
+    ],
+  },
+];

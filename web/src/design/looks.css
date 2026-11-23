@@ -1,0 +1,280 @@
+/* The look of the app (type, shape, small details), separate from the theme (colours). devdeck
+   has one style, Neon (dev-plans/2026-11-21-portfolio-look/plan.md §8d): these rules build it on
+   top of the plain tokens in tokens.css.
+
+   Every colour below comes from a theme token, directly or mixed with color-mix(), so it works
+   with any theme, light or dark. Glow is the only shadow. */
+
+/* html:root, one step more specific than tokens.css's :root, so these win whatever order the
+   stylesheets load in. */
+html:root {
+  --font-ui: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-code: "JetBrains Mono Variable", ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  /* Neon tokens, all from the theme's colours. */
+  --neon-glow: 0 0 10px color-mix(in srgb, var(--primary) 55%, transparent);
+  --neon-glow-strong: 0 0 22px color-mix(in srgb, var(--primary) 65%, transparent);
+  --neon-gradient: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 40%, var(--critical)), var(--critical));
+  --neon-grid: color-mix(in srgb, var(--ink) 6%, transparent);
+  /* Panels: the theme's card colour, set apart from the page by shade alone. */
+  --neon-panel: var(--surface-float);
+  /* Floating layers (menus, sheets, tooltips): the panel colour, see-through, over a blur. */
+  --neon-glass: color-mix(in srgb, var(--surface-float) 82%, transparent);
+  /* The second accent: only for "live" and "connected". */
+  --neon-live: var(--link);
+  /* Lines that are allowed: outline buttons and tags. */
+  --neon-line: color-mix(in srgb, var(--ink) 25%, transparent);
+  --neon-line-soft: color-mix(in srgb, var(--ink) 30%, transparent);
+
+  /* The tokens below are also set by the theme, which writes them inline on <html>; !important is how
+     the style wins over that for these few. */
+  /* Quiet controls (workspace switcher, segmented toggles) are a faint ink fill, no border. */
+  --fill: color-mix(in srgb, var(--ink) 7%, transparent) !important;
+  --fill-hover: color-mix(in srgb, var(--ink) 11%, transparent) !important;
+  --fill-press: color-mix(in srgb, var(--ink) 15%, transparent) !important;
+
+  /* No orange: "restarting" uses the warning colour, so green, yellow and red only mean status. */
+  --serious: var(--warning) !important;
+
+  /* The sidebar sits on the page; the active row is a faint ink fill. */
+  --sidebar: var(--bg) !important;
+  --sidebar-accent: color-mix(in srgb, var(--ink) 6%, transparent) !important;
+  --sidebar-accent-foreground: var(--ink) !important;
+
+  /* Floating layers glow faintly instead of casting a shadow. */
+  --shadow-float: 0 0 24px color-mix(in srgb, var(--primary) 16%, transparent) !important;
+
+  /* The empty-page illustration takes the theme's surfaces instead of Paper's white tiles. */
+  --tile-top: var(--fill-hover);
+  --tile-side: var(--fill);
+  --tile-line: color-mix(in srgb, var(--primary) 45%, transparent);
+  --tile-icon: var(--ink);
+  --tile-shadow: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* --- Ground: a faint dot grid behind the content --------------------------------- */
+:root .page-area {
+  background-image: radial-gradient(circle at 1px 1px, var(--neon-grid) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* --- Top bar: on the page, taller, quiet controls --------------------------------- */
+:root [data-ui="topbar"] {
+  height: 72px;
+  background: var(--bg);
+}
+
+:root [data-ui="quiet"] {
+  height: 44px;
+  background: var(--fill);
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:root [data-ui="quiet"]:hover {
+  background: var(--fill-hover);
+}
+
+/* --- Type ------------------------------------------------------------------------ */
+:root [data-ui="page-title"] {
+  font-weight: 900;
+  letter-spacing: -0.045em;
+}
+
+/* The full stop in the accent colour. */
+:root [data-ui="page-title"]::after {
+  content: ".";
+  color: var(--primary);
+}
+
+:root main :is(h2, h3) {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* Breadcrumb as a terminal path: mono, upper case, wide. */
+:root [data-ui="crumbs"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+:root [data-ui="crumbs"] [aria-hidden] {
+  color: var(--primary);
+}
+
+/* --- Sidebar ---------------------------------------------------------------------- */
+/* Group labels: "// OVERVIEW", muted, wide. */
+:root [data-ui="nav-group"] {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+
+:root [data-ui="nav-group"]::before {
+  content: "//";
+  margin-inline-end: 0.5em;
+}
+
+/* The wordmark: "dd." with the dot in the accent. The logo shows only when the sidebar is
+   folded to icons. */
+:root [data-ui="wordmark-neon"] {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+:root [data-ui="wordmark-neon"] > span {
+  color: var(--primary);
+}
+
+:root [data-slot="sidebar"][data-state="expanded"] [data-ui="logo"] {
+  display: none;
+}
+
+/* Rows: 36px, 14px text, a diamond instead of the icon (icons stay when folded to icons). */
+:root [data-slot="sidebar"][data-state="expanded"] :not([data-ui="icon-row"], [data-ui="switcher"]) > li > :is([data-sidebar="menu-button"], [data-sidebar="menu-sub-button"]) {
+  height: 36px;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sidebar-foreground);
+}
+
+:root [data-slot="sidebar"][data-state="expanded"] :not([data-ui="icon-row"], [data-ui="switcher"]) > li > [data-sidebar="menu-button"] > svg {
+  display: none;
+}
+
+:root [data-slot="sidebar"][data-state="expanded"] :not([data-ui="icon-row"], [data-ui="switcher"]) > li > :is([data-sidebar="menu-button"], [data-sidebar="menu-sub-button"])::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-inline: 2px;
+  border: 1px solid var(--neon-line-soft);
+  transform: rotate(45deg);
+}
+
+:root [data-slot="sidebar"] :is([data-sidebar="menu-button"], [data-sidebar="menu-sub-button"])[data-active="true"] {
+  color: var(--ink);
+}
+
+/* The current page's filled diamond rides on the active highlight (AppSidebar's ActivePill), which
+   is one shared element that slides from row to row, so the diamond slides with it. It sits exactly
+   over the row's hollow diamond: the row's 8px padding plus the hollow one's 2px margin. */
+:root [data-slot="sidebar"][data-state="expanded"] :not([data-ui="icon-row"], [data-ui="switcher"]) > li [data-ui="nav-pill"]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 10px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  background: var(--primary);
+  box-shadow: var(--neon-glow);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/* --- Buttons ---------------------------------------------------------------------- */
+/* All buttons: mono, upper case, square. */
+:root :is([data-slot="button"], .btn-primary, .btn-quiet) {
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    background-color var(--dur-quick) var(--ease-out),
+    box-shadow var(--dur-quick) var(--ease-out),
+    color var(--dur-quick) var(--ease-out);
+}
+
+/* The main button: solid ink (white on a dark theme), page-coloured text, 48px tall. */
+:root :is([data-slot="button"][data-variant="default"], .btn-primary) {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+:root :is([data-slot="button"][data-variant="default"][data-size="default"], .btn-primary) {
+  height: 48px;
+  padding-inline: 22px;
+}
+
+:root :is([data-slot="button"][data-variant="default"], .btn-primary):hover {
+  background: color-mix(in srgb, var(--ink) 88%, var(--bg));
+  box-shadow: var(--neon-glow-strong);
+}
+
+/* Secondary and outline: transparent with a thin line. */
+:root :is([data-slot="button"]:is([data-variant="secondary"], [data-variant="outline"]), .btn-quiet) {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--neon-line);
+}
+
+:root :is([data-slot="button"]:is([data-variant="secondary"], [data-variant="outline"]), .btn-quiet):hover {
+  background: var(--fill);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 60%, transparent),
+    var(--neon-glow);
+}
+
+/* --- Focus: the ring glows -------------------------------------------------------- */
+/* Only on controls. Something with tabindex="-1" (the page's <main>, which the skip link and
+   page changes move focus to) is a focus target, not a control: it never glows. */
+:root :focus-visible:not([tabindex="-1"]) {
+  box-shadow: var(--neon-glow);
+}
+
+/* --- Floating layers: glass ------------------------------------------------------- */
+:root :is([role="menu"], [data-slot="sheet-content"], [data-slot="tooltip-content"], [data-ui="rail-flyout"]) {
+  background-color: var(--neon-glass);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* --- Selection and scrollbars carry the accent ------------------------------------ */
+:root {
+  scrollbar-color: color-mix(in srgb, var(--primary) 55%, transparent) transparent;
+}
+
+:root ::selection {
+  background: color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* --- Family tabs (design/FamilyTabs.tsx): mono, upper case, the accent under the open one --- */
+:root [data-ui="family-tabs"] > * {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+:root [data-ui="family-tabs"] > [aria-current="page"] {
+  border-color: var(--primary);
+}
+
+/* --- The logo in the theme's accent, so a screen has one accent ------------------------- */
+/* The mark's three gradients (design/Logo.tsx: ids ending s, u, l) take the accent, from deep to
+   bright; CSS stop-color wins over the SVG's own stop colours. */
+:root [data-ui="logo"] linearGradient[id$="s"] stop:nth-child(1) {
+  stop-color: color-mix(in srgb, var(--primary) 30%, var(--bg));
+}
+:root [data-ui="logo"] linearGradient[id$="s"] stop:nth-child(n + 2) {
+  stop-color: var(--primary);
+}
+:root [data-ui="logo"] linearGradient[id$="u"] stop {
+  stop-color: color-mix(in srgb, var(--primary) 80%, var(--ink));
+}
+:root [data-ui="logo"] linearGradient[id$="l"] stop {
+  stop-color: color-mix(in srgb, var(--primary) 55%, var(--bg));
+}
+
+/* --- The folded rail's group initials ---------------------------------------------------- */
+:root [data-ui="rail-initial"]::before {
+  content: "/";
+  opacity: 0.6;
+}

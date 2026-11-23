@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devdeck.local/schemas/stack.schema.json",
+  "title": "devdeck stack",
+  "description": "stacks/<name>.yaml: the services that start together, and in what order.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "name"],
+  "properties": {
+    "version": { "const": 1, "description": "Schema version. Always 1 for now." },
+    "name": { "$ref": "#/$defs/id" },
+    "description": { "type": "string", "maxLength": 200 },
+    "compose": {
+      "description": "Docker Compose files that provide the dependencies (databases, queues, identity). One file, or a list of files that start together.",
+      "oneOf": [
+        { "$ref": "#/$defs/compose" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/compose" } }
+      ]
+    },
+    "requires": {
+      "type": "array",
+      "description": "Things this stack needs but devdeck doesn't start, such as a database running on this machine. The stack is refused until each one answers.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "tcp"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+          "tcp": { "type": "string", "description": "host:port on this machine that accepts connections, for example 127.0.0.1:5432.", "pattern": "^[A-Za-z0-9.:\\[\\]-]+:[0-9]{1,5}$" }
+        }
+      }
+    },
+    "services": {
+      "type": "array",
+      "description": "The processes devdeck runs. A stack with only compose files needs none.",
+      "items": { "$ref": "#/$defs/service" }
+    }
+  },
+  "$defs": {
+    "compose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "file"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id", "description": "Name of this compose file in the start order. Give every compose file an id, or none." },
+        "after": { "type": "array", "uniqueItems": true, "items": { "type": "string" }, "description": "Ids of the services and compose files that must be done first. Needs an id." },
+        "optional": { "type": "boolean", "description": "If it fails, carry on without it instead of holding back what comes after. Needs an id." },
+        "repo": { "type": "string", "description": "Id of the repo that holds the file." },
+        "file": { "type": "string", "minLength": 1 },
+        "services": { "type": "array", "items": { "type": "string" }, "description": "Only start these compose services. Empty means all." },
+        "logs": {
+          "type": "object",
+          "description": "Which output lines of each container are stored, keyed by the compose service name. A container with no entry stores everything.",
+          "additionalProperties": { "$ref": "#/$defs/log_rule" }
+        }
+      }
+    },
+    "log_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Which lines of a service's output are stored, and how they are read.",
+      "properties": {
+        "store": { "enum": ["all", "matching", "off"], "description": "all: every line. matching: only lines that match. off: none (the service still runs)." },
+        "match": { "type": "string", "maxLength": 500, "description": "A regular expression a line must match. Only with store: matching." },
+        "parser": { "enum": ["auto", "zerolog", "go-panic", "vite-log", "plain"], "description": "How the lines are read. Same choices as log_parser." }
+      }
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,39}$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[0-9]+(ms|s|m)$",
+      "description": "A duration such as 500ms, 30s or 2m."
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "repo", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "repo": { "type": "string", "description": "Id of the repo this service runs from." },
+        "kind": { "enum": ["go", "node", "python", "command"] },
+        "cmd": { "type": "string", "description": "What to run: a Go package or a shell command, depending on kind." },
+        "dir": { "type": "string", "description": "Folder inside the repo to run from." },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "env_file": { "type": "string" },
+        "env": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Plain values only. Secrets come from the keychain." },
+        "after": { "type": "array", "uniqueItems": true, "items": { "type": "string" }, "description": "Ids of services that must be ready first." },
+        "ready": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "description": "How devdeck knows the service is ready: exactly one of http, tcp or log.",
+          "properties": {
+            "http": { "type": "string", "description": "A URL that answers with success." },
+            "tcp": { "type": "string", "description": "host:port that accepts connections." },
+            "log": { "type": "string", "description": "A text that appears in the logs." },
+            "timeout": { "$ref": "#/$defs/duration" }
+          }
+        },
+        "log_parser": { "enum": ["auto", "zerolog", "go-panic", "vite-log", "plain"], "description": "How this service's lines are read into a level, message and fields. auto (the default) tries each." },
+        "logs": { "$ref": "#/$defs/log_rule" },
+        "restart": { "enum": ["never", "on-failure", "always"] }
+      }
+    }
+  }
+}

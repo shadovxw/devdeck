@@ -1,2 +1,53 @@
 # devdeck
-devdeck is a personal developer cockpit
+
+devdeck is a personal developer cockpit that sits on top of VS Code. One click starts any codebase's stack, and you get live logs, resources, databases and git (across multiple GitHub accounts) in one place. It also runs plugin-based security and build pipelines, and turns Claude-assisted work into reviewed PRs, all inside a 3D, animated desktop app.
+
+## Install (Windows)
+
+Download `devdeck-setup-<version>.exe` from the [Releases page](https://github.com/shadovxw/devdeck/releases/latest) and run it. It installs for your user only (no administrator needed) and updates an existing install in place; your data stays in `%AppData%\devdeck`.
+
+The installer is not code-signed yet, so Windows SmartScreen may say "Windows protected your PC": choose **More info**, then **Run anyway**. Check the download against the SHA-256 in the release notes with `certutil -hashfile devdeck-setup-<version>.exe SHA256`.
+
+Then open **Docs** in the sidebar: **Claude Code quick start** has a block to paste into Claude Code that connects it to devdeck, and the other guides cover setup, Docker builds and remote hosts.
+
+## Status
+
+Phase 0 (foundations) in progress: a Go server with one health endpoint and a React shell, wired for live reload. Everything else is still planned.
+
+## Run it
+
+Install the toolchain once (`winget install jdx.mise`), then:
+
+```bash
+mise install
+mise run dev
+```
+
+The Go server listens on `127.0.0.1:7070` and the web app on `http://127.0.0.1:5174`, which proxies `/api` and `/ws` to the server. Other tasks: `mise run build | test | lint | secrets`. `mise run check` runs the linters, the tests and the secret scan (gitleaks, as in CI) before you push.
+
+| What | Where |
+|---|---|
+| Implementation plan (phases 0–13, decisions, architecture) | [`dev-plans/00-implementation-plan.md`](dev-plans/00-implementation-plan.md) |
+| Bare HTML mockup of every page (start at the sitemap) | [`ui-mockup/sitemap.html`](ui-mockup/sitemap.html) |
+| Connect your Claude Code to devdeck in one paste | [`docs/claude-quickstart.md`](docs/claude-quickstart.md) |
+| Connect Claude Code so it can read what devdeck shows (read only) | [`docs/claude-connector.md`](docs/claude-connector.md) |
+| Edit workspace.yaml (form or YAML, with checks and a review before saving) | [`docs/workspace-editor.md`](docs/workspace-editor.md) |
+| Build and push Docker images with several Docker Hub accounts | [`docs/docker-builds.md`](docs/docker-builds.md) |
+| Change image tags on a remote host and redeploy, with roll back | [`docs/remote-versions.md`](docs/remote-versions.md) |
+| Setting devdeck up on your own machine, and a prompt for your Claude | [`docs/teammate-setup.md`](docs/teammate-setup.md) |
+
+To view the mockup, serve the folder and open `http://localhost:7071/sitemap.html`:
+
+```bash
+python -m http.server 7071 --directory ui-mockup
+```
+
+## Planned stack
+
+- **Backend:** Go, Echo, SQLite, its own process supervisor
+- **Frontend:** React + Vite + TypeScript, Tailwind, shadcn (re-skinned), Motion + GSAP, React Three Fiber, ECharts
+- **Desktop:** Wails
+
+## Owner
+
+Vrishank Warrier 

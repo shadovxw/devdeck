@@ -1,0 +1,14 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Findings · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Findings</h1>
+<p>Every issue from every scanner, SonarQube and Claude review, in one list. Each plugin's output is converted to one common format (SARIF-like).</p>
+<p>Filter: [repo ▾] [tool ▾] [severity ▾] [status: open ▾] [work item ▾]</p>
+<table>
+  <tr><th>Severity</th><th>Tool</th><th>Repo</th><th>Where</th><th>Issue</th><th>Status</th><th></th></tr>
+  <tr><td>critical</td><td>gitleaks</td><td>automation-scripts</td><td><a href="#">ocp/vars.yml:14</a></td><td>hardcoded password</td><td>open</td><td>[fix with Claude] [ignore…]</td></tr>
+  <tr><td>high</td><td>sonarqube</td><td>catalog</td><td><a href="#">datasource/ocp.go:88</a></td><td>nil pointer dereference possible</td><td>open</td><td>[fix with Claude] [ignore…]</td></tr>
+  <tr><td>medium</td><td>semgrep</td><td>frontend</td><td><a href="#">api/catalog.ts:30</a></td><td>unvalidated URL in fetch</td><td>open</td><td>[fix with Claude] [ignore…]</td></tr>
+  <tr><td>low</td><td>claude review</td><td>catalog</td><td><a href="#">datasource/ocp.go:12</a></td><td>unused parameter</td><td>fixed</td><td></td></tr>
+</table>
+<p class="small">"Ignore" asks for a reason and is saved in the repo (e.g. .gitleaksignore / .trivyignore), so the choice shows up in the PR too.</p>
+</main></body></html>

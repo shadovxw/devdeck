@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Work Item · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body data-parent="work-items.html"><script src="nav.js"></script><main>
+<p class="small"><a href="work-items.html">Work Items</a> / ocp-vm-provision</p>
+<h1>ocp-vm-provision</h1>
+<p>Stage: Plan ✔ → Code ✔ → <b>Checks ✖ (2 to fix)</b> → Review → PR</p>
+<p>[Run "pre-pr-check" flow] [Ask Claude to fix findings] [Run review] [Generate PR summary] [Create PRs]</p>
+
+<p><b>Tabs:</b> <a href="#plan">Plan</a> | <a href="#changes">Changes</a> | <a href="#checks">Checks</a> | <a href="#review">Review</a> | <a href="#pr">PR summary</a></p>
+
+<h3 id="plan">plan.md</h3>
+<pre>Goal: provision OCP VMs from the raise-request form.
+Repos: frontend (form), catalog (form template + data source), automation-scripts (playbook).
+Steps: 1. … 2. … 3. …</pre>
+
+<h3 id="changes">changes.md (written by Claude while coding)</h3>
+<table>
+  <tr><th>Repo</th><th>File</th><th>What / why</th></tr>
+  <tr><td>frontend</td><td>OcpVmForm.tsx</td><td>new instance picker uses catalog data source</td></tr>
+  <tr><td>catalog</td><td>datasource/ocp.go</td><td>lists VMIs per namespace</td></tr>
+</table>
+
+<h3 id="checks">Checks (from the last flow run)</h3>
+<table>
+  <tr><th>Tool</th><th>Result</th></tr>
+  <tr><td>golangci-lint</td><td>pass</td></tr>
+  <tr><td>gitleaks</td><td>1 secret in automation-scripts/ocp/vars.yml</td></tr>
+  <tr><td>sonarqube</td><td>quality gate failed: 1 bug</td></tr>
+  <tr><td>trivy</td><td>pass</td></tr>
+</table>
+<p><a href="findings.html">See findings</a></p>
+
+<h3 id="review">review.md</h3>
+<p class="small">Claude /code-review + /security-review using plan.md + changes.md + checks as context.</p>
+
+<h3 id="pr">pr-summary.md</h3>
+<p class="small">Generated per repo. "Create PRs" opens one PR per repo with the right account, base = dev.</p>
+</main></body></html>

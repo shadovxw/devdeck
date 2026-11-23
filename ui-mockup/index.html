@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Home · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Home: infrabot</h1>
+<p class="small">Mockup. All data is fake.</p>
+
+<div class="row">
+  <div class="box"><b>Stack</b><br>full · running<br>12 / 14 services up<br><a href="stack.html">open live view</a></div>
+  <div class="box"><b>Errors (last 15 min)</b><br>7 errors in 2 services<br><a href="logs.html">open logs</a></div>
+  <div class="box"><b>Pipelines</b><br>1 running · 1 failed today<br><a href="runs.html">open runs</a></div>
+  <div class="box"><b>Git</b><br>3 repos with local changes<br>2 repos behind remote<br><a href="repos.html">open repos</a></div>
+</div>
+
+<h3>Machine resources <span class="small"><a href="resources.html">details &amp; stop services</a></span></h3>
+<table>
+  <tr><td>CPU</td><td><span class="track" title="CPU 38%"><div class="bar" style="width:38%"></div></span></td><td>38% (dev stack 21%)</td></tr>
+  <tr><td>RAM</td><td><span class="track" title="RAM 11.2 of 16 GB"><div class="bar" style="width:70%"></div></span></td><td>11.2 / 16 GB (dev stack 5.9 GB)</td></tr>
+  <tr><td>Disk C:</td><td><span class="track" title="Disk 412 of 512 GB"><div class="bar" style="width:80%"></div></span></td><td>412 / 512 GB (17.5 GB reclaimable)</td></tr>
+</table>
+<p class="small">Biggest RAM users: sonarqube 1.9 GB (idle 40 min) [stop] · keycloak 780 MB · frontend 620 MB</p>
+
+<h3>Services</h3>
+<table>
+  <tr><th>Service</th><th>Status</th><th>Port</th><th>CPU</th><th>RAM</th><th>Errors</th><th></th></tr>
+  <tr><td>postgres (compose)</td><td>up</td><td>5432</td><td>4%</td><td>410 MB</td><td>0</td><td>[restart] [stop]</td></tr>
+  <tr><td>keycloak (compose)</td><td>up</td><td>8080</td><td>1%</td><td>780 MB</td><td>0</td><td>[restart] [stop]</td></tr>
+  <tr><td>infrabot-ticket-service</td><td>up</td><td>8083</td><td>5%</td><td>180 MB</td><td>5</td><td>[restart] [stop] [logs]</td></tr>
+  <tr><td>infrabot-catalog-service</td><td>crashed</td><td>8082</td><td>0%</td><td>none</td><td>2</td><td>[restart] [logs]</td></tr>
+  <tr><td>infrabot-frontend</td><td>up</td><td>5173</td><td>3%</td><td>620 MB</td><td>0</td><td>[restart] [stop] [open]</td></tr>
+</table>
+
+<h3>Latest errors</h3>
+<table>
+  <tr><th>Time</th><th>Service</th><th>Message</th><th>Where</th></tr>
+  <tr><td>10:42:11</td><td>catalog</td><td>failed to connect to postgres: connection refused</td><td><a href="#">internal/db/db.go:41</a></td></tr>
+  <tr><td>10:41:58</td><td>ticket</td><td>workflow advance: node not found</td><td><a href="#">internal/workflow/engine.go:212</a></td></tr>
+</table>
+
+<h3>Open work items</h3>
+<table>
+  <tr><th>Work item</th><th>Repos</th><th>Stage</th></tr>
+  <tr><td><a href="work-item.html">ocp-vm-provision</a></td><td>frontend, catalog, automation-scripts</td><td>checks: 2 findings to fix</td></tr>
+  <tr><td>fix-ticket-retry</td><td>ticket-service</td><td>coding</td></tr>
+</table>
+
+<h3>Quick actions</h3>
+<p>[Start stack ▾] [Stop all] [Run "Pre-PR check" flow] [New work item] [Open workspace in VS Code]</p>
+</main></body></html>

@@ -1,0 +1,1133 @@
+/* The shared pieces (SectionHeader, Panel, StatusStrip, StageRail, Tag): the few base rules they
+   need, then their look (dev-plans/2026-11-21-portfolio-look, decision 5).
+   Colours come from theme tokens only. */
+
+/* --- StageRail, base: small squares, filled in ink when done (drawn as diamonds below) --- */
+[data-ui="stage-mark"] {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  box-shadow: inset 0 0 0 1px var(--ink-3);
+}
+
+[data-ui="stage-rail"] li[data-state="done"] [data-ui="stage-mark"] {
+  background: var(--ink);
+  box-shadow: none;
+}
+
+[data-ui="stage-rail"] li[data-state="warn"] [data-ui="stage-mark"] {
+  background: var(--warning);
+  box-shadow: none;
+}
+
+[data-ui="stage-line"] {
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--ink) 15%, transparent);
+}
+
+[data-ui="stage-line"][data-done] {
+  background: var(--ink);
+}
+
+/* --- Neon --------------------------------------------------------------------------- */
+
+/* SectionHeader: `[01] $ UP  STACKS ─── TOTAL_STACKS: 04`, then the display heading. */
+:root [data-ui="section-header"] {
+  display: flex !important;
+  flex-direction: column;
+  gap: 16px;
+}
+
+:root [data-ui="section-line"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root [data-ui="section-index"] {
+  padding: 2px 8px;
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+:root [data-ui="section-name"] {
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: var(--primary);
+}
+
+:root [data-ui="section-rule"] {
+  flex: 0 1 80px;
+  height: 1px;
+  background: var(--primary);
+  opacity: 0.5;
+}
+
+:root [data-ui="section-count"] {
+  font-size: 11px;
+}
+
+:root [data-ui="section-aside"] {
+  margin-inline-start: auto;
+}
+
+:root [data-ui="display"] {
+  margin: 0;
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+:root [data-ui="gradient-word"] {
+  background-image: var(--neon-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Panel: the theme's card colour, no border, a mono label row. */
+:root [data-ui="panel"] {
+  padding: 20px 24px 24px;
+  background: var(--neon-panel);
+}
+
+:root [data-ui="panel-head"] {
+  margin-bottom: 16px;
+}
+
+:root [data-ui="panel-head"] h2 {
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root [data-ui="panel-head"] :is(a, button) {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+/* StatusStrip: `KEY:: VALUE`, the value coloured by meaning. */
+:root [data-ui="status-strip"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+:root [data-ui="status-strip"] dt::after {
+  content: "::";
+}
+
+:root [data-ui="status-strip"] dd {
+  font-weight: 400;
+}
+
+:root [data-ui="status-strip"] dd[data-tone="ok"] {
+  color: var(--good);
+}
+
+:root [data-ui="status-strip"] dd[data-tone="live"] {
+  color: var(--neon-live);
+}
+
+:root [data-ui="status-strip"] dd[data-tone="warn"] {
+  color: var(--warning);
+}
+
+:root [data-ui="status-strip"] dd[data-tone="bad"] {
+  color: var(--critical);
+}
+
+/* StageRail: diamonds, filled in the accent when done (the warning colour when stuck). */
+:root [data-ui="stage-mark"] {
+  width: 10px;
+  height: 10px;
+  box-shadow: inset 0 0 0 1px var(--neon-line-soft);
+  transform: rotate(45deg);
+}
+
+:root [data-ui="stage-rail"] li[data-state="done"] [data-ui="stage-mark"] {
+  background: var(--primary);
+}
+
+:root [data-ui="stage-rail"][data-warn] li[data-state="done"] [data-ui="stage-mark"],
+:root [data-ui="stage-rail"] li[data-state="warn"] [data-ui="stage-mark"] {
+  background: var(--warning);
+}
+
+:root [data-ui="stage-line"][data-done] {
+  background: var(--primary);
+}
+
+:root [data-ui="stage-rail"][data-warn] [data-ui="stage-line"][data-done] {
+  background: var(--warning);
+}
+
+:root [data-ui="stage-rail"] > div {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+
+/* Tag: the word in a thin box of its status colour. */
+:root [data-ui="tag"] {
+  padding: 2px 8px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tag);
+  box-shadow: inset 0 0 0 1px var(--tag);
+}
+
+[data-ui="tag"][data-tone="good"] { --tag: var(--good); }
+[data-ui="tag"][data-tone="warning"] { --tag: var(--warning); }
+[data-ui="tag"][data-tone="serious"] { --tag: var(--serious); }
+[data-ui="tag"][data-tone="critical"] { --tag: var(--critical); }
+[data-ui="tag"][data-tone="neutral"] { --tag: var(--neutral); }
+[data-ui="tag"][data-tone="primary"] { --tag: var(--primary); }
+[data-ui="tag"]:is([data-tone="ink"], [data-tone="ink-2"], [data-tone="ink-3"]) { --tag: var(--ink-2); }
+
+/* --- Home (pages/home/NeonHome.tsx) -------------------------------------------------- */
+:root [data-ui="kicker"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+:root [data-ui="greeting"] {
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+:root [data-ui="greeting"] > span {
+  color: var(--primary);
+}
+
+:root [data-ui="greeting-summary"] {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+:root [data-ui="strip-box"] {
+  padding: 12px 16px;
+  background: var(--neon-panel);
+}
+
+:root [data-ui="card-grid"] {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+
+:root [data-ui="stack-card"] {
+  padding: 20px;
+  background: var(--neon-panel);
+}
+
+:root [data-ui="card-label"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root [data-ui="card-state"] {
+  flex: none;
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+:root [data-ui="card-title"] {
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+:root [data-ui="card-title"] a:hover {
+  color: var(--primary);
+}
+
+:root [data-ui="card-facts"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+
+:root [data-ui="card-facts"] > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:root [data-ui="card-facts"] dt {
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root [data-ui="card-facts"] dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+/* --- Empty Home (pages/home/NeonEmptyHome.tsx) ----------------------------------------- */
+:root [data-ui="orb-state"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root [data-ui="hero-title"] {
+  font-size: 48px;
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  color: var(--ink);
+}
+
+:root [data-ui="hero-text"] {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+:root :is([data-ui="hero-chips"], [data-ui="quiet-line"]) {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:root [data-ui="hero-chips"] code {
+  padding: 4px 8px;
+  font-family: var(--font-code);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+  background: var(--neon-panel);
+}
+
+/* --- Home as a launcher (pages/home/Launcher.tsx) ----------------------------------- */
+:root [data-ui="launcher"] [data-ui="orb-state"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:root [data-ui="orb-diamond"] {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--primary);
+}
+
+:root[data-effects="full"] [data-ui="orb-diamond"] {
+  box-shadow: 0 0 10px var(--primary);
+}
+
+:root [data-ui="where-to-bar"] {
+  background: var(--neon-panel);
+  font-family: var(--font-code);
+  font-size: 15px;
+  cursor: text;
+}
+
+:root [data-ui="where-to-bar"]:focus-within {
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+:root [data-ui="where-to-bar"] input {
+  font: inherit;
+}
+
+:root [data-ui="where-to-list"] {
+  background: var(--neon-panel);
+}
+
+:root [data-ui="launch-grid"] {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+:root [data-ui="launch-tile"] {
+  min-height: 104px;
+  background: var(--neon-panel);
+}
+
+:root [data-ui="launch-label"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+:root [data-ui="launch-link"] {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+:root [data-ui="launch-link"]:hover {
+  color: var(--primary);
+}
+
+/* --- The reconnecting strip (app/LinkStrip.tsx) ------------------------------------------ */
+[data-ui="link-strip"] {
+  position: sticky;
+  top: 56px;
+  z-index: 9;
+  --tone: var(--warning);
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 12%, var(--bg));
+}
+
+[data-ui="link-strip"][data-tone="good"] {
+  --tone: var(--good);
+}
+
+[data-ui="link-dot"] {
+  background: var(--tone);
+}
+
+:root [data-ui="link-strip"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+:root [data-ui="orb-state"][data-state="warn"] {
+  color: var(--warning);
+}
+
+:root [data-ui="orb-state"][data-state="warn"] [data-ui="orb-diamond"] {
+  background: var(--warning);
+}
+
+/* --- Offline at start, Neon (design/Splash.tsx) ------------------------------------------ */
+.splash.splash-neon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 24px 16px;
+  text-align: center;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 6%, transparent) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+:root[data-effects="full"] .splash.splash-neon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 40% 45% at 50% 46%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 70%);
+}
+
+.splash-neon > * {
+  position: relative;
+}
+
+.splash-neon [data-ui="splash-lockup"] {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  opacity: 0.55;
+}
+
+.splash-neon [data-ui="splash-lockup"] .mark {
+  width: 110px;
+  height: 110px;
+  animation: none;
+}
+
+.splash-neon [data-ui="splash-lockup"] [data-ui="wordmark-neon"] {
+  font-size: clamp(48px, 8vw, 92px);
+}
+
+.splash-neon [data-ui="splash-line"] {
+  width: min(420px, 80vw);
+  height: 2px;
+  background: var(--critical);
+}
+
+.splash-neon [data-ui="splash-say"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  color: var(--ink-3);
+}
+
+.splash-neon [data-ui="splash-offline"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-code);
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--critical);
+}
+
+.splash-neon [data-ui="splash-dot"] {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--critical);
+}
+
+.splash-neon [data-ui="splash-actions"] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
+.splash-neon [data-ui="splash-retry"] {
+  height: 48px;
+  padding: 0 26px;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-code);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--ink);
+}
+
+.splash-neon [data-ui="splash-retry"]:hover {
+  background: color-mix(in srgb, var(--ink) 85%, var(--bg));
+}
+
+.splash-neon [data-ui="splash-command"] {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 18px;
+  font-family: var(--font-code);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--neon-panel);
+}
+
+.splash-neon [data-ui="splash-next"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* --- The launch intro (design/intro/Intro.tsx), Neon only ------------------------------- */
+[data-ui="intro-backdrop"] {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 5%, transparent) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+[data-ui="intro-glow"] {
+  background: radial-gradient(ellipse 34% 40% at 50% 50%, color-mix(in srgb, var(--primary) 24%, transparent), transparent 70%);
+}
+
+[data-ui="intro"] [data-ui="intro-word"] {
+  font-family: "Geist Variable", var(--font-ui);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+[data-ui="intro-flat"] [data-ui="intro-word"] {
+  font-size: clamp(48px, 8vw, 92px);
+}
+
+[data-ui="intro-word"] [data-deck] {
+  color: var(--primary);
+}
+
+[data-ui="intro-tagline"] {
+  font-family: var(--font-code);
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Waiting for the server at the lockup: a thin line with a sweep. */
+[data-ui="intro-wait"] {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 150px);
+  width: min(240px, 60vw);
+  height: 2px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+[data-ui="intro-wait"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--primary);
+  animation: splash-sweep 1.3s linear infinite;
+}
+
+[data-ui="intro-skip"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* While the intro's particles are on their way, Home's own orb waits; it fades in as they land. */
+[data-ui="orb"] {
+  transition: opacity 300ms var(--ease-out, ease-out);
+}
+
+:root[data-intro] [data-ui="orb"] {
+  opacity: 0;
+}
+
+/* --- The orb carried across (P9c) -------------------------------------------------------
+   Home's orb and Workspaces' mini orb (three orbs, one lit) share one view-transition name, so
+   going from one to the other shrinks the big orb into the mini one while the pages cross-fade.
+   One per page, so the name stays unique; only with full effects and motion. */
+:root[data-effects="full"]:not([data-motion="reduced"]) :is([data-ui="orb"]:is([data-size="launcher"], [data-size="hero"]), [data-ui="mini-orb"][data-variant="workspaces"]) {
+  view-transition-name: orb;
+}
+
+::view-transition-group(orb) {
+  animation-duration: 900ms;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+::view-transition-old(orb),
+::view-transition-new(orb) {
+  height: 100%;
+  animation-duration: 900ms;
+}
+
+:root[data-input="keyboard"]::view-transition-group(orb),
+:root[data-input="keyboard"]::view-transition-old(orb),
+:root[data-input="keyboard"]::view-transition-new(orb) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ui="orb"] {
+    view-transition-name: none !important;
+  }
+}
+
+/* --- Home without a sidebar: the orb launcher (pages/home/Launcher.tsx, §8c) -------------
+   On Home, data-home-bare (app/Shell.tsx) parks the sidebar off-screen and gives the
+   page the full width. Leaving Home slides the sidebar back in. */
+[data-slot="sidebar-container"] {
+  transition-property: left, right, width, transform;
+}
+
+:root[data-home-bare] [data-slot="sidebar-container"] {
+  transform: translateX(-100%);
+  visibility: hidden;
+}
+
+:root[data-home-bare] [data-slot="sidebar-gap"] {
+  width: 0 !important;
+}
+
+:root[data-home-bare] .page-area {
+  max-width: none;
+  padding: 0;
+}
+
+:root[data-home-bare] [data-ui="link-strip"] {
+  top: 0;
+}
+
+/* devdeck's own window keeps its title bar for the window buttons, see-through over the page. */
+:root[data-home-bare] [data-ui="topbar"] {
+  position: absolute;
+  inset-inline: 0;
+  background: transparent;
+}
+
+/* Everything scales with the window (the smaller of its width and height for the orb), so the
+   composition fills a 1920×1080 screen as well as a laptop's. */
+[data-ui="launcher"] {
+  --cy: 52%;
+  --orb: clamp(340px, 46vmin, 540px);
+  --rx: clamp(260px, 31vw, 600px);
+  --ry: clamp(200px, 32vmin, 330px);
+  position: relative;
+  min-height: max(760px, 100svh);
+  overflow: hidden;
+  background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 5%, transparent) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+[data-ui="launcher-head"] {
+  position: absolute;
+  z-index: 20;
+  top: 36px;
+  inset-inline: 48px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+[data-ui="launcher-mark"] {
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+[data-ui="launcher-mark"] > span {
+  color: var(--link);
+}
+
+[data-ui="launcher-search"] {
+  flex: none;
+  height: 40px;
+  padding: 0 14px;
+  white-space: nowrap;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--fill);
+}
+
+[data-ui="launcher-search"]:hover {
+  background: var(--fill-hover);
+}
+
+[data-ui="where-to-layer"] {
+  position: absolute;
+  z-index: 30;
+  top: 96px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  padding-inline: 16px;
+}
+
+[data-ui="launcher-intro"] {
+  position: absolute;
+  top: 112px;
+  inset-inline: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+[data-ui="launcher-about"] {
+  max-width: 620px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+[data-ui="launcher-about"] > span {
+  color: var(--ink-2);
+}
+
+[data-ui="launcher-orb"] {
+  position: absolute;
+  left: 50%;
+  top: var(--cy);
+  transform: translate(-50%, -50%);
+}
+
+/* Just under the orb, inside the ring, clear of the bottom destinations. */
+[data-ui="launcher"] > [data-ui="orb-state"] {
+  position: absolute;
+  top: calc(var(--cy) + var(--orb) * 0.36);
+  left: 0;
+  right: 0;
+  width: max-content;
+  margin-inline: auto;
+}
+
+[data-ui="orbit-node"] {
+  --tone: var(--primary);
+  position: absolute;
+  width: 210px;
+  top: calc(var(--cy) + var(--sin) * var(--ry) - 24px);
+}
+
+[data-ui="orbit-node"][data-side="right"] {
+  left: calc(50% + var(--cos) * var(--rx));
+}
+
+[data-ui="orbit-node"][data-side="left"] {
+  right: calc(50% - var(--cos) * var(--rx));
+  text-align: right;
+}
+
+[data-ui="orbit-node"][data-side="center"] {
+  left: calc(50% + var(--cos) * var(--rx) - 105px);
+  text-align: center;
+}
+
+:is([data-ui="orbit-node"], [data-ui="launch-legend"] > li)[data-tone="work"] { --tone: var(--link); }
+:is([data-ui="orbit-node"], [data-ui="launch-legend"] > li)[data-tone="run"] { --tone: var(--primary); }
+:is([data-ui="orbit-node"], [data-ui="launch-legend"] > li)[data-tone="system"] { --tone: color-mix(in srgb, var(--primary) 40%, var(--critical)); }
+:is([data-ui="orbit-node"], [data-ui="launch-legend"] > li)[data-tone="data"] { --tone: var(--good); }
+:is([data-ui="orbit-node"], [data-ui="launch-legend"] > li)[data-tone="automate"] { --tone: var(--warning); }
+
+[data-ui="orbit-link"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 48px;
+  padding: 6px 8px;
+  color: var(--ink);
+}
+
+[data-side="left"] > [data-ui="orbit-link"] { align-items: flex-end; }
+[data-side="center"] > [data-ui="orbit-link"] { align-items: center; }
+
+[data-ui="orbit-name"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(15px, 1.2vw, 19px);
+  font-weight: 600;
+  transition: color var(--dur-quick) var(--ease-out);
+}
+
+[data-ui="orbit-diamond"] {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+  border: 1px solid var(--tone);
+  transition: background var(--dur-quick) var(--ease-out);
+}
+
+[data-ui="orbit-link"]:is(:hover, :focus-visible) [data-ui="orbit-name"] {
+  color: var(--tone);
+}
+
+[data-ui="orbit-link"]:is(:hover, :focus-visible) [data-ui="orbit-diamond"] {
+  background: var(--tone);
+}
+
+:root[data-effects="full"] [data-ui="orbit-link"]:is(:hover, :focus-visible) [data-ui="orbit-diamond"] {
+  box-shadow: 0 0 12px var(--tone);
+}
+
+/* What explains each place: a step larger and lighter than other mono labels, so it reads. */
+[data-ui="orbit-hint"] {
+  font-family: var(--font-code);
+  font-size: clamp(12px, 0.85vw, 13px);
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--ink-3) 70%, var(--ink-2));
+}
+
+[data-ui="launch-legend"] {
+  position: absolute;
+  bottom: 44px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* A diamond, like the destinations' markers. */
+[data-ui="legend-dot"] {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-end: 10px;
+  transform: rotate(45deg) translateY(-1px);
+  background: var(--tone);
+}
+
+[data-ui="legend-blurb"] {
+  margin-inline-start: 10px;
+  text-transform: none;
+  letter-spacing: 0.06em;
+}
+
+/* Picking a page: its name flies into its sidebar row (one shared name, for that change only). */
+:root[data-launch] [data-slot="sidebar"] a[aria-current="page"]:not([href="/"]) {
+  view-transition-name: launch-pick;
+}
+
+::view-transition-group(launch-pick) {
+  animation-duration: 700ms;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Narrow windows: the same parts in one column, the pages in a grid. */
+@media (max-width: 899px), (max-height: 699px) {
+  [data-ui="launcher"] {
+    --orb: min(320px, 80vw);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    min-height: auto;
+    padding: 24px 16px 40px;
+  }
+
+  [data-ui="launcher"] > *,
+  [data-ui="launcher"] > [data-ui="orb-state"],
+  [data-ui="launcher-head"],
+  [data-ui="launcher-intro"],
+  [data-ui="launcher-orb"],
+  [data-ui="launch-legend"] {
+    position: static;
+    transform: none;
+    inset: auto;
+  }
+
+  [data-ui="launcher-head"] {
+    align-self: stretch;
+  }
+
+  [data-ui="orbit"] > ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+    gap: 4px 12px;
+    width: min(640px, 100%);
+  }
+
+  [data-ui="orbit-node"],
+  [data-ui="orbit-node"][data-side] {
+    position: static;
+    width: auto;
+    text-align: left;
+  }
+
+  [data-ui="orbit-node"] > [data-ui="orbit-link"] {
+    align-items: flex-start;
+  }
+
+  [data-ui="where-to-layer"] {
+    top: 80px;
+  }
+}
+
+/* --- Empty pages: the mini-orb pattern and the quieter kinds (design/EmptyState.tsx, §8d) --- */
+[data-ui="empty-kicker"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+[data-ui="empty-title"] {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+}
+
+[data-ui="empty-command"] {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--ink-2);
+  background: var(--neon-panel);
+}
+
+[data-ui="no-results"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+[data-ui="no-results-clear"] {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--link);
+  background: none;
+}
+
+[data-ui="no-results-clear"]:hover {
+  text-decoration: underline;
+}
+
+/* Good news (Findings, Notifications) is never the accent: the line is in the success colour. */
+[data-ui="empty"][data-good] [data-ui="empty-kicker"] {
+  color: var(--good);
+}
+
+/* The one heading on Home grows with the window. */
+[data-ui="launcher-intro"] [data-ui="greeting"] {
+  font-size: clamp(36px, 3.2vw, 52px);
+}
+
+/* --- Project cards (pages/workspaces/WorkspaceCards.tsx; dev-plans/2026-11-22-projects §4.1) ---
+   From the design's Projects board: a thin gradient frame with two cut corners, a mono line, the
+   state as a chip. All colours are theme tokens; glow and scanlines only with Effects Full. */
+[data-ui="project-card"] {
+  --cut: 16px;
+  position: relative;
+  padding: 1px;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--link) 55%, transparent), color-mix(in srgb, var(--critical) 25%, transparent) 45%, color-mix(in srgb, var(--ink) 6%, transparent));
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+  transition: transform var(--dur-move) var(--ease-out), filter var(--dur-move) var(--ease-out);
+}
+
+[data-ui="project-card"]:hover {
+  transform: translateY(-3px);
+}
+
+:root[data-effects="full"] [data-ui="project-card"]:is(:hover, :focus-visible) {
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--link) 28%, transparent));
+}
+
+[data-ui="project-card-in"] {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  background: var(--neon-panel);
+  clip-path: inherit;
+}
+
+:root[data-effects="full"] [data-ui="project-card-in"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--ink) 2.5%, transparent) 0 1px, transparent 1px 3px);
+}
+
+[data-ui="project-kicker"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+}
+
+[data-ui="project-state"] {
+  --tone: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+
+[data-ui="project-state"][data-tone="good"] { --tone: var(--good); }
+[data-ui="project-state"][data-tone="warning"] { --tone: var(--warning); }
+[data-ui="project-state"][data-tone="critical"] { --tone: var(--critical); }
+
+[data-ui="project-diamond"] {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+  border: 1px solid var(--link);
+}
+
+[data-ui="project-card"]:is(:hover, :focus-visible) [data-ui="project-diamond"] {
+  background: var(--link);
+}
+
+[data-ui="project-name"] {
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+[data-ui="project-tag"] {
+  flex: none;
+  padding: 1px 6px;
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: var(--fill);
+}
+
+[data-ui="project-shape"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+[data-ui="project-add"] {
+  border: 1px dashed color-mix(in srgb, var(--link) 40%, transparent);
+  color: var(--link);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--dur-quick) var(--ease-out), border-color var(--dur-quick) var(--ease-out);
+}
+
+[data-ui="project-add"]:hover {
+  border-color: var(--link);
+  background: color-mix(in srgb, var(--link) 6%, transparent);
+}
+
+[data-ui="project-add-label"] {
+  font-family: var(--font-code);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+}

@@ -1,0 +1,106 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./design/theme.css";
+@import "./design/motion.css";
+@import "./design/looks.css";
+@import "./design/pieces.css";
+
+/* Tokens and the loading page come from boot.css, linked in index.html. */
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/20px var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 0;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  /* The parts the browser draws: they carry the design too, not browser defaults. */
+  html {
+    accent-color: var(--primary);
+    caret-color: var(--ink);
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+    /* The sticky top bar must not cover whatever has keyboard focus. */
+    scroll-padding-top: 4.5rem;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 32%, transparent);
+    color: inherit;
+  }
+
+  /* No double-tap-zoom delay on controls. */
+  a,
+  button,
+  summary,
+  label,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Balanced headings, no one-word last lines. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Scrolling inside the drawer or a code block never drags the page behind it. */
+  [data-slot="sidebar-content"],
+  [data-slot="sheet-content"],
+  pre {
+    overscroll-behavior: contain;
+  }
+}
+
+/* On touch screens every control is at least 44px, the smallest comfortable tap target. */
+@media (pointer: coarse) {
+  [data-sidebar="menu-button"],
+  [data-sidebar="menu-sub-button"],
+  header.sticky a,
+  header.sticky button,
+  main button {
+    min-height: 44px;
+  }
+
+  header.sticky button,
+  [data-slot="sidebar-trigger"] {
+    min-width: 44px;
+  }
+}
+
+/* In devdeck's own window (no system title bar) the top bar is what you drag. Wails reads
+   this property from the element under the pointer, and it inherits, so everything you
+   can click inside the bar is marked as not draggable. */
+.drag-region {
+  --wails-draggable: drag;
+}
+.drag-region :is(button, a, input, select, textarea, [role="button"], [role="menuitem"]) {
+  --wails-draggable: no-drag;
+}

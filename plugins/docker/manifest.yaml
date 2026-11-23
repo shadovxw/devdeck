@@ -1,0 +1,13 @@
+id: docker
+name: Docker
+category: container
+icon: container
+description: Containers and images through the Docker engine.
+needs:
+  - binary: docker
+    min_version: "20.10"
+    install:
+      - method: winget
+        command: winget install --id Docker.DockerDesktop -e
+      - method: manual
+        command: https://docs.docker.com/get-docker/

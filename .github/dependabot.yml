@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Keeps the SHA-pinned actions in .github/workflows up to date (it updates the SHA and the tag comment).
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    # Wait 7 days before proposing a newly published version, so a hijacked
+    # release (like the March 2026 trivy-action incident) is caught before we adopt it.
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Uncomment when the code lands (Phase 0):
+  # - package-ecosystem: gomod
+  #   directory: /
+  #   target-branch: dev
+  #   schedule: { interval: weekly }
+  #   cooldown: { default-days: 7 }
+  #   commit-message: { prefix: "chore(deps)" }
+  # - package-ecosystem: npm
+  #   directory: /web
+  #   target-branch: dev
+  #   schedule: { interval: weekly }
+  #   cooldown: { default-days: 7 }
+  #   commit-message: { prefix: "chore(deps)" }

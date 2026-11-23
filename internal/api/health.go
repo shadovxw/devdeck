@@ -1,0 +1,145 @@
+// Package api holds the HTTP handlers for the devdeck server.
+package api
+
+import (
+	"net/http"
+
+	"github.com/labstack/echo/v4"
+
+	"github.com/shadovxw/devdeck/internal/dockerx"
+	"github.com/shadovxw/devdeck/internal/events"
+	"github.com/shadovxw/devdeck/internal/gitx"
+	"github.com/shadovxw/devdeck/internal/logs"
+	"github.com/shadovxw/devdeck/internal/remote"
+	"github.com/shadovxw/devdeck/internal/review"
+	"github.com/shadovxw/devdeck/internal/supervisor"
+	"github.com/shadovxw/devdeck/internal/update"
+	"github.com/shadovxw/devdeck/internal/workspace"
+	"github.com/shadovxw/devdeck/sdk"
+)
+
+// HealthResponse is returned by GET /api/v1/health.
+type HealthResponse struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+}
+
+// Deps are the services the HTTP layer needs.
+type Deps struct {
+	Version string
+	Bus     *events.Bus
+	Guard   *Guard
+	Hub     *Hub
+	Plugins *sdk.Registry
+	// Workspaces is optional: without it the workspace routes aren't mounted.
+	Workspaces *workspace.Manager
+	// Supervisor is optional too: it adds the routes that start and stop stacks.
+	// It needs Workspaces.
+	Supervisor *supervisor.Supervisor
+	// Logs is optional: it adds the routes that read a stack's collected output and
+	// control what is collected. It needs Workspaces.
+	Logs *logs.Store
+	// GitX is optional: it adds the routes for git accounts (connections, rules, the
+	// credential helper setup, each repository's account). It needs Workspaces.
+	GitX *gitx.Service
+	// Reviews is optional: it runs the review tools of the Features page. Without it a runner is made that
+	// runs the real tools, in a folder of the data directory.
+	Reviews *review.Runner
+	// FolderPicker is optional: it adds the route that opens the system's folder dialog.
+	FolderPicker FolderPicker
+	// Hosts is optional: it adds the routes for remote hosts (machines that run devdeck's
+	// agent, reached through a tunnel). It needs Workspaces.
+	Hosts *remote.Hosts
+	// Docker is optional: it adds the routes for Docker Hub accounts, build secrets and building
+	// and pushing images. It needs Workspaces.
+	Docker *dockerx.Service
+	// Claude is optional: it adds the Claude access page's routes, decides which areas the
+	// Claude Code connector may read and keeps the audit list of what it asked for. Without
+	// it the connector gets the default areas and nothing is recorded.
+	Claude *Claude
+	// Themes is optional: it adds the Appearance page's routes and keeps the themes a person made.
+	Themes *Themes
+	// Updates is optional: it adds Settings → About's routes, which say whether a newer release exists
+	// and install it.
+	Updates *update.Checker
+	// Quit is optional: it closes devdeck the way its Quit does (stacks stopped first). Installing an update
+	// calls it once the installer has started; without it the installer closes devdeck itself.
+	Quit func()
+	// UI is optional: the built web app, served for every path the API doesn't use. A
+	// build without it (tests, the remote agent) answers 404 there, as before.
+	UI http.Handler
+}
+
+// Register mounts the API and WebSocket routes on e. Every route sits behind
+// the Host/Origin guard.
+func Register(e *echo.Echo, d Deps) {
+	policy := ConnectorPolicy{HostConnected: d.hostConnected}
+	if d.Claude != nil {
+		policy.Access, policy.Record = d.Claude.Allowed, d.Claude.record
+	}
+	e.Use(d.Guard.Middleware(), ConnectorGuard(policy))
+
+	e.GET("/ws", d.Hub.Handler())
+
+	v1 := e.Group("/api/v1")
+	v1.GET("/health", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, HealthResponse{Status: "ok", Version: d.Version})
+	})
+	registerPlugins(v1, d.Plugins)
+	registerUIState(v1)
+	registerDocs(v1)
+	registerStandalone(v1, d)
+	if d.Workspaces != nil {
+		registerWorkspaces(v1, d.Workspaces, d.Supervisor)
+		registerDoctor(v1, d.Workspaces, d.Plugins, d.Supervisor)
+		registerStackFiles(v1, d.Workspaces, d.Supervisor)
+		if d.GitX != nil {
+			registerGit(v1, d.GitX, d.Workspaces)
+			registerFeatures(v1, d.Workspaces, d.GitX, d.Reviews)
+		}
+		registerLogFilters(v1, d.Workspaces)
+		if d.Docker != nil {
+			registerDocker(v1, d.Docker, d.Workspaces, d.GitX)
+		}
+		if d.Hosts != nil {
+			registerHosts(v1, d.Hosts)
+		}
+		if d.Logs != nil {
+			registerLogs(v1, d.Logs, d.Workspaces)
+			registerLogWhere(v1, d.Workspaces)
+		}
+		if d.Supervisor != nil {
+			registerStacks(v1, d.Workspaces, d.Supervisor)
+		}
+	}
+	if d.UI != nil {
+		// GET and HEAD only: the app is read, never posted to.
+		e.GET("/*", echo.WrapHandler(d.UI))
+	}
+}
+
+// registerStandalone mounts the routes that need nothing but their own dependency: the Claude access page, the
+// Appearance page and the folder picker.
+func registerStandalone(v1 *echo.Group, d Deps) {
+	if d.Claude != nil {
+		registerClaude(v1, d.Claude)
+	}
+	if d.Themes != nil {
+		registerThemes(v1, d.Themes)
+	}
+	if d.FolderPicker != nil {
+		registerSystem(v1, d.FolderPicker)
+	}
+	if d.Updates != nil {
+		registerUpdate(v1, d.Updates, d.Supervisor, d.Quit)
+	}
+}
+
+// hostConnected reports whether the host's tunnel is open now.
+func (d Deps) hostConnected(ws, host string) bool {
+	if d.Hosts == nil {
+		return false
+	}
+	v, err := d.Hosts.Get(ws, host)
+	return err == nil && v.Tunnel.Open
+}

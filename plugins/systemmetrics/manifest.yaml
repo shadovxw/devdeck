@@ -1,0 +1,5 @@
+id: system-metrics
+name: System metrics
+category: system
+icon: gauge
+description: CPU, memory and disk of this machine. Built in, nothing to install.

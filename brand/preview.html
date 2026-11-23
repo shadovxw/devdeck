@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>devdeck brand</title>
+<style>
+  html, body { margin: 0; }
+  body { font: 13px/1.4 system-ui, sans-serif; }
+  .sheet { display: grid; grid-template-columns: 1fr 1fr; width: 1774px; }
+  .p { display: grid; grid-template-rows: 520px 300px auto; justify-items: center; align-items: center; }
+  .dark { background: #080c10; color: #8a9ca2; }
+  .light { background: #fefefe; color: #5f6f75; }
+  .p .mark { height: 330px; }
+  .p .word { width: 680px; }
+  .p .row { display: flex; gap: 48px; align-items: center; padding: 40px 0 56px; }
+  .p .lock { height: 96px; }
+  .p .tile { height: 120px; border-radius: 0; }
+  .p .fav { height: 32px; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="p dark">
+    <img class="mark" src="logo-mark-dark.svg" alt="devdeck mark, dark">
+    <img class="word" src="wordmark-dark.svg" alt="devdeck wordmark, dark">
+    <div class="row"><img class="lock" src="lockup-dark.svg" alt="devdeck lockup, dark"><img class="tile" src="app-icon.svg" alt="app icon"><img class="fav" src="logo-mark-dark.svg" alt="small mark"></div>
+  </div>
+  <div class="p light">
+    <img class="mark" src="logo-mark-light.svg" alt="devdeck mark, light">
+    <img class="word" src="wordmark-light.svg" alt="devdeck wordmark, light">
+    <div class="row"><img class="lock" src="lockup-light.svg" alt="devdeck lockup, light"><img class="tile" src="app-icon.svg" alt="app icon"><img class="fav" src="logo-mark-light.svg" alt="small mark"></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs><linearGradient id="as" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#054d58"/><stop offset=".42" stop-color="#02b3ae"/><stop offset="1" stop-color="#02f1c9"/></linearGradient>
+    <linearGradient id="au" x1="12" y1="0" x2="320" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#01d4d0"/><stop offset=".45" stop-color="#23ecca"/><stop offset=".8" stop-color="#68fbc9"/><stop offset="1" stop-color="#71fbb6"/></linearGradient>
+    <linearGradient id="al" x1="12" y1="0" x2="320" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00efc7"/><stop offset=".45" stop-color="#01c1ac"/><stop offset=".72" stop-color="#048e8d"/><stop offset=".88" stop-color="#05545d"/><stop offset="1" stop-color="#0a6a70"/></linearGradient>
+    <clipPath id="ac"><path d="M12 0H195Q215 0 229 15L298 90Q320 115 320 165C320 250 260 320 185 320H12L92 244H185C250 244 280 190 270 173L175 76H92Z"/></clipPath><linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#121a1e"/><stop offset="1" stop-color="#0a0f12"/></linearGradient></defs>
+  <rect width="1024" height="1024" fill="url(#tile)"/>
+  <g transform="translate(212 212) scale(1.875)"><path d="M0 8L80 84V236L0 312Z" fill="url(#as)"/>
+    <path d="M12 0H195Q215 0 229 15L298 90Q320 115 320 165C320 250 260 320 185 320H12L92 244H185C250 244 280 190 270 173L175 76H92Z" fill="url(#au)"/>
+    <g clip-path="url(#ac)"><path d="M0 212L262 168L320 138H340V340H0Z" fill="url(#al)"/><path d="M262 168L320 138" stroke="#ffffff" stroke-opacity=".28" stroke-width="2"/></g>
+    <path d="M118 128L152 160L118 192" fill="none" stroke="#4ee8b5" stroke-width="17" stroke-linecap="square"/>
+    <rect x="166" y="186" width="54" height="16" rx="2" fill="#2aeab4"/></g></svg>

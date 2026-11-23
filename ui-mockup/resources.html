@@ -1,0 +1,75 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Resources · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body><script src="nav.js"></script><main>
+<h1>Resources</h1>
+<p>How much CPU, RAM and disk this machine is using, and how much of it is your dev stack, so you can stop what you don't need.</p>
+<p>Range: [last 15 min ▾] &nbsp; Stack: [full ▾] &nbsp; Group by: [service ▾ / repo / kind] &nbsp; Refresh: [5s ▾]</p>
+
+<div class="row">
+  <div class="box"><b>CPU</b><br><span class="big">38%</span><br>of 12 cores · dev stack uses 21%</div>
+  <div class="box"><b>RAM</b><br><span class="big">11.2 / 16 GB</span><br>dev stack 5.9 GB · Docker VM 6.1 / 8 GB limit</div>
+  <div class="box"><b>Disk C:</b><br><span class="big">412 / 512 GB</span><br>dev-related 41.2 GB (reclaimable 17.5 GB)</div>
+  <div class="box"><b>Stack</b><br><span class="big">12 / 14</span><br>services running · 3 idle 30+ min</div>
+</div>
+
+<h3>CPU, whole machine (last 15 min)</h3>
+<svg width="460" height="150" viewBox="0 0 460 150" role="img" aria-label="CPU usage over the last 15 minutes, between 25 and 62 percent">
+  <g stroke="#ddd" stroke-width="1">
+    <line x1="40" y1="10" x2="450" y2="10"/><line x1="40" y1="40" x2="450" y2="40"/>
+    <line x1="40" y1="70" x2="450" y2="70"/><line x1="40" y1="100" x2="450" y2="100"/>
+    <line x1="40" y1="130" x2="450" y2="130" stroke="#999"/>
+  </g>
+  <g font-size="10" fill="#666">
+    <text x="4" y="14">100%</text><text x="10" y="74">50%</text><text x="16" y="134">0%</text>
+    <text x="40" y="146">-15m</text><text x="235" y="146">-7m</text><text x="430" y="146">now</text>
+  </g>
+  <polyline fill="none" stroke="#3b6fd8" stroke-width="2" stroke-linejoin="round"
+    points="40,95 67,92 94,98 121,88 148,80 175,60 202,55 229,85 256,92 283,90 310,86 337,94 364,90 391,82 418,87 450,84"/>
+  <circle cx="202" cy="55" r="4" fill="#3b6fd8"><title>-8m: 62% (go build of catalog-service)</title></circle>
+  <text x="208" y="50" font-size="10" fill="#333">62% peak: go build</text>
+</svg>
+<p class="small">Hover a point for the value. The real version has a crosshair tooltip over the whole line.</p>
+
+<h3>RAM by service (largest first)</h3>
+<p>☐ select &nbsp; [Stop selected] [Stop idle ones]</p>
+<table>
+  <tr><th></th><th>Service</th><th>Kind</th><th>RAM</th><th></th><th>CPU</th><th>Idle for</th><th></th></tr>
+  <tr><td>☐</td><td>sonarqube</td><td>container</td><td>1.9 GB</td><td><span class="track" title="sonarqube: 1.9 GB"><div class="bar" style="width:95%"></div></span></td><td>2%</td><td>40 min</td><td>[stop]</td></tr>
+  <tr><td>☐</td><td>keycloak</td><td>container</td><td>780 MB</td><td><span class="track" title="keycloak: 780 MB"><div class="bar" style="width:39%"></div></span></td><td>1%</td><td></td><td>[stop]</td></tr>
+  <tr><td>☐</td><td>infrabot-frontend (vite)</td><td>node</td><td>620 MB</td><td><span class="track" title="infrabot-frontend: 620 MB"><div class="bar" style="width:31%"></div></span></td><td>3%</td><td></td><td>[stop]</td></tr>
+  <tr><td>☐</td><td>infrabot-orchestrate-agents</td><td>python</td><td>540 MB</td><td><span class="track" title="orchestrate-agents: 540 MB"><div class="bar" style="width:27%"></div></span></td><td>1%</td><td>35 min</td><td>[stop]</td></tr>
+  <tr><td>☐</td><td>postgres</td><td>container</td><td>410 MB</td><td><span class="track" title="postgres: 410 MB"><div class="bar" style="width:20%"></div></span></td><td>4%</td><td></td><td>[stop]</td></tr>
+  <tr><td>☐</td><td>infrabot-ticket-service</td><td>go</td><td>180 MB</td><td><span class="track" title="ticket-service: 180 MB"><div class="bar" style="width:9%"></div></span></td><td>5%</td><td></td><td>[stop]</td></tr>
+  <tr><td>☐</td><td>infrabot-ipam-service</td><td>go</td><td>95 MB</td><td><span class="track" title="ipam-service: 95 MB"><div class="bar" style="width:5%"></div></span></td><td>0%</td><td>2 h</td><td>[stop]</td></tr>
+  <tr><td colspan="8" class="small">… 7 more Go services, 60–150 MB each</td></tr>
+</table>
+
+<h3>Other big users on this machine (not stoppable from here)</h3>
+<table>
+  <tr><th>Process</th><th>RAM</th><th></th></tr>
+  <tr><td>Docker VM (vmmem / WSL2)</td><td>6.1 GB</td><td><span class="track"><div class="bar" style="width:100%"></div></span></td></tr>
+  <tr><td>VS Code</td><td>1.8 GB</td><td><span class="track"><div class="bar" style="width:30%"></div></span></td></tr>
+  <tr><td>Chrome</td><td>1.5 GB</td><td><span class="track"><div class="bar" style="width:25%"></div></span></td></tr>
+</table>
+<p class="small">Containers run inside the Docker VM, so their RAM is part of the 6.1 GB above. The VM's 8 GB cap is set in .wslconfig, and devdeck can show and change it.</p>
+
+<h3>Disk used by dev stuff</h3>
+<table>
+  <tr><th>What</th><th>Size</th><th></th><th>Reclaimable</th><th>Clean up</th></tr>
+  <tr><td>Docker images</td><td>18.4 GB</td><td><span class="track" title="Docker images: 18.4 GB"><div class="bar" style="width:100%"></div></span></td><td>9.6 GB (old tags, dangling)</td><td>[keep last 3 tags per image]</td></tr>
+  <tr><td>Docker build cache</td><td>9.1 GB</td><td><span class="track" title="Build cache: 9.1 GB"><div class="bar" style="width:49%"></div></span></td><td>6.2 GB</td><td>[prune older than 7 days]</td></tr>
+  <tr><td>Docker volumes</td><td>4.2 GB</td><td><span class="track" title="Volumes: 4.2 GB"><div class="bar" style="width:23%"></div></span></td><td>0.4 GB (unused)</td><td>[remove unused]</td></tr>
+  <tr><td>node_modules (all repos)</td><td>3.8 GB</td><td><span class="track" title="node_modules: 3.8 GB"><div class="bar" style="width:21%"></div></span></td><td>0.9 GB (old_infrabot)</td><td>[choose repos…]</td></tr>
+  <tr><td>Go build + module cache</td><td>2.5 GB</td><td><span class="track" title="Go cache: 2.5 GB"><div class="bar" style="width:14%"></div></span></td><td>0.4 GB</td><td>[go clean -cache]</td></tr>
+  <tr><td>Postgres data (in volume)</td><td>2.1 GB</td><td><span class="track" title="Postgres: 2.1 GB"><div class="bar" style="width:11%"></div></span></td><td>none</td><td>[open Databases]</td></tr>
+  <tr><td>devdeck logs + scan reports</td><td>1.1 GB</td><td><span class="track" title="Logs and reports: 1.1 GB"><div class="bar" style="width:6%"></div></span></td><td>1.0 GB (older than 30 days)</td><td>[clean]</td></tr>
+</table>
+<p class="small">Every clean-up shows exactly what it will delete and asks before running.</p>
+
+<h3>Where the numbers come from</h3>
+<ul class="small">
+  <li>Containers: Docker Engine API stats (the same data as <code>docker stats</code>).</li>
+  <li>Go / node / python processes started by devdeck: per-process CPU and RAM via gopsutil, using the process IDs devdeck already knows.</li>
+  <li>Whole machine, CPU history: gopsutil, sampled every 5 s and kept for 24 h.</li>
+  <li>Disk: <code>docker system df</code> plus folder sizes.</li>
+</ul>
+</main></body></html>

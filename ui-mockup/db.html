@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Database · devdeck</title><link rel="stylesheet" href="style.css"></head>
+<body data-parent="databases.html"><script src="nav.js"></script><main>
+<p class="small"><a href="databases.html">Databases</a> / postgres-local / infrabot_ticket_db</p>
+<h1>infrabot_ticket_db</h1>
+<p>Database: [infrabot_ticket_db ▾] &nbsp; [Open SQL console] [Snapshot schema for Claude] [Migration status] [pg_dump]</p>
+
+<div class="row">
+  <div class="box" style="flex:1">
+    <b>Tables</b> (schema: public) [filter…]
+    <ul>
+      <li><b>tickets</b> 1,204</li>
+      <li>ticket_form_data 1,180</li>
+      <li>ticket_target_data 980</li>
+      <li>ticket_templates 12</li>
+      <li>ticket_conversations 3,410</li>
+      <li>ticket_attachments 88</li>
+      <li>workflow_execution 1,190</li>
+      <li>workflow_execution_step 6,532</li>
+      <li>workflow_edge 240</li>
+      <li>event_outbox 14</li>
+      <li class="small">… views, functions, sequences</li>
+    </ul>
+  </div>
+
+  <div class="box" style="flex:3">
+    <b>Table: workflow_execution</b> &nbsp; <a href="#">Columns</a> | <a href="#">Data</a> | <a href="#">Indexes</a> | <a href="#">Foreign keys</a> | <a href="#">DDL</a> | <a href="#">Used in code</a>
+    <table>
+      <tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th></tr>
+      <tr><td>id</td><td>uuid</td><td>no</td><td>gen_random_uuid()</td></tr>
+      <tr><td>ticket_id</td><td>uuid</td><td>no</td><td>→ tickets.id</td></tr>
+      <tr><td>workflow_template_id</td><td>uuid</td><td>no</td><td></td></tr>
+      <tr><td>status</td><td>text</td><td>no</td><td>'running'</td></tr>
+      <tr><td>current_node_code</td><td>text</td><td>yes</td><td></td></tr>
+      <tr><td>created_at</td><td>timestamptz</td><td>no</td><td>now()</td></tr>
+    </table>
+    <p><b>Defined in:</b> infrabot-ticket-service/schema/postgres/V011__workflow_orchestration.sql <a href="#">open in VS Code</a></p>
+    <p><b>Used in code:</b> internal/workflow/repository.go (7 queries) <a href="#">open</a></p>
+    <p><b>Data preview</b> (first 50 rows, editable on local only) [filter: status = 'failed']</p>
+    <table>
+      <tr><th>id</th><th>ticket_id</th><th>status</th><th>current_node_code</th><th>created_at</th></tr>
+      <tr><td>7c1…</td><td>a90…</td><td>failed</td><td>EXE_02</td><td>10:41</td></tr>
+      <tr><td>5be…</td><td>11f…</td><td>running</td><td>APR_01</td><td>10:20</td></tr>
+    </table>
+  </div>
+</div>
+</main></body></html>

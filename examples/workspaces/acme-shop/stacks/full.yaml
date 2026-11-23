@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../../../internal/workspace/schemas/stack.schema.json
+version: 1
+name: full
+description: The database, the API and the web app, started in order.
+
+# Dependencies that run in Docker.
+compose:
+  repo: infra
+  file: docker-compose.yml
+  services: [db]
+
+services:
+  - id: api
+    repo: api
+    kind: go
+    cmd: ./cmd/api
+    port: 8080
+    env_file: .env
+    ready:
+      http: http://127.0.0.1:8080/health
+      timeout: 30s
+    log_parser: zerolog
+    restart: on-failure
+
+  - id: web
+    repo: web
+    kind: node
+    cmd: npm run dev
+    port: 5173
+    after: [api] # wait until the API is ready
+    ready:
+      log: "Local:"
+      timeout: 20s
