@@ -1335,3 +1335,49 @@
   letter-spacing: 0.08em;
   color: var(--ink-2);
 }
+
+/* --- New project (pages/workspaces/NewProject.tsx; projects plan §4.2) --------------------- */
+[data-ui="new-step"] {
+  --cut: 12px;
+  background: var(--neon-panel);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+}
+
+[data-ui="new-step-title"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--link);
+}
+
+[data-ui="new-scanned"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--good);
+}
+
+[data-ui="new-repo"]:hover {
+  background: var(--fill);
+}
+
+[data-ui="new-repo"] input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--link);
+}
+
+[data-ui="new-repo-type"] {
+  padding: 1px 6px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--ink-2);
+  background: var(--fill);
+}
+
+[data-ui="new-file"] {
+  background: var(--bg);
+}

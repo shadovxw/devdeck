@@ -97,3 +97,27 @@ Checked: typecheck, lint, all 810 web tests (the Docs page test once timed out u
 - **Not yet:** `devdeck run <script>` in the terminal; stored run history; flows as scripts.
 
 Checked: `go vet ./...`, the Go tests for scripts, workspace, api, supervisor and proc, typecheck, lint, all 820 web tests. In the browser, against a throwaway server on 7071 built from this branch (the owner's own server on 7070 was left alone): acme's Scripts tab listed the three starters, and "What changed?" ran: "4 repos · 4 ok", each with its branch and changed count. With this build, the header also showed Open in VS Code.
+
+## 2026-11-24: PJ5, New project as a checklist
+
+- **`pages/workspaces/NewProject.tsx`** (replaces the drawer's form in `WorkspacesPage.tsx`): the design's three numbered steps, each framed like the board.
+  - **01 · Pick a folder:** one repo or the folder that holds several. Browse… or type the path, then Scan folder. Shows "✓ Scanned · 11 repos".
+  - **02 · What devdeck found:** each repo with a tick (all on), its type and its remote. A folder with no git repositories says so and can still become a project.
+  - **03 · Name it:** the name starts from the folder's ("My Shop" → `my-shop`). A name the file can't take is pointed out and blocks Create.
+- **The file is the result, not the first thing shown.** **Show the file** reveals the `workspace.yaml` built from what is ticked; Edit file on the project's page changes it afterwards. It is still checked by the server as it changes, and problems show above Create.
+- **`lib/new-project.ts`** (table-tested in `new-project.test.ts`):
+  - `projectYaml` writes the chosen repos in the scan's own shape.
+  - `rootOf` takes the folder as the scan wrote it (`~/code`).
+  - `yamlValue` quotes only when needed.
+  - `nameFrom` and `NAME_PATTERN` handle the name.
+- **Fixed, found in the browser:** a folder with no git repositories came back with `repos: null` (an empty Go list), and the drawer crashed. It is now read as an empty list, and there is a test for it.
+- Tests (`workspaces.test.tsx`):
+  - scan, the checklist, untick, the name from the folder, Show the file, and Create posting exactly the ticked file
+  - a name that blocks Create
+  - an empty folder
+  - Browse and the dialog cases moved to the new labels
+- Kept as it was: the server's scan, the folder dialog, and the server-side check of the file.
+
+Checked: typecheck, lint, all 839 web tests. In the browser (nothing created):
+- The demo folder showed "✓ Scanned · 0 repos" with its note.
+- `~/Desktop/PROJECTS` listed 11 repos with ticks, types and remotes, named `projects`.
