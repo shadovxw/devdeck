@@ -22,3 +22,27 @@ From the owner's design board "Projects (plan §4)". Decisions taken to start: t
 - Tests: `project-state.test.ts`, `workspaces.test.tsx` (the cards, cards only, a card opens its page, old links, details on the project's page), and the other tests updated for the new words.
 
 Checked: typecheck, lint, all 801 web tests. In the browser at 1440×900: Projects shows the two cards (acme "4 problems", projects "Stopped") and the New project tile. Clicking acme opens its page, with the breadcrumb Work / Projects / acme and Projects marked in the sidebar.
+
+## 2026-11-24: PJ2, the project page
+
+- **The header** (`pages/project/ProjectHeader.tsx`, styles in `design/pieces.css`): the design's frame, with:
+  - **Name and state:** the name with an accent full stop, and the state chip ("Running 1/1" with a pulsing dot at Effects Full, "N problems", "Stopped"), then the description.
+  - **Mode:** the run-mode picker, starting on the mode that runs, else the first.
+  - **Start or Stop** for that mode. These are writes: paused while the server is gone, and an example project can't be started (its tooltip says so). A refused start shows its message.
+  - **Open in VS Code** (`vscode://file/<folder>`), and **Edit file** for your own projects.
+- **The server** (`internal/workspace/service.go`): a project's details carry `root_path`, the resolved repos folder (`~` and relative roots), so the page can open it in VS Code. Table-tested (`TestGetResolvesTheReposFolder`). The server still listens on 127.0.0.1 only, and the file editor already shows a path.
+- **The tabs** (`pages/ProjectPage.tsx`), mono and upper case with a gradient line under the open one; the open tab is in the address (`?tab=run`):
+  - **Code:** the repos with their git state (the existing table).
+  - **Run:** each run mode as the Stacks page's card (services in start order, start, stop, restart, ports, logs). `StackCard` is exported from `StacksPage.tsx` for this.
+  - **Logs:** a row per run mode ("Streaming" or "Stopped · its stored lines") that opens the Logs page scoped to it. Logs inside the page come with PJ3.
+  - **Problems** and **Settings:** the existing panels (`pages/workspaces/WorkspaceDetail.tsx` now only holds those two; the old details component is gone).
+  - Overview (the canvas), Databases, Images and Scripts come in later steps.
+- The breadcrumb is Work / Projects / name, with Projects a link back.
+- Tests: `workspaces.test.tsx`:
+  - the header: name, state, mode, Start posting to the stack, VS Code link, Edit file, breadcrumb
+  - running: Running 1/1 and Stop
+  - the Run and Logs tabs, with the tab in the address
+  - Edit file and Start for your own projects only
+- **Not yet:** the running dev server is an older build, so it doesn't send `root_path`, and the VS Code button stays hidden until it restarts.
+
+Checked: typecheck, lint, all 803 web tests, `go test ./internal/workspace ./internal/api`. In the browser at 1440×900 on the demo `acme` project: the header (4 problems, Mode api-only, Start, Edit file), the tabs, and Run listing api-only, docs and full with their services.

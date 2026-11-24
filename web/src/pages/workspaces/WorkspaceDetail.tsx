@@ -1,55 +1,20 @@
-import { Pencil } from "lucide-react";
+// The parts of a project page that are about its file: its problems and its settings (pages/ProjectPage.tsx).
 import { useState } from "react";
 import { Link } from "react-router";
 
 import { quietButton } from "../../design/buttons";
 import { Mark } from "../../design/IssueList";
-import { Tabs } from "../../design/Tabs";
-import { useGitRepos } from "../../lib/git";
-import { useDeleteWorkspace, useWorkspace } from "../../lib/queries";
+import { useDeleteWorkspace } from "../../lib/queries";
 import type { Issue, WorkspaceDetail as Detail } from "../../lib/types";
 import { useWorkspaceFile } from "../../lib/workspace-file";
-import { RepoTable } from "./RepoTable";
 
-type Tab = "repos" | "stacks" | "problems" | "settings";
 
 const editUrl = (id: string, line?: number) => {
   const base = `/workspaces/${encodeURIComponent(id)}/edit`;
   return line ? `${base}?line=${line}` : base;
 };
 
-function Stacks({ id, d }: Readonly<{ id: string; d: Detail }>) {
-  if (d.stacks.length === 0 && d.flows.length === 0) return <p className="m-0 py-4 text-[14px] text-ink-3">No stacks or flows yet. They are files in this workspace's folder.</p>;
-  return (
-    <div className="flex flex-col gap-4">
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {d.stacks.map((s) => {
-          const services = (s.services?.length ?? 0) + (s.compose?.length ?? 0);
-          return (
-            <li key={s.name} className="flex flex-wrap items-center gap-3 bg-surface-1 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <b className="text-[15px] font-semibold text-ink">{s.name}</b>
-                {s.description && <p className="m-0 mt-0.5 text-[13px] text-ink-3">{s.description}</p>}
-                <p className="m-0 mt-0.5 text-[12.5px] text-ink-3">{services} {services === 1 ? "item" : "items"}</p>
-              </div>
-              <Link to={`/stacks?workspace=${encodeURIComponent(id)}`} className={quietButton}>
-                Open stack
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-      {d.flows.length > 0 && (
-        <p className="m-0 text-[13px] text-ink-2">
-          <span className="text-ink-3">Flows: </span>
-          {d.flows.map((f) => f.name).join(", ")}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function Problems({ id, issues, mine }: Readonly<{ id: string; issues: Issue[]; mine: boolean }>) {
+export function Problems({ id, issues, mine }: Readonly<{ id: string; issues: Issue[]; mine: boolean }>) {
   if (issues.length === 0) return <p className="m-0 py-4 text-[14px] text-ink-3">No problems found.</p>;
   const byFile = new Map<string, Issue[]>();
   for (const i of issues) byFile.set(i.file, [...(byFile.get(i.file) ?? []), i]);
@@ -86,7 +51,7 @@ function Problems({ id, issues, mine }: Readonly<{ id: string; issues: Issue[]; 
   );
 }
 
-function Settings({ id, d, mine, onDeleted }: Readonly<{ id: string; d: Detail; mine: boolean; onDeleted: () => void }>) {
+export function Settings({ id, d, mine, onDeleted }: Readonly<{ id: string; d: Detail; mine: boolean; onDeleted: () => void }>) {
   const file = useWorkspaceFile(id);
   const del = useDeleteWorkspace();
   const [confirming, setConfirming] = useState(false);
@@ -151,53 +116,5 @@ function Settings({ id, d, mine, onDeleted }: Readonly<{ id: string; d: Detail; 
         </section>
       )}
     </div>
-  );
-}
-
-/** One workspace in full: its repos with their git state, its stacks, its problems, and its settings. */
-export function WorkspaceDetail({ id, onDeleted }: Readonly<{ id: string; onDeleted: () => void }>) {
-  const { data, isPending, isError } = useWorkspace(id);
-  const git = useGitRepos();
-  const [tab, setTab] = useState<Tab>("repos");
-
-  if (isPending) return <output aria-label="Loading workspace…" className="skeleton block h-40 w-full" />;
-  if (isError || !data) return <p className="m-0 text-ink-3">Could not load this workspace.</p>;
-
-  const mine = data.source === "local";
-  const problems = data.issues.length;
-  const repos = data.workspace?.repos ?? [];
-
-  return (
-    <section aria-label={`Details of ${data.name}`} className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="m-0 text-[18px] font-semibold text-ink">{data.name}</h2>
-        <span className="font-mono text-[12.5px] text-ink-3">workspace.yaml</span>
-        <span className="flex-1" />
-        {mine && (
-          <Link to={editUrl(id)} className={quietButton}>
-            <Pencil size={14} aria-hidden /> Edit file
-          </Link>
-        )}
-      </div>
-
-      <Tabs
-        label="Workspace sections"
-        value={tab}
-        onChange={setTab}
-        items={[
-          { value: "repos", label: "Repositories", count: repos.length },
-          { value: "stacks", label: "Stacks", count: data.stacks.length },
-          { value: "problems", label: "Problems", count: problems },
-          { value: "settings", label: "Settings" },
-        ]}
-      />
-
-      <div role="tabpanel" aria-label={tab}>
-        {tab === "repos" && <RepoTable workspace={id} repos={repos} git={(git.data ?? []).filter((g) => g.workspace === id)} />}
-        {tab === "stacks" && <Stacks id={id} d={data} />}
-        {tab === "problems" && <Problems id={id} issues={data.issues} mine={mine} />}
-        {tab === "settings" && <Settings id={id} d={data} mine={mine} onDeleted={onDeleted} />}
-      </div>
-    </section>
   );
 }

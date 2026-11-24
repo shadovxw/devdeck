@@ -5,7 +5,7 @@ import { RouterProvider } from "react-router/dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { routes } from "../app/routes";
-import type { Issue, WorkspaceDetail, WorkspaceSummary } from "../lib/types";
+import type { Issue, RunStatus, WorkspaceDetail, WorkspaceSummary } from "../lib/types";
 import { useUi } from "../store/ui";
 
 const demo: WorkspaceSummary = {
@@ -50,6 +50,7 @@ const detail: WorkspaceDetail = {
   stacks: [{ name: "full", services: [{ id: "api", kind: "process" }] }],
   flows: [{ name: "nightly" }],
   issues,
+  root_path: "/home/me/code",
 };
 
 const draft = "version: 1\nname: code\nroot: ~/code\nrepos:\n  - id: api\n    path: api\n";
@@ -84,7 +85,7 @@ const chosen = "/home/me/code";
 let closeDialog: (() => void) | undefined;
 
 function mockServer(
-  opts: { list?: WorkspaceSummary[]; scanError?: string; pick?: "ok" | "cancel" | "error" | "wait"; deleteError?: { status: number; message: string } } = {},
+  opts: { list?: WorkspaceSummary[]; runs?: RunStatus[]; scanError?: string; pick?: "ok" | "cancel" | "error" | "wait"; deleteError?: { status: number; message: string } } = {},
 ) {
   let list = opts.list ?? [];
   vi.stubGlobal(
@@ -102,6 +103,8 @@ function mockServer(
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       if (url === "/api/v1/workspaces/demo") return Promise.resolve(Response.json(detail));
+      if (url === "/api/v1/runs") return Promise.resolve(Response.json(opts.runs ?? []));
+      if (url === "/api/v1/workspaces/demo/stacks/full/start" && method === "POST") return Promise.resolve(Response.json({ workspace: "demo", stack: "full", state: "starting", started_at: "", services: [] }));
       if (url === "/api/v1/workspaces/acme-shop") return Promise.resolve(Response.json({ ...sample, workspace: { name: "acme-shop", root: "~/code/acme-shop", repos: [] }, stacks: [], flows: [], issues: [] }));
       if (url === "/api/v1/workspaces/demo/file") return Promise.resolve(Response.json({ yaml: draft, hash: "h1", path: "/code/demo/workspace.yaml" }));
       if (url === "/api/v1/git/repos") return Promise.resolve(Response.json(gitRows));
@@ -273,26 +276,51 @@ describe("workspaces page", () => {
     expect(links[0].textContent).toBe("Fix in the editor");
   });
 
-  it("lists the stacks with a way to open them, and the flows", async () => {
+  it("runs: each run mode with its services, and its logs a click away; the tab is in the address", async () => {
+    mockServer({ list: [demo] });
+    const router = renderAt("/workspaces/demo");
+    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
+    fireEvent.click(await details.findByRole("tab", { name: /Run/ }));
+    expect(router.state.location.search).toBe("?tab=run");
+    expect(await details.findByRole("button", { name: /Start/ })).toBeTruthy(); // the stack's own start, in its card
+
+    fireEvent.click(details.getByRole("tab", { name: /Logs/ }));
+    const logs = within(details.getByRole("list", { name: "Logs by run mode" }));
+    expect(logs.getByRole("link", { name: /full/ }).getAttribute("href")).toBe("/logs?workspace=demo&stack=full");
+  });
+
+  it("the header: the name, its state, the run mode, Start, VS Code and Edit file", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces/demo");
-    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
-    fireEvent.click(await details.findByRole("tab", { name: /Stacks/ }));
-    expect(details.getByText("full")).toBeTruthy();
-    expect(details.getByRole("link", { name: "Open stack" }).getAttribute("href")).toBe("/stacks?workspace=demo");
-    expect(details.getByText("nightly")).toBeTruthy();
+    const head = within((await screen.findByRole("heading", { level: 1, name: /demo/ })).closest("header") as HTMLElement);
+    expect(head.getByText("2 problems")).toBeTruthy();
+    expect((head.getByRole("combobox", { name: "Run mode" }) as HTMLSelectElement).value).toBe("full");
+    expect(head.getByRole("link", { name: /Open in VS Code/ }).getAttribute("href")).toBe("vscode://file/home/me/code");
+    expect(head.getByRole("link", { name: /Edit file/ }).getAttribute("href")).toBe("/workspaces/demo/edit");
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Work/Projects/demo");
+
+    fireEvent.click(head.getByRole("button", { name: /^Start/ }));
+    await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces/demo/stacks/full/start", body: undefined }));
+  });
+
+  it("the header says when the project runs, and offers Stop", async () => {
+    mockServer({ list: [demo], runs: [{ workspace: "demo", stack: "full", state: "running", started_at: "", services: [{ id: "api", kind: "process", state: "ready", restarts: 0 }] }] });
+    renderAt("/workspaces/demo");
+    const head = within((await screen.findByRole("heading", { level: 1, name: /demo/ })).closest("header") as HTMLElement);
+    expect(await head.findByText("Running 1/1")).toBeTruthy();
+    expect(head.getByRole("button", { name: /Stop/ })).toBeTruthy();
   });
 
   it("has an Edit file button for the user's own projects only", async () => {
     mockServer({ list: [demo, sample] });
     renderAt("/workspaces/demo");
-    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
-    expect(details.getByRole("link", { name: /Edit file/ }).getAttribute("href")).toBe("/workspaces/demo/edit");
+    expect((await screen.findByRole("link", { name: /Edit file/ })).getAttribute("href")).toBe("/workspaces/demo/edit");
     cleanup();
 
     renderAt("/workspaces/acme-shop");
-    const other = within(await screen.findByRole("region", { name: "Details of acme-shop" }));
-    expect(other.queryByRole("link", { name: /Edit file/ })).toBeNull();
+    await screen.findByRole("region", { name: "Details of acme-shop" });
+    expect(screen.queryByRole("link", { name: /Edit file/ })).toBeNull();
+    expect((screen.queryByRole("button", { name: /^Start/ }) as HTMLButtonElement | null)?.disabled ?? true).toBe(true); // an example: no start
   });
 
   async function openSettings(id = "demo") {

@@ -183,7 +183,7 @@ function ServiceRow({ service: s, now, controls, logsTo }: { service: RunStatus[
   );
 }
 
-function StackCard({ workspace, stack, run, now, index }: { workspace: WorkspaceDetail; stack: StackDef; run?: RunStatus; now: number; index: number }) {
+export function StackCard({ workspace, stack, run, now, index }: { workspace: WorkspaceDetail; stack: StackDef; run?: RunStatus; now: number; index: number }) {
   const start = useStartStack();
   const stop = useStopStack();
   const restart = useRestartService();

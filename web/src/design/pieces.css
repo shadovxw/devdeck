@@ -1131,3 +1131,99 @@
   text-transform: uppercase;
   color: var(--ink);
 }
+
+/* --- The project page (pages/ProjectPage.tsx, project/ProjectHeader.tsx; projects plan §4.3) --- */
+[data-ui="project-head"] {
+  --cut: 16px;
+  padding: 1px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--link) 55%, transparent), color-mix(in srgb, var(--critical) 25%, transparent) 45%, color-mix(in srgb, var(--ink) 6%, transparent));
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+}
+
+[data-ui="project-head-in"] {
+  position: relative;
+  background: var(--neon-panel);
+  clip-path: inherit;
+}
+
+:root[data-effects="full"] [data-ui="project-head-in"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--ink) 2.5%, transparent) 0 1px, transparent 1px 3px);
+}
+
+[data-ui="project-head-in"] > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-ui="project-title"] {
+  font-size: clamp(30px, 2.6vw, 40px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+[data-ui="project-title"] > span {
+  color: var(--primary);
+}
+
+[data-ui="project-head"] [data-ui="project-state"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-ui="project-live"] {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+:root[data-effects="full"]:not([data-motion="reduced"]) [data-ui="project-live"] {
+  animation: project-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes project-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+[data-ui="project-mode-label"] {
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* The sections: mono, upper case, a gradient line under the open one. */
+.project-tabs {
+  gap: 28px;
+}
+
+.project-tabs [role="tab"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.project-tabs [role="tab"][aria-selected="true"] {
+  box-shadow: none;
+  border-image: linear-gradient(90deg, var(--link), var(--critical)) 1;
+  border-bottom: 2px solid;
+}
+
+[data-ui="project-logs-row"] {
+  background: var(--neon-panel);
+}
+
+[data-ui="project-logs-row"]:hover {
+  background: var(--fill-hover);
+}

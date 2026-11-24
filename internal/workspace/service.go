@@ -77,6 +77,9 @@ type Detail struct {
 	Issues    []Issue        `json:"issues"`
 	// Folder is where the workspace lives on disk. It is not sent to the browser.
 	Folder string `json:"-"`
+	// RootPath is the folder that holds the repos, resolved (~ and relative paths), so the page can open
+	// it in VS Code. The server only listens on 127.0.0.1, and the file editor already shows a path.
+	RootPath string `json:"root_path,omitempty"`
 }
 
 func (s *Manager) plugins() []string {
@@ -172,6 +175,9 @@ func (s *Manager) Get(id string) (*Detail, error) {
 	}
 	// The id comes from the folder's own name, not from the caller's string.
 	d := &Detail{Summary: summarise(filepath.Base(f[0]), f[1], l), Workspace: l.Workspace, Stacks: l.Stacks, Flows: l.Flows, Issues: l.Issues, Folder: f[0]}
+	if l.Workspace != nil && l.Workspace.Root != "" {
+		d.RootPath = ResolveRoot(d.Folder, l.Workspace.Root)
+	}
 	if d.Stacks == nil {
 		d.Stacks = []StackFile{}
 	}

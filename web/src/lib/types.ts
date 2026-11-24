@@ -72,6 +72,8 @@ export type WorkspaceDetail = Omit<WorkspaceSummary, "stacks" | "flows"> & {
   stacks: StackDef[];
   flows: Array<{ name: string; description?: string }>;
   issues: Issue[];
+  /** The folder that holds the repos, resolved, for opening it in VS Code. */
+  root_path?: string;
 };
 
 export type ScanResult = { root: string; name: string; repos: Repo[]; yaml: string; truncated?: boolean };
