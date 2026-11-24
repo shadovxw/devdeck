@@ -14,6 +14,7 @@ import { stagger } from "../lib/motion";
 import { useDeleteStack, useRestartService, useRuns, useStartService, useStartStack, useStopService, useStopStack, useWorkspace, useWorkspaces } from "../lib/queries";
 import { formatUptime, isComposeId, serviceLabel } from "../lib/runs";
 import type { DoctorReport, RunState, RunStatus, ServiceState, StackDef, WorkspaceDetail } from "../lib/types";
+import { pickProject, useCurrentProject } from "../lib/current-project";
 import { useNow } from "../lib/use-now";
 import { PAUSED_TITLE } from "../lib/server-link";
 import { useWritesPaused } from "../lib/use-server-link";
@@ -354,7 +355,10 @@ export function StacksPage() {
   // Default to the first workspace that has no errors and can run: the user's own ones first.
   const list = workspaces.data ?? [];
   const fallback = (list.find((w) => w.errors === 0 && w.source === "local") ?? list.find((w) => w.errors === 0) ?? list[0])?.id;
-  const id = params.get("workspace") ?? fallback;
+  const current = useCurrentProject((s) => s.id);
+  const setCurrent = useCurrentProject((s) => s.set);
+  // The address, else the current project, else the first that can run.
+  const id = pickProject(params.get("workspace"), current, list.map((w) => w.id), fallback);
 
   const detail = useWorkspace(id);
   const runs = useRuns();
@@ -393,7 +397,10 @@ export function StacksPage() {
           id="stacks-workspace"
           className={select}
           value={id ?? ""}
-          onChange={(e) => setParams({ workspace: e.target.value }, { replace: true })}
+          onChange={(e) => {
+            setCurrent(e.target.value);
+            setParams({ workspace: e.target.value }, { replace: true });
+          }}
           disabled={list.length === 0}
         >
           {list.map((w) => (

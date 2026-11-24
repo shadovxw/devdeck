@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { routes } from "../app/routes";
 import type { Issue, RunStatus, WorkspaceDetail, WorkspaceSummary } from "../lib/types";
+import { useCurrentProject } from "../lib/current-project";
 import { useUi } from "../store/ui";
 
 const demo: WorkspaceSummary = {
@@ -145,6 +146,7 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   useUi.setState({ sidebarOpen: false, closedGroups: [] });
+  useCurrentProject.setState({ id: null });
   vi.unstubAllGlobals();
   posted.length = 0;
   calls.length = 0;
@@ -276,7 +278,7 @@ describe("workspaces page", () => {
     expect(links[0].textContent).toBe("Fix in the editor");
   });
 
-  it("runs: each run mode with its services, and its logs a click away; the tab is in the address", async () => {
+  it("runs: each run mode with its services, and its logs in the tab; the tab is in the address", async () => {
     mockServer({ list: [demo] });
     const router = renderAt("/workspaces/demo");
     const details = within(await screen.findByRole("region", { name: "Details of demo" }));
@@ -284,9 +286,11 @@ describe("workspaces page", () => {
     expect(router.state.location.search).toBe("?tab=run");
     expect(await details.findByRole("button", { name: /Start/ })).toBeTruthy(); // the stack's own start, in its card
 
+    // Logs: the stream of a run mode right here, and the full page a click away.
     fireEvent.click(details.getByRole("tab", { name: /Logs/ }));
-    const logs = within(details.getByRole("list", { name: "Logs by run mode" }));
-    expect(logs.getByRole("link", { name: /full/ }).getAttribute("href")).toBe("/logs?workspace=demo&stack=full");
+    expect((details.getByLabelText("Run mode") as HTMLSelectElement).value).toBe("full");
+    expect(details.getByRole("link", { name: /Full page/ }).getAttribute("href")).toBe("/logs?workspace=demo&stack=full");
+    expect(details.queryByRole("heading", { level: 1 })).toBeNull(); // no second page title
   });
 
   it("the header: the name, its state, the run mode, Start, VS Code and Edit file", async () => {
@@ -301,6 +305,20 @@ describe("workspaces page", () => {
 
     fireEvent.click(head.getByRole("button", { name: /^Start/ }));
     await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces/demo/stacks/full/start", body: undefined }));
+  });
+
+  it("opening a project makes it the current one: Stacks and the sidebar's switcher follow it", async () => {
+    mockServer({ list: [demo, sample] });
+    renderAt("/workspaces/demo");
+    await screen.findByRole("region", { name: "Details of demo" });
+    await waitFor(() => expect(useCurrentProject.getState().id).toBe("demo"));
+    cleanup();
+
+    // Left to itself, Stacks would show the example (the first with no errors); it shows the current one.
+    useUi.setState({ sidebarOpen: true });
+    renderAt("/stacks");
+    await waitFor(() => expect((screen.getByLabelText("Workspace") as HTMLSelectElement).value).toBe("demo"));
+    expect(screen.getByRole("link", { name: "Project: demo" }).getAttribute("href")).toBe("/workspaces/demo");
   });
 
   it("the header says when the project runs, and offers Stop", async () => {

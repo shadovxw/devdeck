@@ -8,6 +8,7 @@ import { EmptyState } from "../design/EmptyState";
 import { PageHeader } from "../design/PageHeader";
 import { StatusMark } from "../design/StatusMark";
 import { ApiError } from "../lib/api";
+import { pickProject, useCurrentProject } from "../lib/current-project";
 import { stagger } from "../lib/motion";
 import { useDoctor, useWorkspace, useWorkspaces } from "../lib/queries";
 import type { DoctorCheck, DoctorReport } from "../lib/types";
@@ -72,7 +73,9 @@ export function DoctorPage() {
   // Health dot checks the same one).
   const list = workspaces.data ?? [];
   const fallback = defaultDoctorWorkspace(list);
-  const workspace = params.get("workspace") ?? fallback;
+  const current = useCurrentProject((s) => s.id);
+  // The address, else the current project, else the first that has no errors.
+  const workspace = pickProject(params.get("workspace"), current, list.map((w) => w.id), fallback);
   const stack = params.get("stack") ?? undefined;
 
   const detail = useWorkspace(workspace);

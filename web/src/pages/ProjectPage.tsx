@@ -1,14 +1,16 @@
-import { ScrollText } from "lucide-react";
+import { useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { navByPath } from "../app/nav";
 import { QuietEmpty } from "../design/EmptyState";
 import { Tabs } from "../design/Tabs";
+import { useCurrentProject } from "../lib/current-project";
 import { useGitRepos } from "../lib/git";
 import { stagger } from "../lib/motion";
 import { useRuns, useWorkspace } from "../lib/queries";
 import { useNow } from "../lib/use-now";
 import { ProjectHeader } from "./project/ProjectHeader";
+import { ProjectLogs } from "./project/ProjectLogs";
 import { StackCard } from "./StacksPage";
 import { RepoTable } from "./workspaces/RepoTable";
 import { Problems, Settings } from "./workspaces/WorkspaceDetail";
@@ -53,6 +55,11 @@ export function ProjectPage() {
   const git = useGitRepos();
   const mine = (runs.data ?? []).filter((r) => r.workspace === id);
   const now = useNow(mine.length > 0);
+  // Opening a project makes it the current one: Stacks, Logs and Health follow it.
+  const setCurrent = useCurrentProject((s) => s.set);
+  useEffect(() => {
+    if (project.data) setCurrent(id);
+  }, [id, project.data, setCurrent]);
   const asked = params.get("tab");
   const tab: Tab = isTab(asked) ? asked : "code";
 
@@ -103,21 +110,7 @@ export function ProjectPage() {
             (d.stacks.length === 0 ? (
               <QuietEmpty line="Nothing to stream · this project has no run modes yet" />
             ) : (
-              <ul aria-label="Logs by run mode" className="m-0 flex list-none flex-col gap-2 p-0">
-                {d.stacks.map((s) => {
-                  const live = mine.some((r) => r.stack === s.name && r.state !== "stopped");
-                  return (
-                    <li key={s.name}>
-                      <Link to={`/logs?workspace=${encodeURIComponent(id)}&stack=${encodeURIComponent(s.name)}`} viewTransition data-ui="project-logs-row" className="flex items-center gap-3 px-4 py-3">
-                        <ScrollText size={16} aria-hidden className="text-ink-3" />
-                        <span className="font-medium text-ink">{s.name}</span>
-                        <span className="text-[13px] text-ink-3">{live ? "Streaming" : "Stopped · its stored lines"}</span>
-                        <span className="ms-auto text-[13px] text-link">Open logs</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              <ProjectLogs project={d} runs={runs.data ?? []} />
             ))}
 
           {tab === "problems" && <Problems id={id} issues={d.issues} mine={own} />}

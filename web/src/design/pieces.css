@@ -1219,11 +1219,3 @@
   border-image: linear-gradient(90deg, var(--link), var(--critical)) 1;
   border-bottom: 2px solid;
 }
-
-[data-ui="project-logs-row"] {
-  background: var(--neon-panel);
-}
-
-[data-ui="project-logs-row"]:hover {
-  background: var(--fill-hover);
-}

@@ -46,3 +46,20 @@ Checked: typecheck, lint, all 801 web tests. In the browser at 1440×900: Projec
 - **Not yet:** the running dev server is an older build, so it doesn't send `root_path`, and the VS Code button stays hidden until it restarts.
 
 Checked: typecheck, lint, all 803 web tests, `go test ./internal/workspace ./internal/api`. In the browser at 1440×900 on the demo `acme` project: the header (4 problems, Mode api-only, Start, Edit file), the tabs, and Run listing api-only, docs and full with their services.
+
+## 2026-11-24: PJ3, the open project is the current one
+
+- **`lib/current-project.ts`**: the current project, kept in this browser (`devdeck.project`). `pickProject` decides which project a page shows: the one the address names (`?workspace=`), else the current one if it still exists, else the page's own default. Table-tested in `current-project.test.ts`.
+- **Becoming current:** opening a project page makes it the current one, and so does choosing a project in the picker on Stacks or Logs.
+- **Pages that follow it:** Stacks, Logs and Health (Doctor). A link that names a project still wins.
+  - Images stays the view across every project.
+  - The Health dot in the sidebar still checks its own default.
+- **The sidebar's switcher** names the current project and opens its page. With none yet, it says how many there are and opens Projects. To switch, open another project.
+- **Logs inside the project page** (`pages/project/ProjectLogs.tsx`): the Logs tab is the Logs page's own view (search, histogram, errors, the stream, saved filters), for the run mode that runs, or the first. A picker changes the mode, and **Full page** opens the Logs page on it. `LogsView` is exported from `LogsPage.tsx` with an `embedded` option (no second page title; the pickers and live status in a row). Filters stay in the tab rather than the address.
+- Tests:
+  - `current-project.test.ts`
+  - `workspaces.test.tsx`: opening a project makes Stacks and the switcher follow it; the Logs tab shows the stream with its mode picker and Full page link, and no second page title.
+
+Checked: typecheck, lint, all 810 web tests (the Docs page test once timed out under full-suite load and passes alone). In the browser:
+- `acme`'s Logs tab showed the search, histogram, errors and "Stack stopped · start it to stream logs".
+- Afterwards, Stacks showed `acme` and the switcher said "Project: acme".
