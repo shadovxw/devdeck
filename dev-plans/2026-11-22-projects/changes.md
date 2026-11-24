@@ -121,3 +121,25 @@ Checked: `go vet ./...`, the Go tests for scripts, workspace, api, supervisor an
 Checked: typecheck, lint, all 839 web tests. In the browser (nothing created):
 - The demo folder showed "✓ Scanned · 0 repos" with its note.
 - `~/Desktop/PROJECTS` listed 11 repos with ticks, types and remotes, named `projects`.
+
+## 2026-11-24: PJ6, the Databases tab
+
+- **`internal/databases`** (new, table-tested):
+  - **From compose files:** reads the compose files the project's run modes use, directly as YAML (no Docker needed). It finds Postgres, MySQL/MariaDB, Redis/Valkey and Mongo services by their image, with the port published on this machine (`5433:5432`, `127.0.0.1:…`, the long form) and the database name (`POSTGRES_DB`, `MYSQL_DATABASE`…).
+  - **From `.env` files:** reads each repo's `.env` for database URLs (`DATABASE_URL`, `REDIS_URL`, `*_DB_URL`, `MONGODB_URI`…) and the `PGHOST`/`PGPORT`/`PGDATABASE` set.
+  - **No passwords, ever:** the user name and password in a URL are dropped as it is parsed, and a test checks that no password reaches the result.
+  - **Matching:** a reference on this machine with the same engine and port is the compose database, so a shared database is listed once with every repo that uses it (`used_by`). One that matches none is "installed on this machine". One on another host is listed but not checked.
+  - **Warnings:** a `.env` that points at a different port than the compose database of that engine listens on.
+  - **Status:** up or down by a short TCP check on 127.0.0.1; unknown for another host.
+- **The API:** `GET /workspaces/:id/databases` (`internal/api/databases.go`, tested with a fixture project: the compose db used by api, no password in the response).
+- **The Databases tab** (`pages/project/ProjectDatabases.tsx`, `lib/databases.ts`):
+  - **A card per database**, as on the board: its name and status (● up / down / unknown), then Engine, Runs, Port and Used by. Explorer and SQL console are there but disabled until Phase 6.
+  - **Mismatches** show above the cards, in the warning colour.
+  - **None found** is the mini-orb empty state (the `data` variant), saying where devdeck looked.
+  - It is checked again every 15 seconds, so up and down follow the stacks.
+- Not yet: databases written in the project's file (`databases:` with `from:`), which comes with `project.yaml` (PJ9); the explorer and console (Phase 6).
+- Tests: `internal/databases/databases_test.go` (engines, published ports, URL parsing without the user or password, a shared database, a local install, another host, the port warning, no password in the report, a missing compose file), `internal/api/databases_test.go`, `lib/databases.test.ts`, `workspaces.test.tsx` (the cards, the warning, the empty state).
+
+Checked: `go vet ./...`, the databases and API tests, typecheck, lint, all 845 web tests. In the browser, against a throwaway server on 7071 built from this branch, with two `.env` files added to the git-ignored demo data:
+- acme's Databases tab showed one Postgres (`shop`, used by demo-api and demo-worker, up: something listens on 5432 here) and a Redis (down).
+- The response held no part of the password.

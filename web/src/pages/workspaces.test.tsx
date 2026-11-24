@@ -76,6 +76,14 @@ const syncRun = (at: "running" | "done") => ({
   ],
 });
 
+const demoDatabases = {
+  databases: [
+    { id: "db", engine: "postgres", from: "compose", where: "infra/docker-compose.yml · db", host: "127.0.0.1", port: 5432, name: "shop", used_by: ["api", "worker"], status: "up" },
+    { id: "postgres-5433", engine: "postgres", from: "env", where: "installed on this machine (reports's PGHOST)", host: "127.0.0.1", port: 5433, name: "reports", used_by: ["reports"], status: "down" },
+  ],
+  warnings: [{ repo: "reports", message: "the PGHOST of reports points at port 5433, but the compose postgres db listens on 5432." }],
+};
+
 type Posted = { url: string; body: unknown };
 const posted: Posted[] = [];
 const calls: string[] = [];
@@ -106,7 +114,7 @@ const chosen = "/home/me/code";
 let closeDialog: (() => void) | undefined;
 
 function mockServer(
-  opts: { list?: WorkspaceSummary[]; runs?: RunStatus[]; scanError?: string; scanEmpty?: boolean; pick?: "ok" | "cancel" | "error" | "wait"; deleteError?: { status: number; message: string } } = {},
+  opts: { list?: WorkspaceSummary[]; runs?: RunStatus[]; scanError?: string; scanEmpty?: boolean; noDatabases?: boolean; pick?: "ok" | "cancel" | "error" | "wait"; deleteError?: { status: number; message: string } } = {},
 ) {
   let list = opts.list ?? [];
   vi.stubGlobal(
@@ -126,6 +134,7 @@ function mockServer(
       if (url === "/api/v1/workspaces/demo") return Promise.resolve(Response.json(detail));
       if (url === "/api/v1/runs") return Promise.resolve(Response.json(opts.runs ?? []));
       if (url === "/api/v1/workspaces/demo/scripts") return Promise.resolve(Response.json(demoScripts));
+      if (url === "/api/v1/workspaces/demo/databases") return Promise.resolve(Response.json(opts.noDatabases ? { databases: [], warnings: [] } : demoDatabases));
       if (url === "/api/v1/workspaces/demo/scripts/sync-dev/run" && method === "POST") return Promise.resolve(Response.json(syncRun("running"), { status: 202 }));
       if (url === "/api/v1/script-runs/r1") return Promise.resolve(Response.json(syncRun("done")));
       if (url === "/api/v1/workspaces/demo/stacks/full/start" && method === "POST") return Promise.resolve(Response.json({ workspace: "demo", stack: "full", state: "starting", started_at: "", services: [] }));
@@ -362,6 +371,25 @@ describe("workspaces page", () => {
     await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces/demo/scripts/sync-dev/run", body: { confirm: true } }));
     expect(await sheet.findByText("2 repos · 1 ok · 1 skipped")).toBeTruthy();
     expect(sheet.getByText(/uncommitted changes, so it was left as it is/)).toBeTruthy();
+  });
+
+  it("databases: each one with its engine, where it runs, its port, who uses it and whether it is up; mismatches above", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces/demo?tab=databases");
+    const list = within(await screen.findByRole("list", { name: "Databases" }));
+    const shop = within(list.getByText("shop").closest("li") as HTMLElement);
+    expect(shop.getByText("up")).toBeTruthy();
+    expect(shop.getByText("infra/docker-compose.yml · db")).toBeTruthy();
+    expect(shop.getByText("127.0.0.1:5432")).toBeTruthy();
+    expect(shop.getByText("api, worker")).toBeTruthy();
+    expect((shop.getByRole("button", { name: /Explorer/ }) as HTMLButtonElement).disabled).toBe(true); // Phase 6
+    expect(within(screen.getByRole("list", { name: "Needs a look" })).getByText(/points at port 5433/)).toBeTruthy();
+  });
+
+  it("databases: none found is the mini-orb empty state", async () => {
+    mockServer({ list: [demo], noDatabases: true });
+    renderAt("/workspaces/demo?tab=databases");
+    expect(await screen.findByRole("heading", { name: "No database found" })).toBeTruthy();
   });
 
   it("the header says when the project runs, and offers Stop", async () => {

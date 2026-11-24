@@ -9,6 +9,7 @@ import { useGitRepos } from "../lib/git";
 import { stagger } from "../lib/motion";
 import { useRuns, useWorkspace } from "../lib/queries";
 import { useNow } from "../lib/use-now";
+import { ProjectDatabases } from "./project/ProjectDatabases";
 import { ProjectHeader } from "./project/ProjectHeader";
 import { ProjectLogs } from "./project/ProjectLogs";
 import { ProjectScripts } from "./project/ProjectScripts";
@@ -16,8 +17,8 @@ import { StackCard } from "./StacksPage";
 import { RepoTable } from "./workspaces/RepoTable";
 import { Problems, Settings } from "./workspaces/WorkspaceDetail";
 
-/** The project's sections (dev-plans/2026-11-22-projects §4.3). Overview, Databases and Images come in later steps. */
-const TABS = ["code", "run", "logs", "scripts", "problems", "settings"] as const;
+/** The project's sections (dev-plans/2026-11-22-projects §4.3). Overview and Images come in later steps. */
+const TABS = ["code", "run", "databases", "logs", "scripts", "problems", "settings"] as const;
 type Tab = (typeof TABS)[number];
 const isTab = (v: string | null): v is Tab => TABS.includes(v as Tab);
 
@@ -80,6 +81,7 @@ export function ProjectPage() {
   const items = [
     { value: "code" as const, label: "Code", count: repos.length },
     { value: "run" as const, label: "Run", count: d.stacks.length },
+    { value: "databases" as const, label: "Databases" },
     { value: "logs" as const, label: "Logs" },
     { value: "scripts" as const, label: "Scripts" },
     { value: "problems" as const, label: "Problems", count: d.issues.length },
@@ -115,6 +117,7 @@ export function ProjectPage() {
               <ProjectLogs project={d} runs={runs.data ?? []} />
             ))}
 
+          {tab === "databases" && <ProjectDatabases workspace={id} />}
           {tab === "scripts" && <ProjectScripts workspace={id} example={d.source === "example"} />}
           {tab === "problems" && <Problems id={id} issues={d.issues} mine={own} />}
           {tab === "settings" && <Settings id={id} d={d} mine={own} onDeleted={() => navigate("/workspaces", { replace: true, viewTransition: true })} />}

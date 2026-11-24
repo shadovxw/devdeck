@@ -1381,3 +1381,57 @@
 [data-ui="new-file"] {
   background: var(--bg);
 }
+
+/* --- Databases (pages/project/ProjectDatabases.tsx; projects plan §6) ---------------------- */
+[data-ui="db-card"] {
+  --cut: 12px;
+  background: var(--neon-panel);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+}
+
+[data-ui="db-name"] {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+[data-ui="db-status"] {
+  --tone: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+
+[data-ui="db-status"]::before {
+  content: "● ";
+}
+
+[data-ui="db-status"][data-state="up"] { --tone: var(--good); }
+[data-ui="db-status"][data-state="down"] { --tone: var(--critical); }
+
+[data-ui="db-facts"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+
+[data-ui="db-facts"] dt {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  align-self: center;
+}
+
+[data-ui="db-facts"] dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--ink);
+}
+
+[data-ui="db-warnings"] {
+  background: color-mix(in srgb, var(--warning) 10%, var(--neon-panel));
+  box-shadow: inset 2px 0 0 var(--warning);
+}
