@@ -1219,3 +1219,119 @@
   border-image: linear-gradient(90deg, var(--link), var(--critical)) 1;
   border-bottom: 2px solid;
 }
+
+/* --- Scripts (pages/project/ProjectScripts.tsx; projects plan §4.4, §7) ------------------- */
+[data-ui="script-card"] {
+  --cut: 10px;
+  background: var(--neon-panel);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+}
+
+[data-ui="script-name"] {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+:is([data-ui="script-source"], [data-ui="run-command"], [data-ui="scripts-found"]) {
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-ui="scripts-found"] {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+[data-ui="script-steps"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+[data-ui="script-last"] {
+  --tone: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--tone);
+}
+
+[data-ui="script-last"][data-state="ok"] { --tone: var(--good); }
+[data-ui="script-last"][data-state="failed"] { --tone: var(--critical); }
+
+[data-ui="run-chain"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+[data-ui="run-step"] {
+  padding: 2px 8px;
+  color: var(--ink);
+  background: var(--fill);
+}
+
+[data-ui="run-where"] {
+  margin-inline-start: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10px;
+}
+
+[data-ui="run-ask"] {
+  background: color-mix(in srgb, var(--warning) 10%, var(--neon-panel));
+  box-shadow: inset 2px 0 0 var(--warning);
+}
+
+[data-ui="run-row"] {
+  background: var(--neon-panel);
+}
+
+:is([data-ui="run-state"], [data-ui="run-dot"]) {
+  --tone: var(--ink-3);
+}
+
+:is([data-ui="run-state"], [data-ui="run-dot"])[data-state="running"] { --tone: var(--link); }
+:is([data-ui="run-state"], [data-ui="run-dot"])[data-state="ok"] { --tone: var(--good); }
+:is([data-ui="run-state"], [data-ui="run-dot"])[data-state="skipped"] { --tone: var(--warning); }
+:is([data-ui="run-state"], [data-ui="run-dot"])[data-state="failed"] { --tone: var(--critical); }
+
+[data-ui="run-state"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+
+[data-ui="run-dot"] {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  border: 1px solid var(--tone);
+}
+
+[data-ui="run-dot"]:is([data-state="ok"], [data-state="failed"], [data-state="running"]) {
+  background: var(--tone);
+}
+
+[data-ui="run-output"] {
+  margin: 0 0 0 15px;
+  max-height: 10rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+[data-ui="run-summary"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-2);
+}

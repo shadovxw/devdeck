@@ -183,6 +183,13 @@ The answer to "check, fetch, check out dev, pull, and many more custom ones".
 - **From the terminal:** `devdeck run <script>` (new CLI command).
 - **Today's flows** become scripts: the same engine, a friendlier name. Triggers (on a schedule, before a PR) stay.
 
+**Decided in PJ4 (2026-11-24):**
+- Scripts live in `workspace.yaml` under `scripts:` until `project.yaml` (PJ9).
+- Commands run **without a shell**, like stack services: `&&`, pipes and redirects are refused with a message. Put several steps in the script instead.
+- Git steps are fetch, pull (fast-forward only), checkout and status. **No push**, so plan question 5 is answered with "not yet".
+- Runs are kept in memory, the last 20, so history is lost on restart. Stored history comes later.
+- `devdeck run <script>` in the terminal and flows becoming scripts are still to do.
+
 ## 8. VS Code
 
 What devdeck can do, from simple to more work:

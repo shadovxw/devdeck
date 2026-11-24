@@ -56,6 +56,26 @@ const detail: WorkspaceDetail = {
 
 const draft = "version: 1\nname: code\nroot: ~/code\nrepos:\n  - id: api\n    path: api\n";
 
+const demoScripts = [
+  { id: "sync-dev", title: "Switch every repo to dev", for_each: "repo", steps: [{ git: "fetch" }, { git: "checkout", branch: "dev" }, { git: "pull" }], source: "built-in", writes: true },
+  { id: "status-all", title: "What changed?", for_each: "repo", steps: [{ git: "status" }], source: "built-in", writes: false },
+  { id: "npm:web:test", title: "npm run test", repo: "web", steps: [{ run: "npm run test" }], source: "package.json", writes: true },
+];
+
+/** A run of sync-dev over api and web: still going, or done (web skipped, it has changes). */
+const syncRun = (at: "running" | "done") => ({
+  id: "r1",
+  workspace: "demo",
+  script: "sync-dev",
+  title: "Switch every repo to dev",
+  state: at === "running" ? "running" : "ok",
+  started_at: "",
+  repos: [
+    { repo: "api", state: at === "running" ? "running" : "ok", steps: [{ label: "fetch", state: "ok" }, { label: "checkout dev", state: at === "running" ? "running" : "ok", output: "Switched to branch 'dev'" }, { label: "pull", state: at === "running" ? "waiting" : "ok" }] },
+    { repo: "web", state: at === "running" ? "waiting" : "skipped", reason: at === "running" ? undefined : "it has uncommitted changes, so it was left as it is", steps: [{ label: "fetch", state: at === "running" ? "waiting" : "ok" }, { label: "checkout dev", state: at === "running" ? "waiting" : "skipped" }, { label: "pull", state: at === "running" ? "waiting" : "skipped" }] },
+  ],
+});
+
 type Posted = { url: string; body: unknown };
 const posted: Posted[] = [];
 const calls: string[] = [];
@@ -105,6 +125,9 @@ function mockServer(
       }
       if (url === "/api/v1/workspaces/demo") return Promise.resolve(Response.json(detail));
       if (url === "/api/v1/runs") return Promise.resolve(Response.json(opts.runs ?? []));
+      if (url === "/api/v1/workspaces/demo/scripts") return Promise.resolve(Response.json(demoScripts));
+      if (url === "/api/v1/workspaces/demo/scripts/sync-dev/run" && method === "POST") return Promise.resolve(Response.json(syncRun("running"), { status: 202 }));
+      if (url === "/api/v1/script-runs/r1") return Promise.resolve(Response.json(syncRun("done")));
       if (url === "/api/v1/workspaces/demo/stacks/full/start" && method === "POST") return Promise.resolve(Response.json({ workspace: "demo", stack: "full", state: "starting", started_at: "", services: [] }));
       if (url === "/api/v1/workspaces/acme-shop") return Promise.resolve(Response.json({ ...sample, workspace: { name: "acme-shop", root: "~/code/acme-shop", repos: [] }, stacks: [], flows: [], issues: [] }));
       if (url === "/api/v1/workspaces/demo/file") return Promise.resolve(Response.json({ yaml: draft, hash: "h1", path: "/code/demo/workspace.yaml" }));
@@ -319,6 +342,25 @@ describe("workspaces page", () => {
     renderAt("/stacks");
     await waitFor(() => expect((screen.getByLabelText("Workspace") as HTMLSelectElement).value).toBe("demo"));
     expect(screen.getByRole("link", { name: "Project: demo" }).getAttribute("href")).toBe("/workspaces/demo");
+  });
+
+  it("scripts: starters and found ones; a write asks first, then each repo's result and a summary", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces/demo?tab=scripts");
+    const own = within(await screen.findByRole("list", { name: "Scripts" }));
+    expect(own.getByText("fetch → checkout dev → pull")).toBeTruthy();
+    expect(within(screen.getByRole("list", { name: "Found scripts" })).getByRole("button", { name: "Run npm run test" })).toBeTruthy();
+
+    fireEvent.click(own.getByRole("button", { name: "Run Switch every repo to dev" }));
+    const sheet = within(await screen.findByRole("dialog", { name: "Switch every repo to dev" }));
+    expect(sheet.getByText("$ devdeck run sync-dev")).toBeTruthy();
+    expect(sheet.getByText(/A repo with uncommitted changes is skipped, never reset/)).toBeTruthy();
+    expect(posted.some((p) => p.url.includes("/scripts/"))).toBe(false); // nothing runs before Run it
+
+    fireEvent.click(sheet.getByRole("button", { name: "Run it" }));
+    await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces/demo/scripts/sync-dev/run", body: { confirm: true } }));
+    expect(await sheet.findByText("2 repos · 1 ok · 1 skipped")).toBeTruthy();
+    expect(sheet.getByText(/uncommitted changes, so it was left as it is/)).toBeTruthy();
   });
 
   it("the header says when the project runs, and offers Stop", async () => {

@@ -12,6 +12,7 @@ import (
 	"github.com/shadovxw/devdeck/internal/logs"
 	"github.com/shadovxw/devdeck/internal/remote"
 	"github.com/shadovxw/devdeck/internal/review"
+	"github.com/shadovxw/devdeck/internal/scripts"
 	"github.com/shadovxw/devdeck/internal/supervisor"
 	"github.com/shadovxw/devdeck/internal/update"
 	"github.com/shadovxw/devdeck/internal/workspace"
@@ -96,6 +97,7 @@ func Register(e *echo.Echo, d Deps) {
 		if d.GitX != nil {
 			registerGit(v1, d.GitX, d.Workspaces)
 			registerFeatures(v1, d.Workspaces, d.GitX, d.Reviews)
+			registerScripts(v1, d.Workspaces, &scripts.Runner{Git: d.GitX.Git})
 		}
 		registerLogFilters(v1, d.Workspaces)
 		if d.Docker != nil {
