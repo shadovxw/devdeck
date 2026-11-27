@@ -34,7 +34,7 @@ jobs:
           persist-credentials: false
       # Sonar's quality gate wants test coverage on new code. It can only read coverage
       # that exists, so run the tests here first and write one report per language.
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -52,7 +52,7 @@ jobs:
       # The web report names files relative to web/; Sonar looks from the repo root.
       - name: Make the web coverage paths relative to the repo root
         run: sed -i 's#^SF:#SF:web/#' web/coverage/lcov.info
-      - uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
+      - uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
