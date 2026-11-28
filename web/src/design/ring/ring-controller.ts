@@ -122,6 +122,15 @@ export class RingController {
     clearTimeout(this.wheelTimer);
   }
 
+  /** Starts turned by from degrees and eases to the first card: the entrance. */
+  spinIn(from: number): void {
+    if (this.count < 2) return;
+    this.rotation = from;
+    this.target = 0;
+    this.apply();
+    this.wake();
+  }
+
   /** Turns the ring so card i comes to the front, the short way round. */
   goTo(i: number): void {
     const n = this.count;
@@ -130,9 +139,9 @@ export class RingController {
     this.wake();
   }
 
-  /** The card in front, as the loop last saw it. */
+  /** The card ahead, or the one the ring is easing to: two quick arrow presses move two cards. */
   get front(): number {
-    return this.active;
+    return this.target !== null ? nearestIndex(this.target, this.count) : this.active;
   }
 
   pointerDown(x: number, button: number): void {
@@ -193,7 +202,8 @@ export class RingController {
       this.suppressClick = false;
       return false;
     }
-    if (i === this.active || this.count < 2) return true;
+    // While the ring eases to a card (after a click, the arrows or the entrance), that card counts as ahead.
+    if (i === this.front || this.count < 2) return true;
     this.goTo(i);
     return false;
   }

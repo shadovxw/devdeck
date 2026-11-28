@@ -66,14 +66,15 @@ describe("ProjectRing", () => {
 
 describe("ringSizes", () => {
   it.each([
-    { width: 1200, slots: 10, card: 288 },
-    { width: 1600, slots: 10, card: 300 },
-    { width: 375, slots: 10, card: 225 },
-  ])("$width px, $slots slots", ({ width, slots, card }) => {
-    const s = ringSizes(width, slots);
-    expect(s.card).toBe(card);
-    expect(s.height).toBeCloseTo(card * ASPECT);
-    // The card ahead fits across a phone with the 16 px gutters.
+    { width: 1600, height: 900, card: (900 * 0.74) / 1.45 }, // from the height
+    { width: 2400, height: 1400, card: 680 / 1.45 }, // capped at 680 px tall
+    { width: 1000, height: 1000, card: 300 }, // 30% of the width
+    { width: 375, height: 700, card: 225 }, // 60% on a phone
+    { width: 1600, height: 0, card: (600 * 0.74) / 1.45 }, // not measured yet
+  ])("$width × $height", ({ width, height, card }) => {
+    const s = ringSizes(width, height, 10);
+    expect(s.card).toBeCloseTo(card);
+    expect(s.height).toBeCloseTo(s.card * ASPECT);
     expect(s.card).toBeLessThanOrEqual(width - 32);
   });
 });

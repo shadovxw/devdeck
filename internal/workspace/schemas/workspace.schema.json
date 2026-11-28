@@ -10,6 +10,7 @@
     "version": { "const": 1, "description": "Schema version. Always 1 for now." },
     "name": { "$ref": "#/$defs/id", "description": "Short name of the workspace: lowercase letters, digits and dashes." },
     "description": { "type": "string", "maxLength": 200 },
+    "poster": { "type": "string", "minLength": 1, "description": "The picture on the project's card: a local .svg or .png of at most 2 MB, best 1 : 1.45 (600 x 870). Absolute, starting with ~, or relative to this file. Not a web address or a network path." },
     "root": {
       "type": "string",
       "minLength": 1,

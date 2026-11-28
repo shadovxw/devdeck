@@ -20,17 +20,25 @@ type Props<T> = {
 /** Tall cards: height over width. */
 export const ASPECT = 1.45;
 
+/** The ring's height before it has been measured (and in tests, where nothing has a size). */
+const FALLBACK_HEIGHT = 600;
+
 /**
- * Card width, the ring's radius and the stage height for a container width and a number of slots.
- * The perspective equals the radius, so the card ahead shows at its own size.
+ * Card size and the ring's radius for the space the ring has. The card ahead takes about three
+ * quarters of the height (up to 680 px), keeps its tall shape, and is never wider than 30% of the
+ * width (60% on a phone). The perspective equals the radius, so the card ahead shows at that size;
+ * the cards at the sides swing in larger and the stage crops them, as a panorama does.
  */
-export function ringSizes(width: number, slots: number) {
-  const narrow = width < 768;
-  const card = narrow ? Math.min(240, width * 0.6) : Math.min(300, Math.max(220, width * 0.24));
-  const height = card * ASPECT;
-  const radius = panoramaRadius(slots, card, card * 0.3);
-  // The cards at the sides swing in larger than the one ahead; the stage crops them, as a panorama does.
-  return { card, height, radius, stage: Math.round(height * 1.22 + 48) };
+export function ringSizes(width: number, height: number, slots: number) {
+  const h = height > 0 ? height : FALLBACK_HEIGHT;
+  let cardHeight = Math.min(h * 0.74, 680);
+  let card = cardHeight / ASPECT;
+  const widest = width * (width < 768 ? 0.6 : 0.3);
+  if (card > widest) {
+    card = widest;
+    cardHeight = card * ASPECT;
+  }
+  return { card, height: cardHeight, radius: panoramaRadius(slots, card, card * 0.3) };
 }
 
 /**
@@ -44,22 +52,28 @@ export function ProjectRing<T>({ items, keyOf, nameOf, renderItem, onOpen, label
   const n = items.length;
   const slots = slotsFor(n);
   const rootRef = useRef<HTMLElement>(null);
-  const [width, setWidth] = useState(1024);
+  const [box, setBox] = useState({ width: 1024, height: 0 });
   const [active, setActive] = useState(0);
   const [ring] = useState(() => new RingController(setActive));
-  const { card, height, radius, stage } = ringSizes(width, slots);
+  const { card, height, radius } = ringSizes(box.width, box.height, slots);
   const front = Math.min(active, Math.max(slots - 1, 0));
   const frontItem = itemOf(front, n);
 
-  // Size from the container.
+  // Size from the space the page gives the ring (it grows to fill what is left below the header).
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    setWidth(el.clientWidth || 1024);
-    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width || 1024));
+    setBox({ width: el.clientWidth || 1024, height: el.clientHeight });
+    const ro = new ResizeObserver(([e]) => setBox({ width: e.contentRect.width || 1024, height: e.contentRect.height }));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // Arriving on the page, the ring spins in to the first project (only with full motion).
+  useEffect(() => {
+    if (motion === "full") ring.spinIn(-60);
+    // Once, on arrival: a later change of Effects doesn't replay it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ring]);
   // After each render: the controller gets the new numbers, and the cards their places before paint.
   useLayoutEffect(() => {
     ring.update(slots, radius, motion);
@@ -113,8 +127,8 @@ export function ProjectRing<T>({ items, keyOf, nameOf, renderItem, onOpen, label
         // Only sideways scrolling turns the ring; up and down still scroll the page.
         if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) ring.wheel(e.deltaX);
       }}
-      className="relative w-full touch-pan-y select-none overflow-hidden"
-      style={{ height: stage, perspective: `${radius}px` }}
+      className="relative min-h-[22rem] w-full flex-1 touch-pan-y select-none overflow-hidden"
+      style={{ perspective: `${radius}px` }}
     >
       {/* The stage sits at the camera, so the cards pushed out by the radius surround the viewer. */}
       <ul className="absolute left-1/2 top-1/2 m-0 list-none p-0" style={{ transformStyle: "preserve-3d", transform: `translateZ(${radius}px)` }}>
