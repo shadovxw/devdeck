@@ -53,9 +53,10 @@ export function typeRows(counts: Record<string, number> | undefined) {
 }
 
 /**
- * What the card shows when it is expanded: what the project is, its repos by type (or, while it runs, a
- * mark for each service), and its totals. Closed, it takes no room (pieces.css); it describes the card's
- * button either way.
+ * What the card shows when it is expanded: its name again, then what the project is, its repos by type
+ * (or, while it runs, a mark for each service), and its totals. It is a sheet that slides up over the lower
+ * part of the picture (pieces.css), unseen until then; all but the name describes the card's button either
+ * way.
  */
 function Dossier({ id, w, services }: Readonly<{ id: string; w: WorkspaceSummary; services: Array<ServiceStatus & { key: string }> }>) {
   const total = w.repos || 1;
@@ -65,8 +66,14 @@ function Dossier({ id, w, services }: Readonly<{ id: string; w: WorkspaceSummary
     { n: w.flows + (w.scripts ?? 0), label: w.flows + (w.scripts ?? 0) === 1 ? "script" : "scripts" },
   ];
   return (
-    <span id={id} data-ui="project-dossier">
-      <span>
+    <span data-ui="project-sheet">
+      <span aria-hidden className="flex items-center gap-2.5">
+        <span data-ui="project-diamond" />
+        <span data-ui="project-name" className="truncate">
+          {w.name}
+        </span>
+      </span>
+      <span id={id} data-ui="project-dossier">
         {w.description && (
           <span data-ui="project-about" className="line-clamp-3">
             {w.description}
@@ -121,22 +128,26 @@ function Card({ w, index, state, runs }: Readonly<{ w: WorkspaceSummary; index: 
             PRJ_{String(index + 1).padStart(2, "0")}
             {w.root && <> // {w.root}</>}
           </span>
-          <span data-ui="project-state" data-tone={state.tone} className="shrink-0">
-            {state.text}
-          </span>
-        </span>
-        <span data-ui="project-foot" className="flex flex-col gap-2 px-5 pb-5 pt-12">
-          {/* Wraps, so on a narrow card the tag moves down instead of cutting the name short. */}
-          <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-            <span data-ui="project-diamond" aria-hidden />
-            <span data-ui="project-name" className="max-w-[calc(100%-1.25rem)] truncate">
-              {w.name}
+          {/* Beside the state, so the name below keeps one line at any width. */}
+          <span className="flex shrink-0 items-center gap-2">
+            <span data-ui="project-state" data-tone={state.tone}>
+              {state.text}
             </span>
             {w.source === "example" && <span data-ui="project-tag">Example</span>}
           </span>
-          <span data-ui="project-shape">{projectShape(w)}</span>
-          <Dossier id={dossier} w={w} services={services} />
         </span>
+        <span data-ui="project-foot" className="flex flex-col gap-2 px-5 pb-5 pt-12">
+          <span className="flex items-center gap-2.5">
+            <span data-ui="project-diamond" aria-hidden />
+            <span data-ui="project-name" className="truncate">
+              {w.name}
+            </span>
+          </span>
+          <span data-ui="project-shape" className="truncate">
+            {projectShape(w)}
+          </span>
+        </span>
+        <Dossier id={dossier} w={w} services={services} />
       </span>
     </button>
   );

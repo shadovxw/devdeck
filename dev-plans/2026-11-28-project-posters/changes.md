@@ -90,3 +90,34 @@
   - Paper and Paper Dark
   - 375 px: one scrolling row of straight cards, and no sideways page scroll
   - not checked by eye: Effects Off and Reduced, the bounce itself (screenshots show where things end up), service dots on a running project, and a tap on a real touch screen
+
+## 2026-11-28: the fan made smooth
+
+**Asked:** it wasn't smooth; look at React Bits' source. Their "Bounce Cards" writes one `transform` per card from hand-written springs, with no hover delay. Their code isn't copied (license); the technique is rebuilt with the installed `motion` package.
+
+**Why ours stuttered:**
+- the open card animated its real width and height, and inside it the picture's height and the dossier's rows, so the text was laid out again on every frame
+- CSS transitions start again from a standstill when the pointer moves on
+- a 120 ms delay, during which the open card closed before the next one opened
+- a drop shadow was painted again on every frame (Effects Full)
+
+**Now** (`CardFan.tsx`, `pieces.css`, `lib/motion.ts`):
+- only transforms and opacity change: springs for each card's pose, a dossier sheet that slides up, initials that move up, a glow layer that fades
+- cards are drawn at their open size and scaled down at rest
+- hover acts at once; only the cards' unmoving places answer the pointer
+- the Example tag sits beside the state, so a card's name never moves to another line
+- `poseFor` is table-tested; the component tests check which card is open, not transform strings
+
+**Checked:**
+- typecheck, lint and the web tests pass
+- in the browser: while opening, the card and its name keep the same layout size; no width or height is transitioned inside the fan; the open card rests with no transform, so it is sharp; switching, closing back to the exact rest poses, a click past the card's resting edge, Tab and Enter, and the 375 px row all work; no console errors
+- **smoothness itself was not measured:** the browser pane couldn't be brought into view, so the page's frames were throttled
+
+## 2026-11-28: after the reference's source was shared
+
+The Bounce Cards source was pasted into the session. Its code isn't copied (license); it confirmed the approach above, and showed three differences, now matched in our own code:
+- size has its own looser spring (`cardPop`: 170 / 13), so a card pops as it opens
+- the open card rises a little
+- the pointer is read against where cards rest, never where they are now. Ours still let the open card's larger area cover about half of the next card's visible part (found by working out the sizes), so moving right felt stuck. Fixed hit areas over the fan replace that.
+
+**Checked:** typecheck, lint and 938 web tests pass. In the browser: the hit areas sit edge to edge on top; with one card open, moving 8 px into the next one's area opens it (one leave and one enter), it stays open, and a click opens that project. Smoothness still isn't measured.

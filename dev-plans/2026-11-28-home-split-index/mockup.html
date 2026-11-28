@@ -11,9 +11,9 @@
 
 /* Theme tokens. Only these blocks hold colours: Paper and Paper Dark as in web/src/theme/builtins.ts,
    "neon" a dark theme with a purple accent. */
-:root[data-theme="neon"] { --bg: #0b0a0d; --panel: #16141b; --ink: #ffffff; --ink-2: #e5e7eb; --ink-3: #9ca3af; --primary: #c27aff; --link: #e9d5ff; --critical: #f87171; color-scheme: dark; }
-:root[data-theme="paper"] { --bg: #ffffff; --panel: #ffffff; --ink: #0a0a0a; --ink-2: #3d3d3d; --ink-3: #666666; --primary: #0b3d91; --link: #0b3d91; --critical: #c62f2f; color-scheme: light; }
-:root[data-theme="paper-dark"] { --bg: #0d0d0d; --panel: #171717; --ink: #f2f2f2; --ink-2: #d0d0d0; --ink-3: #9a9a9a; --primary: #7aa7ff; --link: #7aa7ff; --critical: #f26b6b; color-scheme: dark; }
+:root[data-theme="neon"] { --bg: #0b0a0d; --panel: #16141b; --ink: #ffffff; --ink-2: #e5e7eb; --ink-3: #9ca3af; --primary: #c27aff; --link: #e9d5ff; --critical: #f87171; --mark-prompt: #4ee8b5; --mark-under: #2aeab4; color-scheme: dark; }
+:root[data-theme="paper"] { --bg: #ffffff; --panel: #ffffff; --ink: #0a0a0a; --ink-2: #3d3d3d; --ink-3: #666666; --primary: #0b3d91; --link: #0b3d91; --critical: #c62f2f; --mark-prompt: #0b0f12; --mark-under: #0b0f12; color-scheme: light; }
+:root[data-theme="paper-dark"] { --bg: #0d0d0d; --panel: #171717; --ink: #f2f2f2; --ink-2: #d0d0d0; --ink-3: #9a9a9a; --primary: #7aa7ff; --link: #7aa7ff; --critical: #f26b6b; --mark-prompt: #4ee8b5; --mark-under: #2aeab4; color-scheme: dark; }
 
 :root {
   --ui: "Inter", system-ui, sans-serif;
@@ -55,7 +55,7 @@ a.row { --tone: var(--primary); display: grid; grid-template-columns: 34px auto 
 [data-tone="system"] a.row { --tone: var(--mid); }
 .num { font: 11px var(--code); color: var(--ink-3); }
 .name { font-size: clamp(18px, 1.7vw, 24px); font-weight: 800; letter-spacing: -0.03em; white-space: nowrap; }
-.hint { justify-self: end; font: 12px var(--code); color: var(--ink-3); text-align: right; opacity: 0.75; transition: opacity 180ms var(--ease); }
+.hint { justify-self: end; font: 12px var(--code); color: var(--ink-3); text-align: right; transition: opacity 180ms var(--ease); }
 .gem { align-self: center; width: 8px; height: 8px; transform: rotate(45deg); border: 1px solid var(--tone); }
 a.row:is(:hover, :focus-visible) { background: var(--fill); transform: translateX(6px); outline: none; }
 a.row:is(:hover, :focus-visible) .num { color: var(--tone); }
@@ -65,6 +65,66 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
 
 /* Overview sits above the groups, in line with their rows. */
 .lead { margin-left: 104px; }
+
+/* --- The rich menu --------------------------------------------------------------- */
+h2 small, .extra, .legend, #cursor, #beam { display: none; }
+/* The two-line label sits level with its first row, so the bar passes behind it evenly. */
+:root[data-menu="rich"] .group > h2 { align-self: start; padding: clamp(5px, 0.8vh, 8px) 0 0 8px; }
+:root[data-menu="rich"] h2 small { display: block; margin-top: 5px; font: 400 10px var(--code); letter-spacing: 0.06em; text-transform: none; }
+:root[data-menu="rich"] nav { position: relative; }
+:root[data-menu="rich"] li { position: relative; --tone: var(--primary); }
+:root[data-menu="rich"] [data-tone="work"] li, :root[data-menu="rich"] [data-tone="work"] ul { --tone: var(--link); }
+:root[data-menu="rich"] [data-tone="system"] li, :root[data-menu="rich"] [data-tone="system"] ul { --tone: var(--mid); }
+/* A rail joins each group's pages, with a diamond on it for each. */
+:root[data-menu="rich"] .group ul { position: relative; --tone: var(--primary); }
+:root[data-menu="rich"] .group ul::before { content: ""; position: absolute; left: 16px; top: 8px; bottom: 8px; width: 1px; background: linear-gradient(transparent, color-mix(in srgb, var(--tone) 55%, transparent) 18%, color-mix(in srgb, var(--tone) 55%, transparent) 82%, transparent); }
+:root[data-menu="rich"] a.row { position: relative; grid-template-columns: 9px 24px auto 1fr; gap: 14px; padding-right: 68px; background: none; transform: none; transition: opacity 220ms var(--ease); }
+:root[data-menu="rich"] .gem { grid-column: 1; grid-row: 1; width: 9px; height: 9px; background: var(--bg); }
+:root[data-menu="rich"] .num { grid-column: 2; grid-row: 1; }
+:root[data-menu="rich"] .name { grid-column: 3; grid-row: 1; transform-origin: left center; transition: transform 320ms var(--ease), opacity 220ms var(--ease); }
+:root[data-menu="rich"] .hint { grid-column: 4; grid-row: 1; }
+/* While you are choosing, the other names step back. The small text stays as it is, so it keeps its contrast. */
+:root[data-menu="rich"] nav[data-engaged] li:not([data-active]) :is(.name, .gem) { opacity: 0.62; }
+:root[data-menu="rich"] li[data-active] .name { transform: scale(1.3); background: linear-gradient(90deg, var(--primary), var(--mid), var(--critical)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+:root[data-menu="rich"] li[data-active] .num { color: var(--tone); font-weight: 700; }
+:root[data-menu="rich"] li[data-active] .gem { background: var(--tone); }
+:root[data-menu="rich"][data-dots="lens"] li[data-active] .gem { box-shadow: 0 0 12px var(--tone); }
+:root[data-menu="rich"] li[data-active] .hint { opacity: 1; color: var(--ink-2); }
+:root[data-menu="rich"] li[data-active][data-subs] .hint { opacity: 0; }
+/* The selected page's sub-pages and shortcut, on the right of its row. */
+:root[data-menu="rich"] .extra { display: flex; align-items: center; gap: 6px; position: absolute; right: 10px; top: 50%; transform: translate(10px, -50%); opacity: 0; visibility: hidden; transition: opacity 220ms var(--ease), transform 320ms var(--ease), visibility 220ms; }
+:root[data-menu="rich"] li[data-active] .extra { opacity: 1; visibility: visible; transform: translate(0, -50%); }
+.sub { padding: 4px 8px; border-radius: 3px; background: var(--fill); color: var(--ink-2); font: 11px var(--code); white-space: nowrap; text-decoration: none; }
+.sub:is(:hover, :focus-visible) { color: var(--ink); background: color-mix(in srgb, var(--primary) 24%, transparent); outline: none; }
+.go { display: flex; gap: 3px; margin-left: 4px; }
+kbd { display: inline-block; min-width: 20px; padding: 2px 5px; border-radius: 3px; background: var(--fill); color: var(--ink-2); font: 10px var(--code); text-align: center; }
+/* One bar that slides to the selected page; the thread from the orb ends where it starts. */
+:root[data-menu="rich"] #cursor { display: block; position: absolute; left: 0; right: 0; top: 0; height: 0; border-radius: 4px; background: linear-gradient(90deg, color-mix(in srgb, var(--cursor-tone, var(--primary)) 22%, transparent), color-mix(in srgb, var(--cursor-tone, var(--primary)) 7%, transparent) 60%, transparent); transition: transform 360ms var(--ease), height 360ms var(--ease); }
+:root[data-menu="rich"] #beam { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; fill: none; }
+#thread { stroke: color-mix(in srgb, var(--primary) 45%, transparent); stroke-width: 1; transition: d 360ms var(--ease); }
+#pulse { stroke: var(--primary); stroke-width: 2; stroke-dasharray: 7 93; opacity: 0; transition: d 360ms var(--ease); }
+:root[data-dots="lens"] #pulse { opacity: 1; animation: travel 1.8s linear infinite; }
+:root[data-dots="lens"] #beam { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--primary) 60%, transparent)); }
+@keyframes travel { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+#tip { fill: var(--primary); transition: transform 360ms var(--ease); }
+:root[data-menu="rich"] .legend { display: flex; align-items: center; gap: 6px; margin: clamp(10px, 2vh, 22px) 0 0 104px; padding-left: 12px; font: 11px var(--code); color: var(--ink-3); }
+.legend kbd:not(:first-child) { margin-left: 6px; }
+.legend kbd:nth-child(2) { margin-left: 0; }
+/* The bar and the thread arrive after the rows. */
+:root[data-intro="play"] .late { opacity: 0; }
+:root[data-intro="reveal"] .late { animation: late 500ms var(--ease) both; animation-delay: 1.2s; }
+@keyframes late { from { opacity: 0; } }
+
+/* The launch intro: the logo, then the orb forms in the centre, moves left, and the page fades in. */
+#intro { position: fixed; inset: 0; z-index: 2; display: none; align-items: center; justify-content: center; pointer-events: none; }
+:root[data-intro="play"] #intro { display: flex; }
+#lockup { display: flex; align-items: center; gap: 24px; }
+#lockup svg { width: clamp(64px, 9vw, 120px); height: auto; }
+#word { display: flex; font-size: clamp(44px, 7vw, 104px); font-weight: 900; letter-spacing: -0.045em; text-shadow: 0 0 24px var(--bg); }
+#word span { display: inline-block; }
+:root[data-intro="play"] .reveal { opacity: 0; pointer-events: none; }
+:root[data-intro="reveal"] .reveal { animation: arrive 700ms var(--ease) both; animation-delay: calc(var(--i) * 60ms); }
+@keyframes arrive { from { opacity: 0; transform: translateX(28px); } }
 
 /* Mockup-only switches; not part of the design. */
 .switches { position: fixed; left: 250px; bottom: 16px; z-index: 5; display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 6px; background: var(--panel); box-shadow: 0 0 24px color-mix(in srgb, var(--primary) 16%, transparent); font: 10px var(--code); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
@@ -81,6 +141,21 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
   a.row { padding-block: 3px; }
   .group { margin-top: 8px; }
   .group > h2 { padding-top: 6px; }
+  :root[data-menu="rich"] h2 small { margin-top: 2px; }
+  :root[data-menu="rich"] li[data-active] .name { transform: scale(1.2); }
+  :root[data-menu="rich"] .legend { margin-top: 8px; }
+}
+/* Narrower windows: give the menu more room, so a page's sub-pages never cover its name. */
+@media (min-width: 901px) and (max-width: 1280px) {
+  main { margin-left: 40vw; padding-right: 24px; }
+  .group { grid-template-columns: 88px 1fr; }
+  .lead { margin-left: 88px; }
+  :root[data-menu="rich"] .legend { margin-left: 88px; }
+  :root[data-menu="rich"] a.row { gap: 10px; padding-right: 60px; }
+  :root[data-menu="rich"] li[data-active] .name { transform: scale(1.15); }
+  :root[data-menu="rich"] .extra { gap: 4px; right: 6px; }
+  .sub { padding: 3px 5px; font-size: 10px; }
+  .go { margin-left: 2px; }
 }
 @media (max-width: 900px) {
   #orb { --size: 340px; position: absolute; left: calc(50% - 170px); top: 70px; }
@@ -93,57 +168,102 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
   .group > h2 { padding: 0 12px 4px; }
   .lead { margin-left: 0; }
   .hint { display: none; }
+  /* No pointer to hover with: no bar or thread, and sub-pages sit under their page. */
+  :root[data-menu="rich"] :is(#cursor, #beam, .legend, .go) { display: none; }
+  :root[data-menu="rich"] .extra { position: static; transform: none; opacity: 1; visibility: visible; flex-wrap: wrap; padding: 0 12px 6px 59px; }
+  :root[data-menu="rich"] li[data-active] .extra { transform: none; }
+  :root[data-menu="rich"] a.row { padding-right: 12px; }
+  :root[data-menu="rich"] li[data-active] .name { transform: none; }
+  :root[data-menu="rich"] nav[data-engaged] li:not([data-active]) :is(.name, .gem) { opacity: 1; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } #pulse { animation: none !important; opacity: 0 !important; } }
 </style>
 </head>
 <body>
 <canvas id="dots" aria-hidden="true"></canvas>
 <canvas id="orb" aria-hidden="true"></canvas>
 
+<div id="intro" aria-hidden="true">
+  <div id="lockup">
+    <!-- The brand mark, as in web/src/design/Logo.tsx. -->
+    <svg viewBox="-8 -8 336 336" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="ms" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#054d58"/><stop offset=".42" stop-color="#02b3ae"/><stop offset="1" stop-color="#02f1c9"/></linearGradient>
+        <linearGradient id="mu" x1="12" y1="0" x2="320" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#01d4d0"/><stop offset=".45" stop-color="#23ecca"/><stop offset=".8" stop-color="#68fbc9"/><stop offset="1" stop-color="#71fbb6"/></linearGradient>
+        <linearGradient id="ml" x1="12" y1="0" x2="320" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00efc7"/><stop offset=".45" stop-color="#01c1ac"/><stop offset=".72" stop-color="#048e8d"/><stop offset=".88" stop-color="#05545d"/><stop offset="1" stop-color="#0a6a70"/></linearGradient>
+        <clipPath id="mc"><path d="M12 0H195Q215 0 229 15L298 90Q320 115 320 165C320 250 260 320 185 320H12L92 244H185C250 244 280 190 270 173L175 76H92Z"/></clipPath>
+      </defs>
+      <path d="M0 8L80 84V236L0 312Z" fill="url(#ms)"/>
+      <path d="M12 0H195Q215 0 229 15L298 90Q320 115 320 165C320 250 260 320 185 320H12L92 244H185C250 244 280 190 270 173L175 76H92Z" fill="url(#mu)"/>
+      <g clip-path="url(#mc)"><path d="M0 212L262 168L320 138H340V340H0Z" fill="url(#ml)"/></g>
+      <path d="M118 128L152 160L118 192" fill="none" stroke="var(--mark-prompt)" stroke-width="17" stroke-linecap="square"/>
+      <rect x="166" y="186" width="54" height="16" rx="2" fill="var(--mark-under)"/>
+    </svg>
+    <div id="word"><span>d</span><span>e</span><span>v</span><span>d</span><span>e</span><span>c</span><span>k</span></div>
+  </div>
+</div>
+
 <header>
-  <div class="mark">dd<span>.</span><span class="kicker">Project · acme · Sat 28 Nov</span></div>
-  <button class="chip" type="button">Ctrl K</button>
+  <div class="mark reveal">dd<span>.</span><span class="kicker">Project · acme · Sat 28 Nov</span></div>
+  <button class="chip reveal" type="button">Ctrl K</button>
 </header>
 
 <main>
-  <h1>Good evening<span>.</span></h1>
-  <p class="about">Link your repos, run their stacks, watch logs and health.</p>
+  <h1 class="reveal">Good evening<span>.</span></h1>
+  <p class="about reveal">Link your repos, run their stacks, watch logs and health.</p>
+  <!-- data-path and data-go as in web/src/app/nav.ts and shortcuts.ts; data-subs lists the built
+       sub-pages of a page's family ("Label|path|key", the key optional). -->
   <nav aria-label="Launch">
+    <div id="cursor" class="late" aria-hidden="true"></div>
     <ul class="lead">
-      <li><a class="row" href="#"><span class="num">00</span><span class="name">Overview</span><span class="hint">everything at a glance</span><i class="gem"></i></a></li>
+      <li class="reveal" data-path="/overview" data-go="V"><a class="row" href="#"><span class="num">00</span><span class="name">Overview</span><span class="hint">everything at a glance</span><i class="gem"></i></a></li>
     </ul>
     <section class="group" data-tone="work">
-      <h2>// Work</h2>
+      <h2 class="reveal">// Work<small>your code</small></h2>
       <ul>
-        <li><a class="row" href="#"><span class="num">01</span><span class="name">Projects</span><span class="hint">your work, in one place</span><i class="gem"></i></a></li>
-        <li><a class="row" href="#"><span class="num">02</span><span class="name">Repositories</span><span class="hint">clone, branch, sync</span><i class="gem"></i></a></li>
-        <li><a class="row" href="#"><span class="num">03</span><span class="name">Features</span><span class="hint">work items across repos</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/workspaces" data-go="W"><a class="row" href="#"><span class="num">01</span><span class="name">Projects</span><span class="hint">your work, in one place</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/repos" data-go="R"><a class="row" href="#"><span class="num">02</span><span class="name">Repositories</span><span class="hint">clone, branch, sync</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/features" data-go="F"><a class="row" href="#"><span class="num">03</span><span class="name">Features</span><span class="hint">work items across repos</span><i class="gem"></i></a></li>
       </ul>
     </section>
     <section class="group" data-tone="run">
-      <h2>// Run</h2>
+      <h2 class="reveal">// Run<small>what's running</small></h2>
       <ul>
-        <li><a class="row" href="#"><span class="num">04</span><span class="name">Stacks</span><span class="hint">start services together</span><i class="gem"></i></a></li>
-        <li><a class="row" href="#"><span class="num">05</span><span class="name">Remote hosts</span><span class="hint">machines over SSH</span><i class="gem"></i></a></li>
-        <li><a class="row" href="#"><span class="num">06</span><span class="name">Health</span><span class="hint">Doctor and findings</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/stacks" data-go="S" data-subs="Logs|/logs|L;Images and tags|/images|I"><a class="row" href="#"><span class="num">04</span><span class="name">Stacks</span><span class="hint">start services together</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/hosts" data-go="O"><a class="row" href="#"><span class="num">05</span><span class="name">Remote hosts</span><span class="hint">machines over SSH</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/doctor" data-go="D"><a class="row" href="#"><span class="num">06</span><span class="name">Health</span><span class="hint">Doctor and findings</span><i class="gem"></i></a></li>
       </ul>
     </section>
     <section class="group" data-tone="system">
-      <h2>// System</h2>
+      <h2 class="reveal">// System<small>setup</small></h2>
       <ul>
-        <li><a class="row" href="#"><span class="num">07</span><span class="name">Connections</span><span class="hint">GitHub, Docker Hub, Claude</span><i class="gem"></i></a></li>
-        <li><a class="row" href="#"><span class="num">08</span><span class="name">Plugins</span><span class="hint">extend devdeck</span><i class="gem"></i></a></li>
-        <li><a class="row" href="#"><span class="num">09</span><span class="name">Docs</span><span class="hint">guides and reference</span><i class="gem"></i></a></li>
-        <li><a class="row" href="#"><span class="num">10</span><span class="name">Settings</span><span class="hint">look, shortcuts, about</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/connections" data-go="C" data-subs="GitHub|/connections/github;Docker Hub|/connections/docker;Claude access|/claude"><a class="row" href="#"><span class="num">07</span><span class="name">Connections</span><span class="hint">GitHub, Docker Hub, Claude</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/plugins" data-go="P"><a class="row" href="#"><span class="num">08</span><span class="name">Plugins</span><span class="hint">extend devdeck</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/docs" data-go="?"><a class="row" href="#"><span class="num">09</span><span class="name">Docs</span><span class="hint">guides and reference</span><i class="gem"></i></a></li>
+        <li class="reveal" data-path="/settings" data-go=","><a class="row" href="#"><span class="num">10</span><span class="name">Settings</span><span class="hint">look, shortcuts, about</span><i class="gem"></i></a></li>
       </ul>
     </section>
   </nav>
+  <p class="legend reveal"><kbd>↑</kbd><kbd>↓</kbd> move <kbd>↵</kbd> open <kbd>G</kbd> + key jump</p>
 </main>
 
-<span class="state"><i></i>Idle · Ready</span>
+<!-- The thread from the orb to the selected page. -->
+<svg id="beam" class="late" aria-hidden="true">
+  <path id="thread"/>
+  <path id="pulse" pathLength="100"/>
+  <rect id="tip" width="7" height="7"/>
+</svg>
+
+<span class="state reveal"><i></i><span id="state">Idle · Ready</span></span>
 
 <aside class="switches" aria-label="Mockup switches">
+  <div>Intro
+    <button type="button" id="replay">Replay</button>
+  </div>
+  <div>Menu
+    <button type="button" data-set="menu" data-value="rich">Rich</button>
+    <button type="button" data-set="menu" data-value="plain">Plain</button>
+  </div>
   <div>Theme
     <button type="button" data-set="theme" data-value="neon">Dark purple</button>
     <button type="button" data-set="theme" data-value="paper">Paper</button>
@@ -164,6 +284,7 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
   const params = new URLSearchParams(location.hash.slice(1));
   root.dataset.theme = params.get("theme") || "neon";
   root.dataset.dots = params.get("dots") || "lens";
+  root.dataset.menu = params.get("menu") || "rich";
 
   const dots = document.getElementById("dots");
   const orb = document.getElementById("orb");
@@ -175,6 +296,10 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
   let width = 0, height = 0, size = 0;
 
   const moving = () => root.dataset.dots === "lens" && !calm.matches;
+  const span = (t, start, length) => Math.max(0, Math.min(1, (t - start) / length));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const out = (x) => 1 - (1 - x) ** 3;
+  const inOut = (x) => (x < 0.5 ? 4 * x ** 3 : 1 - (-2 * x + 2) ** 3 / 2);
 
   function rgb(value) {
     const hex = value.trim().slice(1);
@@ -204,6 +329,9 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
   function drawDots() {
     dctx.clearRect(0, 0, width, height);
     const strength = moving() ? lens.on : 0;
+    /* The lens fades out near the words, so its dots never cover them. */
+    const words = ["h1", "nav", ".about"].map((q) => document.querySelector(q).getBoundingClientRect());
+    const text = { left: Math.min(...words.map((r) => r.left)) - 16, right: Math.max(...words.map((r) => r.right)) + 16, top: words[0].top - 16, bottom: words[1].bottom + 56 };
     for (let y = 1; y < height; y += GAP) {
       for (let x = 1; x < width; x += GAP) {
         let px = x, py = y, near = 0;
@@ -211,7 +339,8 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
           const dx = x - lens.x, dy = y - lens.y;
           const d = Math.hypot(dx, dy);
           if (d < LENS) {
-            near = (1 - d / LENS) ** 1.3 * strength;
+            const clear = Math.hypot(Math.max(text.left - x, 0, x - text.right), Math.max(text.top - y, 0, y - text.bottom));
+            near = (1 - d / LENS) ** 1.3 * strength * Math.min(1, clear / 64);
             const push = near * 18;
             if (d > 0) { px += (dx / d) * push; py += (dy / d) * push; }
           }
@@ -251,7 +380,8 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
     return [Math.cos(golden * i) * r, y, Math.sin(golden * i) * r];
   });
 
-  function drawOrb(time) {
+  /* form: 0 is a loose ring round the logo, 1 the finished sphere. */
+  function drawOrb(time, form = 1, appear = 1, boost = 1) {
     const c = size / 2;
     const radius = size * 0.34;
     const turn = time * 0.00012;
@@ -259,15 +389,16 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
     octx.clearRect(0, 0, size, size);
 
     const core = octx.createRadialGradient(c, c, 0, c, c, radius * 0.4);
-    core.addColorStop(0, paint(colors.primary, 0.08));
-    core.addColorStop(0.9, paint(colors.primary, 0.34));
+    const solid = form * form;
+    core.addColorStop(0, paint(colors.primary, 0.08 * solid));
+    core.addColorStop(0.9, paint(colors.primary, 0.34 * solid));
     core.addColorStop(1, paint(colors.primary, 0));
     octx.fillStyle = core;
     octx.beginPath();
     octx.arc(c, c, radius * 0.4, 0, Math.PI * 2);
     octx.fill();
 
-    octx.strokeStyle = paint(colors.ink, 0.12);
+    octx.strokeStyle = paint(colors.ink, 0.12 * solid);
     octx.lineWidth = 1;
     for (const [scale, tilt] of [[1.28, -0.32], [1.42, 0.5]]) {
       octx.beginPath();
@@ -275,15 +406,20 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
       octx.stroke();
     }
 
-    for (const [x, y, z] of sphere) {
+    sphere.forEach(([x, y, z], i) => {
       const rx = x * cos + z * sin;
       const depth = (z * cos - x * sin + 1) / 2;
       const h = (y + 1) / 2; /* 0 at the top of the screen, 1 at the bottom */
       const color = h < 0.5 ? mix(colors.primary, colors.mid, h * 2) : mix(colors.mid, colors.critical, h * 2 - 1);
-      octx.fillStyle = paint(color, 0.2 + depth * 0.75);
-      const dot = 0.8 + depth * 1.4;
-      octx.fillRect(c + rx * radius - dot / 2, c + y * radius - dot / 2, dot, dot);
-    }
+      octx.fillStyle = paint(color, (0.2 + depth * 0.75) * appear);
+      const dot = (0.8 + depth * 1.4) * boost;
+      const p = inOut(span(form, ((i * 0.618034) % 1) * 0.35, 0.65));
+      const angle = golden * i;
+      const ring = radius * (1.12 + ((i * 0.754877) % 1) * 0.32);
+      const px = lerp(c + Math.cos(angle) * ring, c + rx * radius, p);
+      const py = lerp(c + Math.sin(angle) * ring * 0.36, c + y * radius, p);
+      octx.fillRect(px - dot / 2, py - dot / 2, dot, dot);
+    });
   }
 
   let orbFrame = 0, last = 0;
@@ -292,7 +428,78 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
     orbFrame = requestAnimationFrame(spin);
   }
 
+  /* The intro, in seconds: the logo 0.2-1.9, the orb forms in the centre 1.9-3.3 and holds,
+     it moves left 3.6-4.6, and the page fades in from 4.3. */
+  const lockup = document.getElementById("lockup");
+  const letters = [...document.getElementById("word").children];
+  document.querySelectorAll(".reveal").forEach((el, i) => el.style.setProperty("--i", i));
+  let introFrame = 0, settle = 0;
+
+  function renderIntro(t, now) {
+    const leave = inOut(span(t, 1.9, 0.6));
+    const enter = out(span(t, 0.2, 0.7));
+    /* As in the app today, the logo flies to the mark in the corner. */
+    const dx = (80 - innerWidth / 2) * leave, dy = (50 - innerHeight / 2) * leave;
+    lockup.style.opacity = enter * (1 - span(t, 2.15, 0.35));
+    lockup.style.transform = `translate(${dx}px, ${dy}px) scale(${lerp(0.85, 1, enter) * lerp(1, 0.18, leave)})`;
+    letters.forEach((el, i) => {
+      const e = out(span(t, 0.7 + i * 0.05, 0.42));
+      el.style.opacity = e;
+      el.style.transform = `translateY(${(1 - e) * 36}px)`;
+    });
+    /* From the centre of the window to its own place on the left, growing on the way. The
+       dots start bigger, as the orb is drawn smaller in the centre. */
+    const move = inOut(span(t, 3.6, 1));
+    drawOrb(now, span(t, 1.9, 1.4), span(t, 0, 0.4), lerp(1.8, 1, move));
+    const cx = innerWidth / 2 - (orb.offsetLeft + size / 2);
+    const cy = innerHeight / 2 - (orb.offsetTop + size / 2);
+    orb.style.transform = `translate(${cx * (1 - move)}px, ${cy * (1 - move)}px) scale(${lerp(0.6, 1, move)})`;
+  }
+
+  function showPage() {
+    root.dataset.intro = "reveal";
+    settle = setTimeout(() => delete root.dataset.intro, 2200);
+  }
+
+  function playIntro() {
+    restart();
+    if (!moving() || document.hidden) return;
+    cancelAnimationFrame(orbFrame);
+    root.dataset.intro = "play";
+    let start, shown = false;
+    const tick = (now) => {
+      start ??= now;
+      const t = (now - start) / 1000;
+      renderIntro(t, now);
+      if (!shown && t >= 4.3) { shown = true; showPage(); }
+      if (t < 4.6) { introFrame = requestAnimationFrame(tick); return; }
+      introFrame = 0;
+      orb.style.transform = "";
+      last = now;
+      orbFrame = requestAnimationFrame(spin);
+    };
+    renderIntro(0, 0);
+    introFrame = requestAnimationFrame(tick);
+  }
+
+  /* Any key or click skips to the finished page, as in the app. */
+  function skip() {
+    if (!introFrame) return;
+    restart();
+    showPage();
+  }
+  addEventListener("keydown", skip);
+  addEventListener("pointerdown", skip);
+  document.getElementById("replay").addEventListener("click", () => { root.dataset.dots = "lens"; playIntro(); });
+  /* For checking one moment of the intro: holds it at t seconds. */
+  window.holdIntro = (t) => { restart(); cancelAnimationFrame(orbFrame); root.dataset.intro = "play"; renderIntro(t, 0); };
+
   function restart() {
+    cancelAnimationFrame(introFrame);
+    clearTimeout(settle);
+    introFrame = 0;
+    orb.style.transform = "";
+    delete root.dataset.intro;
     cancelAnimationFrame(orbFrame);
     cancelAnimationFrame(frame);
     frame = 0;
@@ -301,7 +508,94 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
     drawOrb(last);
     if (moving() && !document.hidden) orbFrame = requestAnimationFrame(spin);
     for (const b of document.querySelectorAll("[data-set]")) b.setAttribute("aria-pressed", String(root.dataset[b.dataset.set] === b.dataset.value));
+    place();
   }
+
+  /* The menu: one page is always selected. Hover, focus, the arrows and the number keys move
+     the selection; G then a page's key opens it. */
+  const nav = document.querySelector("nav");
+  const items = [...nav.querySelectorAll("li")];
+  const bar = document.getElementById("cursor");
+  const thread = document.getElementById("thread");
+  const pulse = document.getElementById("pulse");
+  const tip = document.getElementById("tip");
+  const stateText = document.getElementById("state");
+  let active = 0, goAt = 0, said = 0;
+
+  const el = (tag, className, text) => Object.assign(document.createElement(tag), { className, textContent: text ?? "" });
+
+  function say(text) {
+    clearTimeout(said);
+    stateText.textContent = text;
+    said = setTimeout(() => { stateText.textContent = "Idle · Ready"; }, 1800);
+  }
+
+  items.forEach((li, i) => {
+    const extra = el("span", "extra");
+    for (const sub of (li.dataset.subs || "").split(";").filter(Boolean)) {
+      const [label, path, key] = sub.split("|");
+      const a = el("a", "sub", label);
+      a.href = "#";
+      a.title = key ? `${label} (G ${key})` : label;
+      a.addEventListener("click", (e) => { e.preventDefault(); say(`Open · ${path}`); });
+      extra.append(a);
+    }
+    const go = el("span", "go");
+    go.append(el("kbd", "", "G"), el("kbd", "", li.dataset.go));
+    extra.append(go);
+    li.append(extra);
+    li.addEventListener("pointerenter", () => select(i, true));
+    li.addEventListener("focusin", () => select(i, true));
+    li.querySelector("a.row").addEventListener("click", () => say(`Open · ${li.dataset.path}`));
+  });
+  nav.addEventListener("pointerleave", () => nav.removeAttribute("data-engaged"));
+  nav.addEventListener("focusout", (e) => { if (!nav.contains(e.relatedTarget)) nav.removeAttribute("data-engaged"); });
+
+  function select(i, engaged) {
+    items[active].removeAttribute("data-active");
+    active = (i + items.length) % items.length;
+    items[active].setAttribute("data-active", "");
+    if (engaged) nav.setAttribute("data-engaged", "");
+    place();
+  }
+
+  /* Moves the bar to the selected row and draws the thread from the orb's edge to it. */
+  function place() {
+    if (!items[active]) return;
+    const row = items[active].querySelector("a.row").getBoundingClientRect();
+    const box = nav.getBoundingClientRect();
+    bar.style.transform = `translateY(${row.top - box.top}px)`;
+    bar.style.height = `${row.height}px`;
+    bar.style.setProperty("--cursor-tone", getComputedStyle(items[active]).getPropertyValue("--tone"));
+    const cx = orb.offsetLeft + size / 2, cy = orb.offsetTop + size / 2;
+    const ex = box.left - 6, ey = row.top + row.height / 2;
+    const angle = Math.atan2(ey - cy, ex - cx);
+    const edge = size * 0.34 * 1.04;
+    const sx = cx + Math.cos(angle) * edge, sy = cy + Math.sin(angle) * edge;
+    const mx = sx + (ex - sx) * 0.55;
+    const d = `M ${sx} ${sy} C ${mx} ${sy} ${mx} ${ey} ${ex} ${ey}`;
+    for (const path of [thread, pulse]) { path.setAttribute("d", d); path.style.d = `path("${d}")`; }
+    tip.style.transform = `translate(${ex}px, ${ey}px) rotate(45deg) translate(-3.5px, -3.5px)`;
+  }
+
+  addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      select(active + (e.key === "ArrowDown" ? 1 : -1), true);
+      items[active].querySelector("a.row").focus({ preventScroll: true });
+      return;
+    }
+    if (e.key === "Enter" && !e.target.closest("a, button")) { say(`Open · ${items[active].dataset.path}`); return; }
+    if (goAt && Date.now() - goAt <= 1500) {
+      goAt = 0;
+      const i = items.findIndex((li) => li.dataset.go.toLowerCase() === e.key.toLowerCase());
+      if (i >= 0) { select(i, true); say(`Open · ${items[i].dataset.path}`); }
+      return;
+    }
+    if (e.key.toLowerCase() === "g") { goAt = Date.now(); return; }
+    if (/^[0-9]$/.test(e.key)) select(Number(e.key), true);
+  });
 
   function resize() {
     width = innerWidth; height = innerHeight;
@@ -319,7 +613,10 @@ a.row:focus-visible { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%
   addEventListener("hashchange", () => location.reload());
   document.addEventListener("visibilitychange", restart);
   calm.addEventListener("change", restart);
+  items[0].setAttribute("data-active", "");
   resize();
+  playIntro();
+  document.fonts.ready.then(place);
 })();
 </script>
 </body>

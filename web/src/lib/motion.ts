@@ -17,5 +17,23 @@ export const springMove = { type: "spring", stiffness: 300, damping: 30 } as con
  */
 export const springSnappy = { type: "spring", duration: 0.2, bounce: 0 } as const;
 
+/**
+ * The Projects fan's cards, by how much they may move. A spring keeps its speed when its target changes, so
+ * moving from card to card stays one motion. Full goes a little past and back; reduced settles without
+ * passing; still is a cut.
+ */
+export const cardSpring = {
+  full: { type: "spring", stiffness: 210, damping: 21 },
+  reduced: { type: "spring", stiffness: 210, damping: 29 }, // 2 × √210: no overshoot
+  still: { duration: 0 },
+} as const;
+
+/** A fan card's size: looser than its move, so with full motion it pops a little past its size and back. */
+export const cardPop = {
+  full: { type: "spring", stiffness: 170, damping: 13 },
+  reduced: { type: "spring", stiffness: 170, damping: 26 }, // 2 × √170: no overshoot
+  still: { duration: 0 },
+} as const;
+
 /** Position in a reading-order stagger. Pair it with the .enter class (40 ms apart). */
 export const stagger = (index: number): CSSProperties => ({ "--i": index }) as CSSProperties;
