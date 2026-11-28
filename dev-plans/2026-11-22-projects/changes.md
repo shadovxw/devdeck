@@ -22,3 +22,230 @@ From the owner's design board "Projects (plan §4)". Decisions taken to start: t
 - Tests: `project-state.test.ts`, `workspaces.test.tsx` (the cards, cards only, a card opens its page, old links, details on the project's page), and the other tests updated for the new words.
 
 Checked: typecheck, lint, all 801 web tests. In the browser at 1440×900: Projects shows the two cards (acme "4 problems", projects "Stopped") and the New project tile. Clicking acme opens its page, with the breadcrumb Work / Projects / acme and Projects marked in the sidebar.
+
+## 2026-11-24: PJ2, the project page
+
+- **The header** (`pages/project/ProjectHeader.tsx`, styles in `design/pieces.css`): the design's frame, with:
+  - **Name and state:** the name with an accent full stop, and the state chip ("Running 1/1" with a pulsing dot at Effects Full, "N problems", "Stopped"), then the description.
+  - **Mode:** the run-mode picker, starting on the mode that runs, else the first.
+  - **Start or Stop** for that mode. These are writes: paused while the server is gone, and an example project can't be started (its tooltip says so). A refused start shows its message.
+  - **Open in VS Code** (`vscode://file/<folder>`), and **Edit file** for your own projects.
+- **The server** (`internal/workspace/service.go`): a project's details carry `root_path`, the resolved repos folder (`~` and relative roots), so the page can open it in VS Code. Table-tested (`TestGetResolvesTheReposFolder`). The server still listens on 127.0.0.1 only, and the file editor already shows a path.
+- **The tabs** (`pages/ProjectPage.tsx`), mono and upper case with a gradient line under the open one; the open tab is in the address (`?tab=run`):
+  - **Code:** the repos with their git state (the existing table).
+  - **Run:** each run mode as the Stacks page's card (services in start order, start, stop, restart, ports, logs). `StackCard` is exported from `StacksPage.tsx` for this.
+  - **Logs:** a row per run mode ("Streaming" or "Stopped · its stored lines") that opens the Logs page scoped to it. Logs inside the page come with PJ3.
+  - **Problems** and **Settings:** the existing panels (`pages/workspaces/WorkspaceDetail.tsx` now only holds those two; the old details component is gone).
+  - Overview (the canvas), Databases, Images and Scripts come in later steps.
+- The breadcrumb is Work / Projects / name, with Projects a link back.
+- Tests: `workspaces.test.tsx`:
+  - the header: name, state, mode, Start posting to the stack, VS Code link, Edit file, breadcrumb
+  - running: Running 1/1 and Stop
+  - the Run and Logs tabs, with the tab in the address
+  - Edit file and Start for your own projects only
+- **Not yet:** the running dev server is an older build, so it doesn't send `root_path`, and the VS Code button stays hidden until it restarts.
+
+Checked: typecheck, lint, all 803 web tests, `go test ./internal/workspace ./internal/api`. In the browser at 1440×900 on the demo `acme` project: the header (4 problems, Mode api-only, Start, Edit file), the tabs, and Run listing api-only, docs and full with their services.
+
+## 2026-11-24: PJ3, the open project is the current one
+
+- **`lib/current-project.ts`**: the current project, kept in this browser (`devdeck.project`). `pickProject` decides which project a page shows: the one the address names (`?workspace=`), else the current one if it still exists, else the page's own default. Table-tested in `current-project.test.ts`.
+- **Becoming current:** opening a project page makes it the current one, and so does choosing a project in the picker on Stacks or Logs.
+- **Pages that follow it:** Stacks, Logs and Health (Doctor). A link that names a project still wins.
+  - Images stays the view across every project.
+  - The Health dot in the sidebar still checks its own default.
+- **The sidebar's switcher** names the current project and opens its page. With none yet, it says how many there are and opens Projects. To switch, open another project.
+- **Logs inside the project page** (`pages/project/ProjectLogs.tsx`): the Logs tab is the Logs page's own view (search, histogram, errors, the stream, saved filters), for the run mode that runs, or the first. A picker changes the mode, and **Full page** opens the Logs page on it. `LogsView` is exported from `LogsPage.tsx` with an `embedded` option (no second page title; the pickers and live status in a row). Filters stay in the tab rather than the address.
+- Tests:
+  - `current-project.test.ts`
+  - `workspaces.test.tsx`: opening a project makes Stacks and the switcher follow it; the Logs tab shows the stream with its mode picker and Full page link, and no second page title.
+
+Checked: typecheck, lint, all 810 web tests (the Docs page test once timed out under full-suite load and passes alone). In the browser:
+- `acme`'s Logs tab showed the search, histogram, errors and "Stack stopped · start it to stream logs".
+- Afterwards, Stacks showed `acme` and the switcher said "Project: acme".
+
+## 2026-11-24: PJ4, scripts
+
+- **`internal/scripts`** (new):
+  - **Steps:** a script is a name and steps. A step is a git step (fetch, pull, checkout `<branch>`, status) or a command run in the repo.
+  - **Where it runs:** once, in one repo (`repo:`), or in every repo (`for_each: repo`). A script with only git steps runs in every repo.
+  - **Starters, on every project:** "Update everything" (fetch, pull), "Switch every repo to dev" (fetch, checkout dev, pull) and "What changed?" (status).
+  - **Found in the repos:** `package.json` scripts (`npm run <name>`) and `Makefile` targets (`make <name>`), offered without being copied into the file. Names that aren't one plain word are left out.
+  - **Asking first:** `Writes()` is true for anything but fetch and status, so it asks first.
+- **The runner** (`internal/scripts/run.go`):
+  - Goes repo by repo in the background, recording each step's state and the end of its output.
+  - A repo with uncommitted changes is skipped before a checkout or pull, with the reason, and is never reset. A failed step stops that repo.
+  - Pull is fast-forward only (`gitx.Plan`), and checkout of the current branch says "already on dev".
+  - Commands run without a shell (`proc.SplitCommand`), for up to ten minutes.
+  - The last 20 runs are kept in memory.
+- **The command-line parser moved to `sdk/proc/split.go`**: `supervisor.SplitCommand` now calls it, so `scripts` doesn't import `supervisor` (which imports `workspace`, which now holds scripts).
+- **`workspace.yaml` takes `scripts:`**:
+  - The type is `WorkspaceFile.Scripts`, and the JSON schema has `script` and `scriptStep`.
+  - The schema refuses `git: push` and anything else not listed.
+  - The semantic checks add: each id once, a repo that exists, and a checkout branch that is a safe branch name.
+- **The API** (`internal/api/scripts.go`):
+  - `GET /workspaces/:id/scripts` lists every script with `writes` and its last run.
+  - `POST /workspaces/:id/scripts/:script/run` needs `{"confirm": true}` when the script writes, refuses example projects and unknown scripts, and returns the run at once (202).
+  - `GET /script-runs/:run` returns the run as it stands. Local-only folders are not run in (they aren't git repositories).
+- **The Scripts tab** (`pages/project/ProjectScripts.tsx`, `lib/scripts.ts`):
+  - The starters and the file's own scripts as cards, then "// Found in the repos". Each card shows its steps (`fetch → checkout dev → pull`), its last run or where it runs, and **Run**.
+  - **The run sheet** shows `$ devdeck run <id>`, the title and the step chips with where it runs. For a script that writes, it says what will happen ("…in every repo. A repo with uncommitted changes is skipped, never reset.") with **Run it / Cancel**. Then it shows a row per repo with each step's state and output, and the summary ("2 repos · 1 ok · 1 skipped"). It polls the run every half second while it goes.
+  - Run is disabled on example projects and while the server is reconnecting.
+- Tests:
+  - Go: `internal/scripts/scripts_test.go` (validation, writes and labels, starters, found scripts, targets, the runner's dirty skip, failure stop, status line, no shell, keep the latest), `internal/workspace/check_test.go` `TestScripts`, `internal/api/scripts_test.go` (listing from every place, run refusals and runs, local-only left out).
+  - Web: `lib/scripts.test.ts`, `workspaces.test.tsx` (the tab, the ask before a write, the confirmed post, each repo's result and the summary).
+- **Not yet:** `devdeck run <script>` in the terminal; stored run history; flows as scripts.
+
+Checked: `go vet ./...`, the Go tests for scripts, workspace, api, supervisor and proc, typecheck, lint, all 820 web tests. In the browser, against a throwaway server on 7071 built from this branch (the owner's own server on 7070 was left alone): acme's Scripts tab listed the three starters, and "What changed?" ran: "4 repos · 4 ok", each with its branch and changed count. With this build, the header also showed Open in VS Code.
+
+## 2026-11-24: PJ5, New project as a checklist
+
+- **`pages/workspaces/NewProject.tsx`** (replaces the drawer's form in `WorkspacesPage.tsx`): the design's three numbered steps, each framed like the board.
+  - **01 · Pick a folder:** one repo or the folder that holds several. Browse… or type the path, then Scan folder. Shows "✓ Scanned · 11 repos".
+  - **02 · What devdeck found:** each repo with a tick (all on), its type and its remote. A folder with no git repositories says so and can still become a project.
+  - **03 · Name it:** the name starts from the folder's ("My Shop" → `my-shop`). A name the file can't take is pointed out and blocks Create.
+- **The file is the result, not the first thing shown.** **Show the file** reveals the `workspace.yaml` built from what is ticked; Edit file on the project's page changes it afterwards. It is still checked by the server as it changes, and problems show above Create.
+- **`lib/new-project.ts`** (table-tested in `new-project.test.ts`):
+  - `projectYaml` writes the chosen repos in the scan's own shape.
+  - `rootOf` takes the folder as the scan wrote it (`~/code`).
+  - `yamlValue` quotes only when needed.
+  - `nameFrom` and `NAME_PATTERN` handle the name.
+- **Fixed, found in the browser:** a folder with no git repositories came back with `repos: null` (an empty Go list), and the drawer crashed. It is now read as an empty list, and there is a test for it.
+- Tests (`workspaces.test.tsx`):
+  - scan, the checklist, untick, the name from the folder, Show the file, and Create posting exactly the ticked file
+  - a name that blocks Create
+  - an empty folder
+  - Browse and the dialog cases moved to the new labels
+- Kept as it was: the server's scan, the folder dialog, and the server-side check of the file.
+
+Checked: typecheck, lint, all 839 web tests. In the browser (nothing created):
+- The demo folder showed "✓ Scanned · 0 repos" with its note.
+- `~/Desktop/PROJECTS` listed 11 repos with ticks, types and remotes, named `projects`.
+
+## 2026-11-24: PJ6, the Databases tab
+
+- **`internal/databases`** (new, table-tested):
+  - **From compose files:** reads the compose files the project's run modes use, directly as YAML (no Docker needed). It finds Postgres, MySQL/MariaDB, Redis/Valkey and Mongo services by their image, with the port published on this machine (`5433:5432`, `127.0.0.1:…`, the long form) and the database name (`POSTGRES_DB`, `MYSQL_DATABASE`…).
+  - **From `.env` files:** reads each repo's `.env` for database URLs (`DATABASE_URL`, `REDIS_URL`, `*_DB_URL`, `MONGODB_URI`…) and the `PGHOST`/`PGPORT`/`PGDATABASE` set.
+  - **No passwords, ever:** the user name and password in a URL are dropped as it is parsed, and a test checks that no password reaches the result.
+  - **Matching:** a reference on this machine with the same engine and port is the compose database, so a shared database is listed once with every repo that uses it (`used_by`). One that matches none is "installed on this machine". One on another host is listed but not checked.
+  - **Warnings:** a `.env` that points at a different port than the compose database of that engine listens on.
+  - **Status:** up or down by a short TCP check on 127.0.0.1; unknown for another host.
+- **The API:** `GET /workspaces/:id/databases` (`internal/api/databases.go`, tested with a fixture project: the compose db used by api, no password in the response).
+- **The Databases tab** (`pages/project/ProjectDatabases.tsx`, `lib/databases.ts`):
+  - **A card per database**, as on the board: its name and status (● up / down / unknown), then Engine, Runs, Port and Used by. Explorer and SQL console are there but disabled until Phase 6.
+  - **Mismatches** show above the cards, in the warning colour.
+  - **None found** is the mini-orb empty state (the `data` variant), saying where devdeck looked.
+  - It is checked again every 15 seconds, so up and down follow the stacks.
+- Not yet: databases written in the project's file (`databases:` with `from:`), which comes with `project.yaml` (PJ9); the explorer and console (Phase 6).
+- Tests: `internal/databases/databases_test.go` (engines, published ports, URL parsing without the user or password, a shared database, a local install, another host, the port warning, no password in the report, a missing compose file), `internal/api/databases_test.go`, `lib/databases.test.ts`, `workspaces.test.tsx` (the cards, the warning, the empty state).
+
+Checked: `go vet ./...`, the databases and API tests, typecheck, lint, all 845 web tests. In the browser, against a throwaway server on 7071 built from this branch, with two `.env` files added to the git-ignored demo data:
+- acme's Databases tab showed one Postgres (`shop`, used by demo-api and demo-worker, up: something listens on 5432 here) and a Redis (down).
+- The response held no part of the password.
+
+## 2026-11-27: PJ7, VS Code
+
+- **`devdeck run <script> [-w <project>] [--yes]`** (`internal/cli/run.go`, table-tested):
+  - Runs one of the project's scripts through the running server, then prints each repo's result: ok, skipped (with the reason) or failed (with the failing step's output).
+  - A script that can change files asks y/n first; `--yes` skips the question. VS Code's tasks call it.
+  - Exit code 1 when the run fails or the question is answered no.
+- **`internal/vscode`** builds the project's `.code-workspace` (table-tested):
+  - every repo as a folder, plus the folder that holds `workspace.yaml`
+  - `yaml.schemas` pointing at devdeck's own `/api/v1/schema/<kind>`, so its files get suggestions in VS Code
+  - `redhat.vscode-yaml` as the recommended extension
+  - a task per script (`devdeck run <id> -w <project>`) and a start and a stop task per run mode (`devdeck up/down`). The tasks are of type `process`, so no shell is involved.
+- **The API** (`internal/api/vscode.go`, tested):
+  - `GET /workspaces/:id/vscode` returns the file devdeck would write, where it goes (`<root>/<id>.code-workspace`) and whether it is new, the same as on disk, or changed.
+  - `POST /workspaces/:id/vscode` writes it, only with `{"confirm": true}` and never for an example project.
+  - The folder of devdeck's files is made absolute, because the data dir can be relative (found in the browser check).
+- **The UI:**
+  - The Code tab has a **VS Code workspace** panel showing folders, tasks and state. **Review** shows the file; **Write the file** or **Replace the file** writes it. Once it is up to date, **Open workspace** opens it with a `vscode://file/` link.
+  - Each repo row has an **Open in VS Code** link (`pages/project/vscode-links.ts`, where `vscodeFolder` now lives).
+- Not done: opening VS Code from the server with the `code` CLI. The `vscode://` link is enough and needs no process start.
+
+Checked: `go vet ./...`, `go test ./...`, typecheck, lint, and the web tests. 851 of 852 passed in the full run. The one failure was the Docs page test timing out under load, and it passes on its own.
+
+In the browser, against a throwaway server on 7071 using the git-ignored demo data:
+- acme showed 5 folders and 9 tasks, "not written yet".
+- Review, then Write, gave "up to date" and Open workspace.
+- After the server fix, it showed "differs", and Replace brought it back to "up to date".
+- `devdeck run status-all -w acme` printed each repo as ok and exited 0.
+
+## 2026-11-28: PJ8, the Overview canvas
+
+- **New packages (MIT):** `@xyflow/react` (React Flow) and `@dagrejs/dagre`, installed with the owner's OK. There was no separate canvas plan file, so this section records the decisions.
+- **`lib/project-graph.ts`** (table-tested):
+  - `projectGraph()` builds the project as nodes and edges:
+    - nodes: the repos, the services and compose files of one run mode, and the databases found in PJ6
+    - edges: *built from* (repo → service), *starts after* (`after:`) and *uses* (a database's `used_by`)
+    - A repo that runs as a service in that mode uses its database through the service.
+    - Edges to missing nodes and self-loops are dropped.
+  - Every node gets a one-line sub-label and a tone:
+    - repos: branch, and changes or clean
+    - services: state and port, from the run
+    - databases: engine and port, up or down
+  - `layoutGraph()` places the nodes left to right with dagre.
+- **`pages/project/ProjectOverview.tsx`:** the new first tab, and the default. The address drops `?tab=` for it, and the Code tab is now `?tab=code`.
+  - A read-only React Flow canvas with pan and zoom, dot background and controls; nodes can't be dragged or connected.
+  - Its own "Showing" mode picker, starting on the running mode. Changing the mode redraws and fits the view.
+  - A legend for the three edge kinds.
+  - Clicking a node opens its tab: Code, Run or Databases.
+  - Below the canvas, "needs a look" lists file errors, database mismatches, and failed or blocked services.
+  - Styled from tokens in `pieces.css`, using React Flow's `base.css` only:
+    - cut-corner cards with a stripe for the kind and a dot for the state
+    - React Flow's `--xy-*` variables set from theme tokens
+    - start-order edges in the accent colour, uses edges dashed in the warning colour
+    - no edge animation with reduced motion
+- `StackDef.services` in `lib/types.ts` now carries `repo` (the server already sent it).
+- Not yet: editing the file from the canvas (comes with `project.yaml`, PJ9), images as nodes (with the Images section), and hiding sections a project doesn't use.
+
+Checked: typecheck, lint, all 858 web tests and `npm run build`. The main chunk is now 1.4 MB, so it is worth splitting later.
+
+In the browser, against a throwaway server on 7071 with the demo data:
+- acme opens on Overview.
+- api-only drew the repos, api and two databases.
+- full drew web and worker started after api, and api and worker using postgres.
+- The DOM's edge list matched the databases API.
+- Clicking the shop node opened `?tab=databases`.
+
+## 2026-11-28: PJ9, project.yaml
+
+- **The file** (`internal/workspace/project.go`): `project.yaml` at `version: 2` holds everything `workspace.yaml` holds, plus:
+  - `run: {default, modes: [...]}`: each mode is a stack without its `version`. Big projects can still keep some as `stacks/<name>.yaml`.
+  - `databases: [{id, engine, name, port, from: {compose | local | url_env}, used_by}]`, never a password.
+  - It loads into the same `WorkspaceFile` and `StackFile`s as before, so running, scripts, databases and VS Code work the same on either file.
+- **The schemas** `project` and `mode` are built at start-up from `workspace.schema.json` and `stack.schema.json`, so they can't drift apart. They are served at `/api/v1/schema/project` and printed by `devdeck schema project`.
+- **Checks:**
+  - Each inline mode is checked as a stack, and its issues point at the right line of `project.yaml` (`/run/modes/0/services/0/repo`, line 19).
+  - Other checks: run modes or databases named twice, a `run.default` that isn't there, `used_by` naming a repo that isn't there, and `local` without a port.
+  - A folder with both files reads `project.yaml` and warns about `workspace.yaml`.
+- **The editor** opens whichever file the project uses: its name, its schema (`File.kind`), validation and saving (with `.prev`). The outline's Files list only shows stacks kept as their own files.
+- **The Stacks page:** an inline mode's edit button opens the file editor. The stack-file API answers 409 for an inline mode (`ErrInline`).
+- **Conversion** (`internal/workspace/convert.go`, `internal/api/convert.go`):
+  - Built on `yaml.Node`, so the comments and order of `workspace.yaml` and the stack files are kept.
+  - A comment above a stack's `version` moves to the next key.
+  - The databases found (PJ6) are written in: compose ones by service, ones on this machine by port. Ones on other hosts are left out.
+  - `GET /workspaces/:id/convert` returns the preview.
+  - `POST` writes it, only with `{"confirm": true}`, only for your own project, and only when the new file has no errors.
+  - The old files are kept as `workspace.yaml.v1` and `stacks.v1/`. Moving them back undoes it. Flows stay in `flows/`.
+- **Databases:** what `project.yaml` names goes on top of what is found (`databases.Merge`, table-tested). A declared database matches a found one by compose service, by port on this machine, or by the repos of its `url_env`. A match gives the found one its id, name and `used_by`; a declared one with no match is listed as "named in project.yaml".
+- **The UI:**
+  - Settings has "One file: project.yaml" (`ConvertCard`): Review shows the new file, what goes inline and any problems. Convert writes it, with errors blocking it.
+  - The project header and Overview start on `run.default` when nothing is running.
+- Not yet:
+  - a Form view for run modes and databases (they are edited in the YAML view)
+  - creating a new project straight as `project.yaml` (New project still writes `workspace.yaml`)
+  - `project.yaml` in the project's own folder (plan §13 question 4)
+  - the MCP `validate_workspace_yaml` tool does not take `project` yet
+
+Checked: `go vet ./...`, `go test ./...`, typecheck, lint, and all 866 web tests. Tests cover the project checks, the round trip, refusals, Merge/ToDeclare and the API flow.
+
+The round-trip test converts a project and checks that the repos and every run mode load exactly as before.
+
+In the browser, against a throwaway server on 7071, on a scratch copy of the demo project (removed afterwards):
+- Review showed 3 run modes going inline and 2 databases.
+- After Convert, the repos, run modes, scripts and databases from the API were identical to before.
+- `api-only` started from the new file (api ready on :18090) and stopped.
+- The editor opened `project.yaml` with the v2 schema and said "Valid".
+- The Stacks page sent the inline modes to the file editor.

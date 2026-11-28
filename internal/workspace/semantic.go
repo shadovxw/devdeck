@@ -139,6 +139,22 @@ func checkWorkspace(p *parsed, w *WorkspaceFile) []Issue {
 			out = append(out, p.warn(path+"/remote", "Write the remote as host/owner/repo, for example github.com/acme/api."))
 		}
 	}
+
+	// Scripts: each id once, a repo that exists, and steps devdeck can run (scripts.Validate).
+	scriptIDs := map[string]bool{}
+	for i, sc := range w.Scripts {
+		path := fmt.Sprintf("/scripts/%d", i)
+		if scriptIDs[sc.ID] {
+			out = append(out, p.issue(path+"/id", fmt.Sprintf("Script id %q is used more than once.", sc.ID)))
+		}
+		scriptIDs[sc.ID] = true
+		if sc.Repo != "" && !repoIDs[sc.Repo] {
+			out = append(out, p.issue(path+"/repo", fmt.Sprintf("There is no repo with id %q.", sc.Repo)))
+		}
+		if err := sc.Validate(); err != nil {
+			out = append(out, p.issue(path, err.Error()))
+		}
+	}
 	return out
 }
 

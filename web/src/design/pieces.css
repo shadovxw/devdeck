@@ -1131,3 +1131,405 @@
   text-transform: uppercase;
   color: var(--ink);
 }
+
+/* --- The project page (pages/ProjectPage.tsx, project/ProjectHeader.tsx; projects plan §4.3) --- */
+[data-ui="project-head"] {
+  --cut: 16px;
+  padding: 1px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--link) 55%, transparent), color-mix(in srgb, var(--critical) 25%, transparent) 45%, color-mix(in srgb, var(--ink) 6%, transparent));
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+}
+
+[data-ui="project-head-in"] {
+  position: relative;
+  background: var(--neon-panel);
+  clip-path: inherit;
+}
+
+:root[data-effects="full"] [data-ui="project-head-in"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--ink) 2.5%, transparent) 0 1px, transparent 1px 3px);
+}
+
+[data-ui="project-head-in"] > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-ui="project-title"] {
+  font-size: clamp(30px, 2.6vw, 40px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+[data-ui="project-title"] > span {
+  color: var(--primary);
+}
+
+[data-ui="project-head"] [data-ui="project-state"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-ui="project-live"] {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+:root[data-effects="full"]:not([data-motion="reduced"]) [data-ui="project-live"] {
+  animation: project-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes project-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+[data-ui="project-mode-label"] {
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* The sections: mono, upper case, a gradient line under the open one. */
+.project-tabs {
+  gap: 28px;
+}
+
+.project-tabs [role="tab"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.project-tabs [role="tab"][aria-selected="true"] {
+  box-shadow: none;
+  border-image: linear-gradient(90deg, var(--link), var(--critical)) 1;
+  border-bottom: 2px solid;
+}
+
+/* --- Scripts (pages/project/ProjectScripts.tsx; projects plan §4.4, §7) ------------------- */
+[data-ui="script-card"] {
+  --cut: 10px;
+  background: var(--neon-panel);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+}
+
+[data-ui="script-name"] {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+:is([data-ui="script-source"], [data-ui="run-command"], [data-ui="scripts-found"]) {
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-ui="scripts-found"] {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+[data-ui="script-steps"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+[data-ui="script-last"] {
+  --tone: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--tone);
+}
+
+[data-ui="script-last"][data-state="ok"] { --tone: var(--good); }
+[data-ui="script-last"][data-state="failed"] { --tone: var(--critical); }
+
+[data-ui="run-chain"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+[data-ui="run-step"] {
+  padding: 2px 8px;
+  color: var(--ink);
+  background: var(--fill);
+}
+
+[data-ui="run-where"] {
+  margin-inline-start: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10px;
+}
+
+[data-ui="run-ask"] {
+  background: color-mix(in srgb, var(--warning) 10%, var(--neon-panel));
+  box-shadow: inset 2px 0 0 var(--warning);
+}
+
+[data-ui="run-row"] {
+  background: var(--neon-panel);
+}
+
+:is([data-ui="run-state"], [data-ui="run-dot"]) {
+  --tone: var(--ink-3);
+}
+
+:is([data-ui="run-state"], [data-ui="run-dot"])[data-state="running"] { --tone: var(--link); }
+:is([data-ui="run-state"], [data-ui="run-dot"])[data-state="ok"] { --tone: var(--good); }
+:is([data-ui="run-state"], [data-ui="run-dot"])[data-state="skipped"] { --tone: var(--warning); }
+:is([data-ui="run-state"], [data-ui="run-dot"])[data-state="failed"] { --tone: var(--critical); }
+
+[data-ui="run-state"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+
+[data-ui="run-dot"] {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  border: 1px solid var(--tone);
+}
+
+[data-ui="run-dot"]:is([data-state="ok"], [data-state="failed"], [data-state="running"]) {
+  background: var(--tone);
+}
+
+[data-ui="run-output"] {
+  margin: 0 0 0 15px;
+  max-height: 10rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+[data-ui="run-summary"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-2);
+}
+
+/* --- New project (pages/workspaces/NewProject.tsx; projects plan §4.2) --------------------- */
+[data-ui="new-step"] {
+  --cut: 12px;
+  background: var(--neon-panel);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+}
+
+[data-ui="new-step-title"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--link);
+}
+
+[data-ui="new-scanned"] {
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--good);
+}
+
+[data-ui="new-repo"]:hover {
+  background: var(--fill);
+}
+
+[data-ui="new-repo"] input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--link);
+}
+
+[data-ui="new-repo-type"] {
+  padding: 1px 6px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--ink-2);
+  background: var(--fill);
+}
+
+[data-ui="new-file"] {
+  background: var(--bg);
+}
+
+/* --- Databases (pages/project/ProjectDatabases.tsx; projects plan §6) ---------------------- */
+[data-ui="db-card"] {
+  --cut: 12px;
+  background: var(--neon-panel);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+}
+
+[data-ui="db-name"] {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+[data-ui="db-status"] {
+  --tone: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+
+[data-ui="db-status"]::before {
+  content: "● ";
+}
+
+[data-ui="db-status"][data-state="up"] { --tone: var(--good); }
+[data-ui="db-status"][data-state="down"] { --tone: var(--critical); }
+
+[data-ui="db-facts"] {
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+
+[data-ui="db-facts"] dt {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  align-self: center;
+}
+
+[data-ui="db-facts"] dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--ink);
+}
+
+[data-ui="db-warnings"] {
+  background: color-mix(in srgb, var(--warning) 10%, var(--neon-panel));
+  box-shadow: inset 2px 0 0 var(--warning);
+}
+
+/* --- VS Code workspace (pages/project/ProjectVSCode.tsx; projects plan PJ7) ---------------- */
+[data-ui="vscode-panel"] {
+  background: var(--neon-panel);
+}
+
+[data-ui="vscode-state"][data-state="changed"] { color: var(--warning); }
+[data-ui="vscode-state"][data-state="same"] { color: var(--good); }
+
+[data-ui="vscode-preview"] {
+  background: var(--inset);
+}
+
+/* --- Overview canvas (pages/project/ProjectOverview.tsx; projects plan PJ8) ---------------- */
+[data-ui="flow-canvas"] {
+  background: var(--neon-panel);
+  --xy-background-pattern-dots-color-default: color-mix(in srgb, var(--ink) 18%, transparent);
+  --xy-edge-stroke-default: var(--ink-3);
+  --xy-edge-stroke-width-default: 1.4;
+  --xy-controls-button-background-color-default: var(--fill);
+  --xy-controls-button-background-color-hover-default: color-mix(in srgb, var(--ink) 14%, transparent);
+  --xy-controls-button-color-default: var(--ink);
+  --xy-controls-button-border-color-default: transparent;
+  --xy-controls-box-shadow-default: none;
+}
+
+[data-ui="flow-canvas"] .react-flow__node {
+  cursor: pointer;
+}
+
+[data-ui="flow-node"] {
+  --cut: 9px;
+  --tone: var(--ink-3);
+  --kind: var(--ink-3);
+  width: 196px;
+  height: 58px;
+  background: var(--bg);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+  box-shadow: inset 2px 0 0 var(--kind);
+}
+
+[data-ui="flow-node"][data-kind="service"],
+[data-ui="flow-node"][data-kind="compose"] { --kind: var(--accent); }
+[data-ui="flow-node"][data-kind="database"] { --kind: var(--warning); }
+
+[data-ui="flow-node"][data-tone="good"] { --tone: var(--good); }
+[data-ui="flow-node"][data-tone="busy"] { --tone: var(--warning); }
+[data-ui="flow-node"][data-tone="bad"] { --tone: var(--critical); }
+[data-ui="flow-node"][data-tone="none"] { --tone: transparent; }
+
+[data-ui="flow-icon"] { color: var(--kind); }
+
+[data-ui="flow-kind"] {
+  font-family: var(--font-code);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-ui="flow-dot"] {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+[data-ui="flow-node"] .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.flow-edge-after .react-flow__edge-path { stroke: var(--accent); }
+.flow-edge-uses .react-flow__edge-path { stroke: var(--warning); stroke-dasharray: 5 4; }
+
+[data-ui="flow-legend"] li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-code);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-ui="flow-legend"] li::before {
+  content: "";
+  width: 18px;
+  border-top: 1.5px solid var(--ink-3);
+}
+
+[data-ui="flow-legend"] li[data-kind="after"]::before { border-top-color: var(--accent); }
+[data-ui="flow-legend"] li[data-kind="uses"]::before { border-top: 1.5px dashed var(--warning); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ui="flow-canvas"] .react-flow__edge.animated path { animation: none; }
+}

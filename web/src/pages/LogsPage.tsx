@@ -17,6 +17,7 @@ import { isMutedText, muteOfText, useMutes } from "../lib/log-mutes";
 import { useLogStream } from "../lib/log-stream";
 import { useCaptures } from "../lib/logs";
 import { useRuns, useWorkspace, useWorkspaces } from "../lib/queries";
+import { pickProject, useCurrentProject } from "../lib/current-project";
 import { useTopicHandler } from "../lib/socket";
 import type { CaptureInfo, LogBatch, LogEntry, LogLevel } from "../lib/types";
 import { useNow } from "../lib/use-now";
@@ -96,6 +97,8 @@ type ViewProps = {
   selectors: ReactNode;
   title: string;
   group: string;
+  /** Inside another page (a project's Logs tab): no page header, the pickers and status in a row. */
+  embedded?: boolean;
 };
 
 /** A new kind of error shows in the Errors panel at once, not at the next poll: at most one refresh a second, however many error lines a burst brings. */
@@ -119,7 +122,7 @@ function serviceNamesOf(captured: CaptureInfo[] | undefined, entries: LogEntry[]
 }
 
 /** The page for one stack: filters, the level histogram, the errors, the stream and the selected line. */
-function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, group }: Readonly<ViewProps>) {
+export function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, group, embedded = false }: Readonly<ViewProps>) {
   const live = !query.until;
   // The muted patterns are the reader's own and are kept in this browser; they go with every request.
   const { mutes, add: addMute, toggle: toggleMute, remove: removeMute } = useMutes(workspace, stack);
@@ -170,26 +173,31 @@ function LogsView({ workspace, stack, sample, query, onQuery, selectors, title, 
   const status = statusLine({ state: stream.state, error: stream.error, count: stream.entries.length, muted: histogram.data?.muted, paused: stream.paused, live });
   const perMinute = linesInLastMinute(stream.entries, now);
 
+  const pickers = (
+    <div className="flex flex-wrap items-center gap-2">
+      {selectors}
+      <SinceSelect value={query} onChange={onQuery} />
+    </div>
+  );
+  const liveLine = (
+    <span className="inline-flex items-center gap-2">
+      <StatusDot tone={following ? "good" : "neutral"} className={following ? "pulse-mark" : ""} />
+      {liveLabel(live, stream.paused)}
+      {following && perMinute > 0 ? ` · ${perMinute.toLocaleString()} lines/min` : ""}
+    </span>
+  );
+
   return (
     <>
-      <PageHeader
-        title={title}
-        group={group}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {selectors}
-            <SinceSelect value={query} onChange={onQuery} />
-          </div>
-        }
-        summary={
-          <span className="inline-flex items-center gap-2">
-            <StatusDot tone={following ? "good" : "neutral"} className={following ? "pulse-mark" : ""} />
-            {liveLabel(live, stream.paused)}
-            {following && perMinute > 0 ? ` · ${perMinute.toLocaleString()} lines/min` : ""}
-          </span>
-        }
-      />
-      <div className="mt-8 flex flex-col gap-6">
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[13px] text-ink-2">
+          {liveLine}
+          {pickers}
+        </div>
+      ) : (
+        <PageHeader title={title} group={group} actions={pickers} summary={liveLine} />
+      )}
+      <div className={embedded ? "mt-4 flex flex-col gap-6" : "mt-8 flex flex-col gap-6"}>
         <QueryBar value={query} onChange={onQuery} />
         <ViewToolbar
           live={live}
@@ -280,7 +288,10 @@ export function LogsPage() {
 
   const list = workspaces.data ?? [];
   const fallback = (list.find((w) => w.errors === 0 && w.source === "local") ?? list.find((w) => w.errors === 0) ?? list[0])?.id;
-  const id = params.get("workspace") ?? fallback;
+  const current = useCurrentProject((s) => s.id);
+  const setCurrent = useCurrentProject((s) => s.set);
+  // The address, else the current project, else the first that can run.
+  const id = pickProject(params.get("workspace"), current, list.map((w) => w.id), fallback);
   const detail = useWorkspace(id);
   const stacks = detail.data?.stacks ?? [];
   const running = (runs.data ?? []).find((r) => r.workspace === id && stacks.some((s) => s.name === r.stack))?.stack;
@@ -316,7 +327,10 @@ export function LogsPage() {
         id="logs-workspace"
         className={select}
         value={id ?? ""}
-        onChange={(e) => setParams({ workspace: e.target.value }, { replace: true })}
+        onChange={(e) => {
+          setCurrent(e.target.value);
+          setParams({ workspace: e.target.value }, { replace: true });
+        }}
         disabled={list.length === 0}
       >
         {list.map((w) => (

@@ -72,6 +72,12 @@ export type WorkspaceDetail = Omit<WorkspaceSummary, "stacks" | "flows"> & {
   stacks: StackDef[];
   flows: Array<{ name: string; description?: string }>;
   issues: Issue[];
+  /** The folder that holds the repos, resolved, for opening it in VS Code. */
+  root_path?: string;
+  /** The file the project is defined in: workspace.yaml, or project.yaml once converted (PJ9). */
+  file?: string;
+  /** project.yaml's run.default: the run mode the page starts on when none is running. */
+  default_mode?: string;
 };
 
 export type ScanResult = { root: string; name: string; repos: Repo[]; yaml: string; truncated?: boolean };
@@ -108,9 +114,11 @@ export type DoctorReport = {
 /** A stack as written in its file. */
 export type StackDef = {
   name: string;
+  /** Where it is written: stacks/<name>.yaml, or project.yaml for a mode written inline. */
+  file?: string;
   description?: string;
   compose?: Array<{ id?: string; repo: string; file: string; services?: string[]; after?: string[]; optional?: boolean }>;
-  services?: Array<{ id: string; kind: string; port?: number; after?: string[] }>;
+  services?: Array<{ id: string; repo?: string; kind: string; port?: number; after?: string[] }>;
 };
 
 export type ServiceState =

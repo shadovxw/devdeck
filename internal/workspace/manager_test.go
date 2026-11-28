@@ -259,3 +259,32 @@ func TestDeleteRefusesWhatItShould(t *testing.T) {
 		t.Errorf("no folder configured: %v", err)
 	}
 }
+
+func TestGetResolvesTheReposFolder(t *testing.T) {
+	m := newManager(t)
+	if _, _, err := m.Create(goodYAML); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home folder here")
+	}
+	tests := []struct {
+		id   string
+		want string
+	}{
+		{"demo", filepath.Join(home, "code")}, // root: ~/code
+		{"acme-shop", filepath.Join(home, "code", "acme-shop")},
+	}
+	for _, tc := range tests {
+		t.Run(tc.id, func(t *testing.T) {
+			d, err := m.Get(tc.id)
+			if err != nil {
+				t.Fatalf("Get: %v", err)
+			}
+			if d.RootPath != tc.want {
+				t.Errorf("RootPath = %q, want %q", d.RootPath, tc.want)
+			}
+		})
+	}
+}

@@ -462,3 +462,61 @@ func TestStackLogParser(t *testing.T) {
 	bad = "version: 1\nname: s\nservices:\n  - id: a\n    repo: api\n    kind: go\n    logs: { parser: logfmt }\n"
 	has(t, Check(KindStack, "stacks/s.yaml", []byte(bad), repos, Options{}), 7, SeverityError, "logfmt")
 }
+
+func TestScripts(t *testing.T) {
+	good := `version: 1
+name: demo
+root: ~/code
+repos:
+  - id: api
+    path: api
+scripts:
+  - id: sync-dev
+    title: Switch every repo to dev
+    for_each: repo
+    steps:
+      - git: fetch
+      - git: checkout
+        branch: dev
+      - git: pull
+  - id: test
+    repo: api
+    steps:
+      - run: go test ./...
+`
+	if issues := Check(KindWorkspace, "workspace.yaml", []byte(good), nil, Options{}); len(issues) != 0 {
+		t.Fatalf("a good file has issues:\n%s", dump(issues))
+	}
+
+	// The schema comes first: git: push is not a step devdeck takes.
+	push := `version: 1
+name: demo
+root: ~/code
+scripts:
+  - id: push
+    steps:
+      - git: push
+`
+	has(t, Check(KindWorkspace, "workspace.yaml", []byte(push), nil, Options{}), 7, SeverityError, "push isn't allowed here")
+
+	bad := `version: 1
+name: demo
+root: ~/code
+repos:
+  - id: api
+    path: api
+scripts:
+  - id: sync
+    steps:
+      - git: checkout
+        branch: --force
+  - id: sync
+    repo: ghost
+    steps:
+      - run: make
+`
+	issues := Check(KindWorkspace, "workspace.yaml", []byte(bad), nil, Options{})
+	has(t, issues, 8, SeverityError, "checkout needs a branch name")
+	has(t, issues, 12, SeverityError, `Script id "sync" is used more than once`)
+	has(t, issues, 13, SeverityError, `There is no repo with id "ghost"`)
+}

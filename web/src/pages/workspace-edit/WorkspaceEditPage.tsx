@@ -7,7 +7,7 @@ import { primaryButton, quietButton } from "../../design/buttons";
 import { useGitRepos } from "../../lib/git";
 import { useWorkspace } from "../../lib/queries";
 import type { Issue, IssueFix } from "../../lib/types";
-import { useGitInit, useWorkspaceSchema } from "../../lib/workspace-file";
+import { fileNameOf, useGitInit, useWorkspaceSchema } from "../../lib/workspace-file";
 import { markLocalOnly, outline as parseOutline, repoIndexOfPath } from "../../lib/yaml-doc";
 import { CompareDialog, GitInitDialog, LeaveDialog, ReviewDialog } from "./EditDialogs";
 import { FormView } from "./FormView";
@@ -57,9 +57,9 @@ function Segmented({ mode, onChange }: Readonly<{ mode: Mode; onChange: (mode: M
 }
 
 /**
- * The editor for one workspace's workspace.yaml. The file is the source of truth: the Form and YAML views edit the
+ * The editor for one project's own file, workspace.yaml or project.yaml. The file is the source of truth: the Form and YAML views edit the
  * same text, a save only goes through when the text is valid and the file hasn't changed since it was opened, and
- * the old file is kept as workspace.yaml.prev.
+ * the old file is kept next to it as .prev.
  */
 export function WorkspaceEditPage() {
   const { id = "" } = useParams();
@@ -67,7 +67,9 @@ export function WorkspaceEditPage() {
   const ed = useWorkspaceEditor(id);
   const detail = useWorkspace(id);
   const git = useGitRepos();
-  const schema = useWorkspaceSchema();
+  const kind = ed.file.data?.kind;
+  const fileName = fileNameOf(kind);
+  const schema = useWorkspaceSchema(kind);
   const gitInit = useGitInit(id);
 
   const [mode, setMode] = useState<Mode>("yaml");
@@ -157,14 +159,14 @@ export function WorkspaceEditPage() {
         parentTo="/workspaces"
         summary={
           <output className="text-ink-3">
-            workspace.yaml · {fileState(readOnly, ed.dirty, ed.saved)} · {status}
+            {fileName} · {fileState(readOnly, ed.dirty, ed.saved)} · {status}
           </output>
         }
         actions={
           <>
             <Segmented mode={mode} onChange={setMode} />
             {vscode && (
-              <a href={vscode} title="Open workspace.yaml in VS Code" className={quietButton}>
+              <a href={vscode} title={`Open ${fileName} in VS Code`} className={quietButton}>
                 <ExternalLink size={14} aria-hidden /> VS Code
               </a>
             )}
@@ -186,13 +188,13 @@ export function WorkspaceEditPage() {
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)_18rem]">
         <div className="max-lg:order-2 lg:h-[calc(100dvh-15rem)] lg:min-h-[28rem] lg:overflow-auto">
-          <Outline outline={outline} issues={ed.issues} stacks={stacks.map((s) => s.name)} cursorLine={cursor.line} onGo={go} />
+          <Outline outline={outline} issues={ed.issues} stacks={(detail.data?.stacks ?? []).filter((s) => s.file !== "project.yaml").map((s) => s.name)} cursorLine={cursor.line} onGo={go} />
         </div>
 
         <div className="flex h-[calc(100dvh-15rem)] min-h-[28rem] min-w-0 flex-col bg-bg max-lg:order-1">
           {ed.changedOnDisk && (
             <div role="alert" className="flex flex-wrap items-center gap-3 bg-fill px-4 py-2 text-[13px] text-ink">
-              <span className="min-w-0 flex-1">workspace.yaml changed on disk after you opened it.</span>
+              <span className="min-w-0 flex-1">{fileName} changed on disk after you opened it.</span>
               <button type="button" onClick={() => setComparing(true)} className={quietButton}>
                 Compare
               </button>
@@ -226,7 +228,7 @@ export function WorkspaceEditPage() {
             <span>
               Ln {cursor.line}, Col {cursor.col}
             </span>
-            <span>workspace.yaml</span>
+            <span>{fileName}</span>
             {version && <span>schema v{version}</span>}
             <span className="ms-auto font-sans">Ctrl/⌘ S review &amp; save</span>
           </div>

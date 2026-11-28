@@ -18,6 +18,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/shadovxw/devdeck/internal/logs"
+	"github.com/shadovxw/devdeck/internal/scripts"
 )
 
 // WorkspaceFile is workspace.yaml.
@@ -33,6 +34,8 @@ type WorkspaceFile struct {
 	Hosts             []Host        `yaml:"hosts,omitempty" json:"hosts,omitempty"`
 	// PlansRepo is the private git repository that holds the plans and records of the work done on this workspace.
 	PlansRepo *PlansRepo `yaml:"plans_repo,omitempty" json:"plans_repo,omitempty"`
+	// Scripts are the project's own commands, run from its Scripts tab (dev-plans/2026-11-22-projects §7).
+	Scripts []scripts.Script `yaml:"scripts,omitempty" json:"scripts,omitempty"`
 }
 
 // PlansRepo says where the plans repository is. Each feature is a branch plan/<name> in it, and each

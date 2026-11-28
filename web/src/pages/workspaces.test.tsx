@@ -5,7 +5,8 @@ import { RouterProvider } from "react-router/dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { routes } from "../app/routes";
-import type { Issue, WorkspaceDetail, WorkspaceSummary } from "../lib/types";
+import type { Issue, RunStatus, WorkspaceDetail, WorkspaceSummary } from "../lib/types";
+import { useCurrentProject } from "../lib/current-project";
 import { useUi } from "../store/ui";
 
 const demo: WorkspaceSummary = {
@@ -50,9 +51,38 @@ const detail: WorkspaceDetail = {
   stacks: [{ name: "full", services: [{ id: "api", kind: "process" }] }],
   flows: [{ name: "nightly" }],
   issues,
+  root_path: "/home/me/code",
 };
 
 const draft = "version: 1\nname: code\nroot: ~/code\nrepos:\n  - id: api\n    path: api\n";
+
+const demoScripts = [
+  { id: "sync-dev", title: "Switch every repo to dev", for_each: "repo", steps: [{ git: "fetch" }, { git: "checkout", branch: "dev" }, { git: "pull" }], source: "built-in", writes: true },
+  { id: "status-all", title: "What changed?", for_each: "repo", steps: [{ git: "status" }], source: "built-in", writes: false },
+  { id: "npm:web:test", title: "npm run test", repo: "web", steps: [{ run: "npm run test" }], source: "package.json", writes: true },
+];
+
+/** A run of sync-dev over api and web: still going, or done (web skipped, it has changes). */
+const syncRun = (at: "running" | "done") => ({
+  id: "r1",
+  workspace: "demo",
+  script: "sync-dev",
+  title: "Switch every repo to dev",
+  state: at === "running" ? "running" : "ok",
+  started_at: "",
+  repos: [
+    { repo: "api", state: at === "running" ? "running" : "ok", steps: [{ label: "fetch", state: "ok" }, { label: "checkout dev", state: at === "running" ? "running" : "ok", output: "Switched to branch 'dev'" }, { label: "pull", state: at === "running" ? "waiting" : "ok" }] },
+    { repo: "web", state: at === "running" ? "waiting" : "skipped", reason: at === "running" ? undefined : "it has uncommitted changes, so it was left as it is", steps: [{ label: "fetch", state: at === "running" ? "waiting" : "ok" }, { label: "checkout dev", state: at === "running" ? "waiting" : "skipped" }, { label: "pull", state: at === "running" ? "waiting" : "skipped" }] },
+  ],
+});
+
+const demoDatabases = {
+  databases: [
+    { id: "db", engine: "postgres", from: "compose", where: "infra/docker-compose.yml · db", host: "127.0.0.1", port: 5432, name: "shop", used_by: ["api", "worker"], status: "up" },
+    { id: "postgres-5433", engine: "postgres", from: "env", where: "installed on this machine (reports's PGHOST)", host: "127.0.0.1", port: 5433, name: "reports", used_by: ["reports"], status: "down" },
+  ],
+  warnings: [{ repo: "reports", message: "the PGHOST of reports points at port 5433, but the compose postgres db listens on 5432." }],
+};
 
 type Posted = { url: string; body: unknown };
 const posted: Posted[] = [];
@@ -84,7 +114,7 @@ const chosen = "/home/me/code";
 let closeDialog: (() => void) | undefined;
 
 function mockServer(
-  opts: { list?: WorkspaceSummary[]; scanError?: string; pick?: "ok" | "cancel" | "error" | "wait"; deleteError?: { status: number; message: string } } = {},
+  opts: { list?: WorkspaceSummary[]; runs?: RunStatus[]; scanError?: string; scanEmpty?: boolean; noDatabases?: boolean; pick?: "ok" | "cancel" | "error" | "wait"; deleteError?: { status: number; message: string } } = {},
 ) {
   let list = opts.list ?? [];
   vi.stubGlobal(
@@ -102,6 +132,12 @@ function mockServer(
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       if (url === "/api/v1/workspaces/demo") return Promise.resolve(Response.json(detail));
+      if (url === "/api/v1/runs") return Promise.resolve(Response.json(opts.runs ?? []));
+      if (url === "/api/v1/workspaces/demo/scripts") return Promise.resolve(Response.json(demoScripts));
+      if (url === "/api/v1/workspaces/demo/databases") return Promise.resolve(Response.json(opts.noDatabases ? { databases: [], warnings: [] } : demoDatabases));
+      if (url === "/api/v1/workspaces/demo/scripts/sync-dev/run" && method === "POST") return Promise.resolve(Response.json(syncRun("running"), { status: 202 }));
+      if (url === "/api/v1/script-runs/r1") return Promise.resolve(Response.json(syncRun("done")));
+      if (url === "/api/v1/workspaces/demo/stacks/full/start" && method === "POST") return Promise.resolve(Response.json({ workspace: "demo", stack: "full", state: "starting", started_at: "", services: [] }));
       if (url === "/api/v1/workspaces/acme-shop") return Promise.resolve(Response.json({ ...sample, workspace: { name: "acme-shop", root: "~/code/acme-shop", repos: [] }, stacks: [], flows: [], issues: [] }));
       if (url === "/api/v1/workspaces/demo/file") return Promise.resolve(Response.json({ yaml: draft, hash: "h1", path: "/code/demo/workspace.yaml" }));
       if (url === "/api/v1/git/repos") return Promise.resolve(Response.json(gitRows));
@@ -113,7 +149,8 @@ function mockServer(
       }
       if (url === "/api/v1/workspaces/scan") {
         if (opts.scanError) return Promise.resolve(Response.json({ message: opts.scanError }, { status: 422 }));
-        return Promise.resolve(Response.json({ root: "/home/me/code", name: "code", repos: [{ id: "api", path: "api" }], yaml: draft }));
+        if (opts.scanEmpty) return Promise.resolve(Response.json({ root: "/home/me/notes", name: "notes", repos: null, yaml: "" }));
+        return Promise.resolve(Response.json({ root: "/home/me/code", name: "code", repos: [{ id: "api", path: "api" }, { id: "web", path: "web", type: "node", remote: "github.com/acme/web" }], yaml: draft }));
       }
       if (url === "/api/v1/workspaces/validate") {
         return Promise.resolve(Response.json({ valid: true, issues: [] }));
@@ -142,6 +179,7 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   useUi.setState({ sidebarOpen: false, closedGroups: [] });
+  useCurrentProject.setState({ id: null });
   vi.unstubAllGlobals();
   posted.length = 0;
   calls.length = 0;
@@ -159,7 +197,7 @@ describe("workspaces page", () => {
     fireEvent.click(add);
 
     const drawer = within(await screen.findByRole("dialog", { name: "New project" }));
-    expect(drawer.getByLabelText(/Folder that contains/)).toBeTruthy();
+    expect(drawer.getByLabelText(/One repo, or the folder/)).toBeTruthy();
   });
 
   it("shows each project as a card: its number and folder, its state, its shape and its mix of types", async () => {
@@ -197,9 +235,19 @@ describe("workspaces page", () => {
     expect(await screen.findByRole("dialog", { name: "New project" })).toBeTruthy();
   });
 
-  it("shows the first workspace's repos with their git state, and filters them", async () => {
+  it("opens on the Overview: the canvas of the project, with its legend", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces/demo");
+    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
+    expect(details.getByRole("tab", { name: /Overview/ }).getAttribute("aria-selected")).toBe("true");
+    expect(await details.findByLabelText("Canvas of demo")).toBeTruthy();
+    const legend = within(details.getByRole("list", { name: "Legend" }));
+    expect(legend.getByText("starts after")).toBeTruthy();
+  });
+
+  it("shows the first workspace's repos with their git state, and filters them", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces/demo?tab=code");
     const details = within(await screen.findByRole("region", { name: "Details of demo" }));
     const table = within(await details.findByRole("table", { name: "Repositories of demo" }));
 
@@ -273,26 +321,105 @@ describe("workspaces page", () => {
     expect(links[0].textContent).toBe("Fix in the editor");
   });
 
-  it("lists the stacks with a way to open them, and the flows", async () => {
+  it("runs: each run mode with its services, and its logs in the tab; the tab is in the address", async () => {
+    mockServer({ list: [demo] });
+    const router = renderAt("/workspaces/demo");
+    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
+    fireEvent.click(await details.findByRole("tab", { name: /Run/ }));
+    expect(router.state.location.search).toBe("?tab=run");
+    expect(await details.findByRole("button", { name: /Start/ })).toBeTruthy(); // the stack's own start, in its card
+
+    // Logs: the stream of a run mode right here, and the full page a click away.
+    fireEvent.click(details.getByRole("tab", { name: /Logs/ }));
+    expect((details.getByLabelText("Run mode") as HTMLSelectElement).value).toBe("full");
+    expect(details.getByRole("link", { name: /Full page/ }).getAttribute("href")).toBe("/logs?workspace=demo&stack=full");
+    expect(details.queryByRole("heading", { level: 1 })).toBeNull(); // no second page title
+  });
+
+  it("the header: the name, its state, the run mode, Start, VS Code and Edit file", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces/demo");
-    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
-    fireEvent.click(await details.findByRole("tab", { name: /Stacks/ }));
-    expect(details.getByText("full")).toBeTruthy();
-    expect(details.getByRole("link", { name: "Open stack" }).getAttribute("href")).toBe("/stacks?workspace=demo");
-    expect(details.getByText("nightly")).toBeTruthy();
+    const head = within((await screen.findByRole("heading", { level: 1, name: /demo/ })).closest("header") as HTMLElement);
+    expect(head.getByText("2 problems")).toBeTruthy();
+    expect((head.getByRole("combobox", { name: "Run mode" }) as HTMLSelectElement).value).toBe("full");
+    expect(head.getByRole("link", { name: /Open in VS Code/ }).getAttribute("href")).toBe("vscode://file/home/me/code");
+    expect(head.getByRole("link", { name: /Edit file/ }).getAttribute("href")).toBe("/workspaces/demo/edit");
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).textContent).toBe("Work/Projects/demo");
+
+    fireEvent.click(head.getByRole("button", { name: /^Start/ }));
+    await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces/demo/stacks/full/start", body: undefined }));
+  });
+
+  it("opening a project makes it the current one: Stacks and the sidebar's switcher follow it", async () => {
+    mockServer({ list: [demo, sample] });
+    renderAt("/workspaces/demo");
+    await screen.findByRole("region", { name: "Details of demo" });
+    await waitFor(() => expect(useCurrentProject.getState().id).toBe("demo"));
+    cleanup();
+
+    // Left to itself, Stacks would show the example (the first with no errors); it shows the current one.
+    useUi.setState({ sidebarOpen: true });
+    renderAt("/stacks");
+    await waitFor(() => expect((screen.getByLabelText("Workspace") as HTMLSelectElement).value).toBe("demo"));
+    expect(screen.getByRole("link", { name: "Project: demo" }).getAttribute("href")).toBe("/workspaces/demo");
+  });
+
+  it("scripts: starters and found ones; a write asks first, then each repo's result and a summary", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces/demo?tab=scripts");
+    const own = within(await screen.findByRole("list", { name: "Scripts" }));
+    expect(own.getByText("fetch → checkout dev → pull")).toBeTruthy();
+    expect(within(screen.getByRole("list", { name: "Found scripts" })).getByRole("button", { name: "Run npm run test" })).toBeTruthy();
+
+    fireEvent.click(own.getByRole("button", { name: "Run Switch every repo to dev" }));
+    const sheet = within(await screen.findByRole("dialog", { name: "Switch every repo to dev" }));
+    expect(sheet.getByText("$ devdeck run sync-dev")).toBeTruthy();
+    expect(sheet.getByText(/A repo with uncommitted changes is skipped, never reset/)).toBeTruthy();
+    expect(posted.some((p) => p.url.includes("/scripts/"))).toBe(false); // nothing runs before Run it
+
+    fireEvent.click(sheet.getByRole("button", { name: "Run it" }));
+    await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces/demo/scripts/sync-dev/run", body: { confirm: true } }));
+    expect(await sheet.findByText("2 repos · 1 ok · 1 skipped")).toBeTruthy();
+    expect(sheet.getByText(/uncommitted changes, so it was left as it is/)).toBeTruthy();
+  });
+
+  it("databases: each one with its engine, where it runs, its port, who uses it and whether it is up; mismatches above", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces/demo?tab=databases");
+    const list = within(await screen.findByRole("list", { name: "Databases" }));
+    const shop = within(list.getByText("shop").closest("li") as HTMLElement);
+    expect(shop.getByText("up")).toBeTruthy();
+    expect(shop.getByText("infra/docker-compose.yml · db")).toBeTruthy();
+    expect(shop.getByText("127.0.0.1:5432")).toBeTruthy();
+    expect(shop.getByText("api, worker")).toBeTruthy();
+    expect((shop.getByRole("button", { name: /Explorer/ }) as HTMLButtonElement).disabled).toBe(true); // Phase 6
+    expect(within(screen.getByRole("list", { name: "Needs a look" })).getByText(/points at port 5433/)).toBeTruthy();
+  });
+
+  it("databases: none found is the mini-orb empty state", async () => {
+    mockServer({ list: [demo], noDatabases: true });
+    renderAt("/workspaces/demo?tab=databases");
+    expect(await screen.findByRole("heading", { name: "No database found" })).toBeTruthy();
+  });
+
+  it("the header says when the project runs, and offers Stop", async () => {
+    mockServer({ list: [demo], runs: [{ workspace: "demo", stack: "full", state: "running", started_at: "", services: [{ id: "api", kind: "process", state: "ready", restarts: 0 }] }] });
+    renderAt("/workspaces/demo");
+    const head = within((await screen.findByRole("heading", { level: 1, name: /demo/ })).closest("header") as HTMLElement);
+    expect(await head.findByText("Running 1/1")).toBeTruthy();
+    expect(head.getByRole("button", { name: /Stop/ })).toBeTruthy();
   });
 
   it("has an Edit file button for the user's own projects only", async () => {
     mockServer({ list: [demo, sample] });
     renderAt("/workspaces/demo");
-    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
-    expect(details.getByRole("link", { name: /Edit file/ }).getAttribute("href")).toBe("/workspaces/demo/edit");
+    expect((await screen.findByRole("link", { name: /Edit file/ })).getAttribute("href")).toBe("/workspaces/demo/edit");
     cleanup();
 
     renderAt("/workspaces/acme-shop");
-    const other = within(await screen.findByRole("region", { name: "Details of acme-shop" }));
-    expect(other.queryByRole("link", { name: /Edit file/ })).toBeNull();
+    await screen.findByRole("region", { name: "Details of acme-shop" });
+    expect(screen.queryByRole("link", { name: /Edit file/ })).toBeNull();
+    expect((screen.queryByRole("button", { name: /^Start/ }) as HTMLButtonElement | null)?.disabled ?? true).toBe(true); // an example: no start
   });
 
   async function openSettings(id = "demo") {
@@ -345,38 +472,68 @@ describe("workspaces page", () => {
     expect(settings.queryByRole("button", { name: /Delete/ })).toBeNull();
   });
 
-  it("scans a folder, shows the draft, and saves exactly what is in the box", async () => {
+  it("scans a folder, lists what it found to tick, and creates the project from what is ticked", async () => {
     mockServer();
     renderAt("/workspaces");
     fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
 
-    fireEvent.change(await screen.findByLabelText(/Folder that contains/), { target: { value: "~/code" } });
+    fireEvent.change(await screen.findByLabelText(/One repo, or the folder/), { target: { value: "~/code" } });
     fireEvent.click(screen.getByRole("button", { name: /Scan folder/ }));
 
-    const box = (await screen.findByLabelText("workspace.yaml")) as HTMLTextAreaElement;
-    expect(box.value).toBe(draft);
+    const found = within(await screen.findByRole("list", { name: "Repos found" }));
     expect(posted).toContainEqual({ url: "/api/v1/workspaces/scan", body: { root: "~/code" } });
+    expect(screen.getByText(/Scanned · 2 repos/)).toBeTruthy();
+    expect(found.getByText("github.com/acme/web")).toBeTruthy();
+    expect(screen.queryByLabelText("workspace.yaml")).toBeNull(); // the file is not the first thing shown
 
-    fireEvent.change(box, { target: { value: draft + "# edited\n" } });
+    // untick web; the name comes from the folder
+    fireEvent.click(found.getByRole("checkbox", { name: "Include web" }));
+    expect((screen.getByRole("textbox", { name: "Name" }) as HTMLInputElement).value).toBe("code");
+    fireEvent.click(screen.getByRole("button", { name: /Show the file/ }));
+    const file = "# Made by devdeck from ~/code. Edit freely.\nversion: 1\nname: code\nroot: ~/code\nrepos:\n  - id: api\n    path: api\n";
+    expect(screen.getByLabelText("workspace.yaml").textContent).toBe(file);
+
     const create = screen.getByRole("button", { name: /Create project/ }) as HTMLButtonElement;
     await waitFor(() => expect(create.disabled).toBe(false));
     fireEvent.click(create);
 
-    await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces", body: { yaml: draft + "# edited\n" } }));
+    await waitFor(() => expect(posted).toContainEqual({ url: "/api/v1/workspaces", body: { yaml: file } }));
     // the form closes and the new workspace is in the list
     expect(await screen.findByRole("button", { name: "Project code" })).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); // the drawer closes once it is saved
+  });
+
+  it("won't create a project with a name the file can't take", async () => {
+    mockServer();
+    renderAt("/workspaces");
+    fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
+    fireEvent.change(await screen.findByLabelText(/One repo, or the folder/), { target: { value: "~/code" } });
+    fireEvent.click(screen.getByRole("button", { name: /Scan folder/ }));
+    await screen.findByRole("list", { name: "Repos found" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "My Shop" } });
+    expect(screen.getByText(/Lower case letters, digits and dashes/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: /Create project/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("a folder with no git repositories can still become a project", async () => {
+    mockServer({ scanEmpty: true });
+    renderAt("/workspaces");
+    fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
+    fireEvent.change(await screen.findByLabelText(/One repo, or the folder/), { target: { value: "~/notes" } });
+    fireEvent.click(screen.getByRole("button", { name: /Scan folder/ }));
+    expect(await screen.findByText(/No git repositories in this folder/)).toBeTruthy();
+    expect(screen.getByText(/Scanned · 0 repos/)).toBeTruthy();
   });
 
   it("says why a folder couldn't be scanned", async () => {
     mockServer({ scanError: "that folder doesn't exist" });
     renderAt("/workspaces");
     fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
-    fireEvent.change(await screen.findByLabelText(/Folder that contains/), { target: { value: "~/nope" } });
+    fireEvent.change(await screen.findByLabelText(/One repo, or the folder/), { target: { value: "~/nope" } });
     fireEvent.click(screen.getByRole("button", { name: /Scan folder/ }));
 
     expect((await screen.findByRole("alert")).textContent).toBe("that folder doesn't exist");
-    expect(screen.queryByLabelText("workspace.yaml")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Repos found" })).toBeNull();
   });
   it("fills in the folder from the system's dialog and scans it at once", async () => {
     mockServer();
@@ -384,9 +541,9 @@ describe("workspaces page", () => {
     fireEvent.click(await screen.findByRole("button", { name: /New project/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Browse/ }));
 
-    const box = (await screen.findByLabelText("workspace.yaml")) as HTMLTextAreaElement;
-    expect(box.value).toBe(draft);
-    expect((screen.getByLabelText(/Folder that contains/) as HTMLInputElement).value).toBe(chosen);
+    const box = await screen.findByRole("list", { name: "Repos found" });
+    expect(within(box).getByText("api")).toBeTruthy();
+    expect((screen.getByLabelText(/One repo, or the folder/) as HTMLInputElement).value).toBe(chosen);
     expect(posted).toContainEqual({ url: "/api/v1/system/pick-folder", body: undefined });
     expect(posted).toContainEqual({ url: "/api/v1/workspaces/scan", body: { root: chosen } });
   });
@@ -400,9 +557,9 @@ describe("workspaces page", () => {
 
     await waitFor(() => expect(posted.some((p) => p.url === "/api/v1/system/pick-folder")).toBe(true));
     await waitFor(() => expect((screen.getByRole("button", { name: /Browse/ }) as HTMLButtonElement).disabled).toBe(false));
-    expect((screen.getByLabelText(/Folder that contains/) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/One repo, or the folder/) as HTMLInputElement).value).toBe("");
     expect(posted.some((p) => p.url === "/api/v1/workspaces/scan")).toBe(false);
-    expect(screen.queryByLabelText("workspace.yaml")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Repos found" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -413,7 +570,7 @@ describe("workspaces page", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Browse/ }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("type the folder");
-    const input = screen.getByLabelText(/Folder that contains/) as HTMLInputElement;
+    const input = screen.getByLabelText(/One repo, or the folder/) as HTMLInputElement;
     expect(input.disabled).toBe(false);
   });
 
@@ -430,7 +587,7 @@ describe("workspaces page", () => {
 
     await waitFor(() => expect(closeDialog).toBeDefined());
     closeDialog?.();
-    expect(await screen.findByLabelText("workspace.yaml")).toBeTruthy();
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(await screen.findByRole("list", { name: "Repos found" })).toBeTruthy();
+    expect(screen.queryByText(/folder window has opened/)).toBeNull();
   });
 });

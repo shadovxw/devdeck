@@ -1,8 +1,9 @@
-import { Search } from "lucide-react";
+import { Code2, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { StatusMark } from "../../design/StatusMark";
+import { vscodeRepo } from "../project/vscode-links";
 import type { GitRepo } from "../../lib/git";
 import type { Repo } from "../../lib/types";
 import { filterRows, gitLabel, noFilter, repoRows, sharedPrefix, type RepoFilter, type RepoRow } from "./repo-rows";
@@ -24,7 +25,7 @@ function Chip({ on, onClick, children, count }: Readonly<{ on: boolean; onClick:
   );
 }
 
-function Row({ row, prefix }: Readonly<{ row: RepoRow; prefix: string }>) {
+function Row({ row, prefix, root }: Readonly<{ row: RepoRow; prefix: string; root?: string }>) {
   const { repo, type, git } = row;
   const label = gitLabel(git);
   const dim = prefix !== "" && repo.id.startsWith(prefix);
@@ -51,12 +52,19 @@ function Row({ row, prefix }: Readonly<{ row: RepoRow; prefix: string }>) {
       <td className={`${td} max-w-64 truncate font-mono text-[12.5px] text-ink-3`} title={repo.remote}>
         {repo.remote ?? "–"}
       </td>
+      {root && (
+        <td className={`${td} w-0`}>
+          <a href={vscodeRepo(root, repo.path)} data-ui="repo-vscode" title={`Open ${repo.id} in VS Code`} aria-label={`Open ${repo.id} in VS Code`} className="inline-flex text-ink-3 hover:text-ink">
+            <Code2 size={15} aria-hidden />
+          </a>
+        </td>
+      )}
     </tr>
   );
 }
 
 /** The repos of a workspace: filter by name, type, uncommitted changes or behind; the local-only ones come last. */
-export function RepoTable({ workspace, repos, git }: Readonly<{ workspace: string; repos: Repo[]; git: GitRepo[] }>) {
+export function RepoTable({ workspace, repos, git, root }: Readonly<{ workspace: string; repos: Repo[]; git: GitRepo[]; /** The folder that holds the repos: adds an Open in VS Code link to each. */ root?: string }>) {
   const [filter, setFilter] = useState<RepoFilter>(noFilter);
   const rows = useMemo(() => repoRows(repos, git), [repos, git]);
   const shown = filterRows(rows, filter);
@@ -129,21 +137,26 @@ export function RepoTable({ workspace, repos, git }: Readonly<{ workspace: strin
                 <th className={th}>Branch</th>
                 <th className={th}>Git</th>
                 <th className={th}>Remote</th>
+                {root && (
+                  <th className={th}>
+                    <span className="sr-only">VS Code</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {tracked.map((r) => (
-                <Row key={r.repo.id} row={r} prefix={prefix} />
+                <Row key={r.repo.id} row={r} prefix={prefix} root={root} />
               ))}
               {local.length > 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 pb-1 pt-4 text-[12px] font-medium text-ink-3">
+                  <td colSpan={root ? 6 : 5} className="px-3 pb-1 pt-4 text-[12px] font-medium text-ink-3">
                     Local only <span className="font-normal">· no remote, not git repositories</span>
                   </td>
                 </tr>
               )}
               {local.map((r) => (
-                <Row key={r.repo.id} row={r} prefix={prefix} />
+                <Row key={r.repo.id} row={r} prefix={prefix} root={root} />
               ))}
             </tbody>
           </table>
