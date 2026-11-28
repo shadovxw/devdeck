@@ -234,6 +234,8 @@ What devdeck can do, from simple to more work:
 | PJ7 | VS Code: open project or repo, generated `.code-workspace`, tasks from scripts and run modes | `Run Task` in VS Code lists the project's scripts |
 | PJ8 | The canvas as the Overview section (separate canvas plan) | Repos, services and databases as nodes with live state |
 | PJ9 | `project.yaml` v2 with inline run modes, databases and scripts; conversion offered | An existing workspace converts and still runs the same |
+
+Decided in PJ7: VS Code tasks call `devdeck run <script>` (a `process` task, no shell). The `.code-workspace` goes to `<root>/<id>.code-workspace` and is written only after review and confirm. VS Code is opened with `vscode://file/` links, not the `code` CLI.
 | Later | The VS Code extension | Status bar and commands work against the local server |
 
 ## 12. Open questions (for the owner)

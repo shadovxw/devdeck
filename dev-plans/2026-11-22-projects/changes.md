@@ -143,3 +143,31 @@ Checked: typecheck, lint, all 839 web tests. In the browser (nothing created):
 Checked: `go vet ./...`, the databases and API tests, typecheck, lint, all 845 web tests. In the browser, against a throwaway server on 7071 built from this branch, with two `.env` files added to the git-ignored demo data:
 - acme's Databases tab showed one Postgres (`shop`, used by demo-api and demo-worker, up: something listens on 5432 here) and a Redis (down).
 - The response held no part of the password.
+
+## 2026-11-27: PJ7, VS Code
+
+- **`devdeck run <script> [-w <project>] [--yes]`** (`internal/cli/run.go`, table-tested):
+  - Runs one of the project's scripts through the running server, then prints each repo's result: ok, skipped (with the reason) or failed (with the failing step's output).
+  - A script that can change files asks y/n first; `--yes` skips the question. VS Code's tasks call it.
+  - Exit code 1 when the run fails or the question is answered no.
+- **`internal/vscode`** builds the project's `.code-workspace` (table-tested):
+  - every repo as a folder, plus the folder that holds `workspace.yaml`
+  - `yaml.schemas` pointing at devdeck's own `/api/v1/schema/<kind>`, so its files get suggestions in VS Code
+  - `redhat.vscode-yaml` as the recommended extension
+  - a task per script (`devdeck run <id> -w <project>`) and a start and a stop task per run mode (`devdeck up/down`). The tasks are of type `process`, so no shell is involved.
+- **The API** (`internal/api/vscode.go`, tested):
+  - `GET /workspaces/:id/vscode` returns the file devdeck would write, where it goes (`<root>/<id>.code-workspace`) and whether it is new, the same as on disk, or changed.
+  - `POST /workspaces/:id/vscode` writes it, only with `{"confirm": true}` and never for an example project.
+  - The folder of devdeck's files is made absolute, because the data dir can be relative (found in the browser check).
+- **The UI:**
+  - The Code tab has a **VS Code workspace** panel showing folders, tasks and state. **Review** shows the file; **Write the file** or **Replace the file** writes it. Once it is up to date, **Open workspace** opens it with a `vscode://file/` link.
+  - Each repo row has an **Open in VS Code** link (`pages/project/vscode-links.ts`, where `vscodeFolder` now lives).
+- Not done: opening VS Code from the server with the `code` CLI. The `vscode://` link is enough and needs no process start.
+
+Checked: `go vet ./...`, `go test ./...`, typecheck, lint, and the web tests. 851 of 852 passed in the full run. The one failure was the Docs page test timing out under load, and it passes on its own.
+
+In the browser, against a throwaway server on 7071 using the git-ignored demo data:
+- acme showed 5 folders and 9 tasks, "not written yet".
+- Review, then Write, gave "up to date" and Open workspace.
+- After the server fix, it showed "differs", and Replace brought it back to "up to date".
+- `devdeck run status-all -w acme` printed each repo as ok and exited 0.

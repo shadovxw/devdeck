@@ -1435,3 +1435,15 @@
   background: color-mix(in srgb, var(--warning) 10%, var(--neon-panel));
   box-shadow: inset 2px 0 0 var(--warning);
 }
+
+/* --- VS Code workspace (pages/project/ProjectVSCode.tsx; projects plan PJ7) ---------------- */
+[data-ui="vscode-panel"] {
+  background: var(--neon-panel);
+}
+
+[data-ui="vscode-state"][data-state="changed"] { color: var(--warning); }
+[data-ui="vscode-state"][data-state="same"] { color: var(--good); }
+
+[data-ui="vscode-preview"] {
+  background: var(--inset);
+}

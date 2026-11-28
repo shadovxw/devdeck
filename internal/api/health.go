@@ -95,6 +95,7 @@ func Register(e *echo.Echo, d Deps) {
 		registerDoctor(v1, d.Workspaces, d.Plugins, d.Supervisor)
 		registerStackFiles(v1, d.Workspaces, d.Supervisor)
 		registerDatabases(v1, d.Workspaces)
+		registerVSCode(v1, d.Workspaces)
 		if d.GitX != nil {
 			registerGit(v1, d.GitX, d.Workspaces)
 			registerFeatures(v1, d.Workspaces, d.GitX, d.Reviews)

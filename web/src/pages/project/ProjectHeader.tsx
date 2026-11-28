@@ -9,8 +9,9 @@ import type { RunStatus, WorkspaceDetail } from "../../lib/types";
 import { useWritesPaused } from "../../lib/use-server-link";
 import { projectState } from "../workspaces/project-state";
 
-/** A link that opens a folder in VS Code. */
-export const vscodeFolder = (path: string) => `vscode://file/${encodeURI(path.replaceAll("\\", "/")).replace(/^\/+/, "")}`;
+import { vscodeFolder } from "./vscode-links";
+
+export { vscodeFolder } from "./vscode-links";
 
 /** The run mode the picker starts on: the one running, else the first. */
 export function defaultMode(stacks: string[], runs: RunStatus[]): string | undefined {

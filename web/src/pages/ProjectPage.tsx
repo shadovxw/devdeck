@@ -13,6 +13,7 @@ import { ProjectDatabases } from "./project/ProjectDatabases";
 import { ProjectHeader } from "./project/ProjectHeader";
 import { ProjectLogs } from "./project/ProjectLogs";
 import { ProjectScripts } from "./project/ProjectScripts";
+import { ProjectVSCode } from "./project/ProjectVSCode";
 import { StackCard } from "./StacksPage";
 import { RepoTable } from "./workspaces/RepoTable";
 import { Problems, Settings } from "./workspaces/WorkspaceDetail";
@@ -97,7 +98,12 @@ export function ProjectPage() {
         <Tabs label="Project sections" value={tab} onChange={(t) => setParams(t === "code" ? {} : { tab: t }, { replace: true })} items={items} className="project-tabs" />
 
         <div role="tabpanel" aria-label={tab}>
-          {tab === "code" && <RepoTable workspace={id} repos={repos} git={(git.data ?? []).filter((g) => g.workspace === id)} />}
+          {tab === "code" && (
+            <div className="flex flex-col gap-4">
+              <ProjectVSCode workspace={id} example={!own} />
+              <RepoTable workspace={id} repos={repos} root={d.root_path} git={(git.data ?? []).filter((g) => g.workspace === id)} />
+            </div>
+          )}
 
           {tab === "run" &&
             (d.stacks.length === 0 ? (
