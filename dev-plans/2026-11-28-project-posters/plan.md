@@ -1,6 +1,6 @@
 # Project posters: a poster card that opens into a dossier
 
-Status: P1 to P3 built 2026-11-28 (see changes.md); P4 to do. Follows `dev-plans/2026-11-28-projects-ring` (R1).
+Status: P1 to P4 built 2026-11-28 (see changes.md). **The ring is gone:** P4 puts the cards in a still fan (asked 2026-11-28, with a screenshot of React Bits' "Bounce Cards"). It replaces `dev-plans/2026-11-28-projects-ring`.
 
 ## 0. Why
 
@@ -9,24 +9,25 @@ The ring's cards are the old grid tile stretched into a tall slot, so most of ea
 ## 1. What we want
 
 **At rest, every card:**
-- Number and state on top (`PRJ_01`, `4 PROBLEMS`).
+- Number and state on top (`PRJ_01`, `4 PROBLEMS`), one above the other, so both show on a covered card.
 - The project's poster: its own SVG or PNG, or a drawn fallback.
 - Name, and the shape in a line (`4 repos · 3 run modes`).
-- Side cards are dimmed, so the front card stands out.
+- The cards stand in a **still fan**: overlapping, each tilted a little. Nothing drifts or turns.
 
-**The front card, on hover or keyboard focus:**
-- It grows, and the cards beside it move apart, with a bounce (the feel of React Bits' "Bounce Cards").
-- The poster shrinks to a band at the top, and the dossier appears below it:
+**The card under the pointer, or with the keyboard's focus:**
+- It straightens, comes to the front and grows, and the other cards in its fan move aside, with a bounce.
+- The poster draws up into a band at the top, and the dossier appears below it:
   - description
   - repos by type, with counts
   - large totals: repos, run modes, scripts
   - while running, one dot per service in place of the type rows
-- A click or Enter opens the project, as now.
+- A click or Enter on any card opens its project.
 
 **Decisions:**
-- **Only the front card expands.** The side cards are slanted and cut off at the edges. A click brings one to the front, as now, and it expands if the pointer is still on it.
-- **Written ourselves.** React Bits is the visual reference only, as with the ring. Its license is MIT + Commons Clause and this repo is public.
-- **The frame stays** (gradient edge, cut corners). The scanlines go, and so does the red in the gradient, which reads as an error edge.
+- **A fan, not the ring.** The ring's drift, drag, arrow keys and "bring to the front first" are gone.
+- **Any card opens up**, now that none are slanted away or cut off.
+- **Written ourselves.** React Bits is the visual reference only. Its license is MIT + Commons Clause and this repo is public.
+- **Tall cards and devdeck's frame** (gradient edge, cut corners), not the reference's square pictures with thick white borders and round corners: posters are made tall, and the UI rules allow no card borders and only 3, 4 and 6 px radii. The scanlines go, and so does the red in the gradient.
 
 ## 2. The poster setting
 
@@ -74,21 +75,22 @@ The image is the one new thing that crosses from the disk to the browser.
 **Rest and fallback**
 - With no poster, or one that fails to load: the project's initials, large and heavy, on the faint dot grid, drawn from theme tokens. Most projects will look like this, so it has to look finished.
 - A fade from the card's own colour sits behind the text over a poster, so the name and state stay readable on any image.
-- The image is `<img alt="" draggable="false">` with `pointer-events: none`. Without that, the browser's own image drag takes over the ring's drag.
+- The image is `<img alt="" draggable="false">` with `pointer-events: none`, so a press that slips doesn't drag the picture off.
 - In Paper the panel and the page are both white, so the card gets its own surface: `--ink` mixed 6% into `--bg`. Not `--fill`: in this style it is a see-through tint, so the frame showed through the card and the fades did nothing (found while building P3).
 
-**Expanding**
-- **Size:** an element inside the slot grows its real width and height, up to about 1.2×. It doesn't use `scale`: scaled text on a 3D face blurs, and the controller already owns the slot's transform.
-- **Spreading:** the controller eases an extra angle (about 8°, tuned by eye) onto the other slots. The math is a pure function in `ring-math.ts`. Without it, the side cards, which sit nearer to the viewer in 3D, would cover the bigger front card.
-- **Triggers:** the pointer rests on the front card for about 120 ms, or the card has keyboard focus.
-- **Collapses** when the pointer leaves, the focus leaves, a drag or sideways scroll starts, or another card becomes the front one. The drift already pauses on hover and focus.
-- **Touch:** no hover, so no expanding. A tap opens the project, as now.
+**The fan** (`design/fan/CardFan.tsx`)
+- **Up to 6 cards in a fan;** more start another fan below.
+- **Sizes:** cards are 180 to 260 px wide, covering each other by a little over a quarter, or by more when they wouldn't fit. Room is kept at both ends for a card that has moved aside.
+- **Each card has a place that doesn't move.** The tilt, the move aside and the growth happen inside it, so a card never slips out from under the pointer and flickers. The open card grows from its place, to about 1.2×, by real width and height rather than `scale`, so its text stays sharp.
+- **Covered cards** keep their words inside the part that shows.
+- **Triggers:** the pointer rests on a card for about 120 ms, or the card has keyboard focus (not the focus a click leaves). It closes when the pointer or focus leaves.
+- **Touch:** no hover, so no opening up. A tap opens the project.
 - **Motion:**
-  - Effects Full: bounce, from a new `--ease-bounce` token (CSS `linear()`).
-  - Effects Reduced: the same growth with a plain ease.
-  - Ring still (Effects Off or reduced motion): instant, spread included.
-- **Narrow windows (< 768 px):** the card grows only as far as the width allows with a 16 px gutter. It never scrolls sideways.
-- **Screen readers:** the button keeps its `Project <name>` label. The details are tied to it with `aria-describedby`, with one id per slot, because cards repeat round the ring.
+  - Effects Full: bounce (`--ease-bounce`, a CSS `linear()` token), and the cards bounce in on arrival.
+  - Effects Reduced: the same moves with a plain ease.
+  - Effects Off or reduced motion: instant.
+- **Narrow (under 600 px of page):** straight cards in one row that scrolls sideways inside its own box and snaps to a card. No tilt, no opening up. The page never scrolls sideways.
+- **Screen readers:** a list of buttons in order. Each keeps its `Project <name>` label, and its details are tied to it with `aria-describedby`.
 
 ## 5. Settings
 
@@ -113,11 +115,11 @@ The preview shows the saved poster. The server never serves a path that isn't in
 | P1 | `poster` in `workspace.schema.json` (the project schema is built from it) and in `WorkspaceFile`; path and content checks; the warning; the poster route with its headers; `poster_url` and a `scripts` count on the list | A project with a `poster:` line serves it; a bad one is a warning and a 404 |
 | P2 | The Settings block and the file-query fix | Add, change and remove a poster from Settings, twice in a row without a conflict; comments in the file survive |
 | P3 | The resting card: poster, fallback, text fade, dimmed sides, frame cleanup, Paper fill; a demo SVG in `examples/workspaces/acme-shop`, written by hand with no editor metadata (the repo is public) | Cards with and without posters read well in both themes; dragging over a poster turns the ring |
-| P4 | Expanding: the dossier, growth, spread, triggers, motion levels | The front card expands and collapses without flicker, overlap or sideways scroll |
+| P4 | The still fan in place of the ring, and opening up: the dossier, growth, moving aside, triggers, motion levels, the narrow row | A card opens and closes without flicker or sideways page scroll; every card opens its project |
 
 **A gap P1 and P3 close:** the card's "N scripts" counts flow files only. That follows the projects plan ("flows become scripts"), but flows aren't converted yet, so the `scripts:` in the project file are left out. P1 adds a `scripts` count (the ones declared in the file), and P3 shows it together with the flows.
 
-**Plan upkeep:** P3 changes ring plan §1 ("Nothing on them changes") to point here. Each step keeps `changes.md` in this folder.
+**Plan upkeep:** P4 marks the ring plan as replaced. P3 changed ring plan §1 ("Nothing on them changes") to point here. Each step keeps `changes.md` in this folder.
 
 ## 7. Open questions
 
@@ -138,5 +140,5 @@ The preview shows the saved poster. The server never serves a path that isn't in
 - **Vitest:**
   - Settings: save, save again, remove, a refused save, quotes removed, no block on examples
   - card: poster, fallback, fallback after an image error, scripts count
-  - ring: spread math; expand on hover after the delay and on focus; collapse on drag and on a change of front card; no expanding for side cards or touch
+  - fan: sizes fit; open on hover after the delay and on keyboard focus; the others move aside and the places don't; no opening for touch or a held button; a second fan after six; the narrow row
 - **Browser** (throwaway server on 7071/5183, demo data only): Paper and Paper Dark; Effects Full, Reduced and Off; 375 px; 1, 2 and 5 projects; a tall, a square and a transparent image.

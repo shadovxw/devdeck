@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
-import { ProjectRing, type RingMotion } from "../../design/ring/ProjectRing";
+import { CardFan, type CardMotion } from "../../design/fan/CardFan";
 import { prefersReducedMotion } from "../../design/EmptyOrb";
-import type { RunStatus, WorkspaceSummary } from "../../lib/types";
+import { ServiceStateMark, stateLabel } from "../../design/ServiceStateMark";
+import type { RunStatus, ServiceStatus, WorkspaceSummary } from "../../lib/types";
 import { effectiveEffects, useUi } from "../../store/ui";
 import { projectShape, projectState, type ProjectState } from "./project-state";
 
@@ -30,7 +31,7 @@ function Art({ name, url }: Readonly<{ name: string; url?: string }>) {
   // The address that failed; a changed file has a new one, which is tried again.
   const [broken, setBroken] = useState<string>();
   if (url && broken !== url) {
-    // Not draggable: the browser's own image drag would take over the ring's.
+    // Not draggable: a press that slips should open the project, not drag its picture off.
     return <img data-ui="project-art" src={url} alt="" draggable={false} onError={() => setBroken(url)} />;
   }
   return (
@@ -43,14 +44,75 @@ function Art({ name, url }: Readonly<{ name: string; url?: string }>) {
   );
 }
 
+/** The types a dossier lists: all of them up to four, else the biggest three and the rest as one line. */
+export function typeRows(counts: Record<string, number> | undefined) {
+  const mix = typeMix(counts);
+  if (mix.length <= 4) return mix;
+  const rest = mix.slice(3);
+  return [...mix.slice(0, 3), { type: `${rest.length} more`, count: rest.reduce((sum, m) => sum + m.count, 0), shade: rest[0].shade }];
+}
+
+/**
+ * What the card shows when it is expanded: what the project is, its repos by type (or, while it runs, a
+ * mark for each service), and its totals. Closed, it takes no room (pieces.css); it describes the card's
+ * button either way.
+ */
+function Dossier({ id, w, services }: Readonly<{ id: string; w: WorkspaceSummary; services: Array<ServiceStatus & { key: string }> }>) {
+  const total = w.repos || 1;
+  const totals = [
+    { n: w.repos, label: w.repos === 1 ? "repo" : "repos" },
+    { n: w.stacks, label: w.stacks === 1 ? "run mode" : "run modes" },
+    { n: w.flows + (w.scripts ?? 0), label: w.flows + (w.scripts ?? 0) === 1 ? "script" : "scripts" },
+  ];
+  return (
+    <span id={id} data-ui="project-dossier">
+      <span>
+        {w.description && (
+          <span data-ui="project-about" className="line-clamp-3">
+            {w.description}
+          </span>
+        )}
+        {services.length > 0 ? (
+          <span className="flex flex-wrap gap-x-1 gap-y-2">
+            {services.map((s) => (
+              <span key={s.key} title={`${s.id}: ${stateLabel(s.state)}`}>
+                <ServiceStateMark state={s.state} label={false} text={`${s.id} ${stateLabel(s.state)}`} />
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="flex flex-col gap-1.5">
+            {typeRows(w.repo_types).map((m) => (
+              <span key={m.type} data-ui="project-type">
+                <span className="truncate">{m.type}</span> <span>{m.count}</span>
+                <i aria-hidden style={{ width: `${(m.count / total) * 100}%`, background: m.shade }} />
+              </span>
+            ))}
+          </span>
+        )}
+        <span className="grid grid-cols-3 gap-2">
+          {totals.map((t) => (
+            <span key={t.label} className="flex flex-col">
+              <span data-ui="project-total">{t.n}</span> <span data-ui="project-total-label">{t.label}</span>
+            </span>
+          ))}
+        </span>
+      </span>
+    </span>
+  );
+}
+
 /**
  * One project as a poster (dev-plans/2026-11-28-project-posters §4): its picture fills the card, with
- * its number and state above and its name and shape below. The frame, cut corners, fades and glow are
- * in design/pieces.css (data-ui="project-card").
+ * its number and state above and its name and shape below. Expanded by the fan, the picture draws up into
+ * a band and the dossier opens below the name. The frame, cut corners, fades, glow and the opening are in
+ * design/pieces.css (data-ui="project-card").
  */
-function Card({ w, index, state }: Readonly<{ w: WorkspaceSummary; index: number; state: ProjectState }>) {
+function Card({ w, index, state, runs }: Readonly<{ w: WorkspaceSummary; index: number; state: ProjectState; runs?: RunStatus[] }>) {
+  const dossier = useId();
+  const services = (runs ?? []).filter((r) => r.workspace === w.id).flatMap((r) => r.services.map((s) => ({ ...s, key: `${r.stack}/${s.id}` })));
   return (
-    <button type="button" data-ui="project-card" aria-label={`Project ${w.name}`} title={`Open ${w.name}`} className="h-full w-full text-start">
+    <button type="button" data-ui="project-card" aria-label={`Project ${w.name}`} aria-describedby={dossier} title={`Open ${w.name}`} className="h-full w-full text-start">
       <span data-ui="project-card-in" className="flex min-h-44 flex-col justify-between">
         {/* First, so the fades of the two blocks after it can tell a picture from the initials. */}
         <Art name={w.name} url={w.poster_url} />
@@ -73,36 +135,35 @@ function Card({ w, index, state }: Readonly<{ w: WorkspaceSummary; index: number
             {w.source === "example" && <span data-ui="project-tag">Example</span>}
           </span>
           <span data-ui="project-shape">{projectShape(w)}</span>
+          <Dossier id={dossier} w={w} services={services} />
         </span>
       </span>
     </button>
   );
 }
 
-/** How much the ring may move: still with Effects off or reduced motion (the app's or the OS's). */
-export function ringMotion(effects: "off" | "reduced" | "full", reduceMotion: boolean): RingMotion {
+/** How much the cards may move: not at all with Effects off or reduced motion (the app's or the OS's). */
+export function cardMotion(effects: "off" | "reduced" | "full", reduceMotion: boolean): CardMotion {
   if (effects === "off" || reduceMotion) return "still";
   return effects === "reduced" ? "reduced" : "full";
 }
 
 /**
- * The projects on a ring (dev-plans/2026-11-28-projects-ring): drag or use the arrows to turn it,
- * click a card to bring it to the front, click the front card to open its project. Always the ring:
- * it stands still instead of drifting when motion is turned down.
+ * The projects as a fan of cards (dev-plans/2026-11-28-project-posters): the one under the pointer or
+ * with the keyboard's focus opens up, and a click on any card opens its project.
  */
 export function WorkspaceCards({ items, runs, onSelect }: Readonly<{ items: WorkspaceSummary[]; runs?: RunStatus[]; onSelect: (id: string) => void }>) {
   const effects = useUi((u) => effectiveEffects(u.effects));
   const reduce = useUi((u) => u.reduceMotion) || prefersReducedMotion();
   const index = new Map(items.map((w, i) => [w.id, i]));
   return (
-    <ProjectRing
+    <CardFan
       items={items}
       keyOf={(w) => w.id}
-      nameOf={(w) => w.name}
       label="Projects"
-      motion={ringMotion(effects, reduce)}
+      motion={cardMotion(effects, reduce)}
       onOpen={(w) => onSelect(w.id)}
-      renderItem={(w) => <Card w={w} index={index.get(w.id) ?? 0} state={projectState(w, runs)} />}
+      renderItem={(w) => <Card w={w} index={index.get(w.id) ?? 0} state={projectState(w, runs)} runs={runs} />}
     />
   );
 }

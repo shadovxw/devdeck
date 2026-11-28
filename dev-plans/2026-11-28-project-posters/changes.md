@@ -70,3 +70,23 @@
   - 375 px: no sideways scroll, all text inside the card
   - a square logo loses its sides, as the plan says (§7, question 1)
   - not checked by eye: Effects Off and Reduced, and rings of one or two projects
+
+## 2026-11-28: P4, a still fan in place of the ring
+
+**Asked mid-step:** cards like React Bits' "Bounce Cards", not a moving panorama. P4 was first built on the ring (dossier, growth, side cards spreading); that version is not committed. The dossier, its styles and the hover rules carry over.
+
+- **`design/fan/CardFan.tsx`** replaces `design/ring/`, which is deleted with its tests. No animation loop: React sets each card's pose, and CSS moves it.
+- **The page** is back to the normal width: the full-bleed layout was only for the ring. The Home scene change stays.
+- **The dossier** (`WorkspaceCards.tsx`): description, repos by type (the biggest three and "N more" past four) or a mark per service while running, and totals. It is always in the page, as the button's description.
+- **Styles** (`pieces.css`, `tokens.css`): the fan, the opening, `--ease-bounce` and `--dur-bounce` (nothing under reduced motion). The card's edge is a solid colour now, because cards lie over each other.
+- **Found in the browser and fixed:** a covered card's summary line ran under its neighbour; large initials ran into the state on an open card; the description was hidden on cards with room for it.
+
+**Checked:**
+- typecheck, lint and 932 web tests pass (fewer than before: the ring's tests are gone).
+- In the browser, on a temporary server with the example and demo projects:
+  - hover opens a card, and moving across its open edge keeps it open
+  - a click opens the project; Tab onto a card opens it up
+  - 5 cards in one fan, 8 in fans of 6 and 2; nothing clipped at the ends
+  - Paper and Paper Dark
+  - 375 px: one scrolling row of straight cards, and no sideways page scroll
+  - not checked by eye: Effects Off and Reduced, the bounce itself (screenshots show where things end up), service dots on a running project, and a tap on a real touch screen

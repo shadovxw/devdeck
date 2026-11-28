@@ -6,7 +6,7 @@ import type { CSSProperties } from "react";
 // reducedMotion="user"> in the app, which turns these moves into cuts.
 
 /** Seconds (what the motion library takes). */
-export const duration = { instant: 0.1, quick: 0.18, move: 0.32, scene: 0.7 } as const;
+export const duration = { instant: 0.1, quick: 0.18, move: 0.32, scene: 0.7, bounce: 0.52 } as const;
 
 /** The "move" spring: layout moves and list reorder (stiffness 300, damping 30, about 320 ms). */
 export const springMove = { type: "spring", stiffness: 300, damping: 30 } as const;

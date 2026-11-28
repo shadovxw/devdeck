@@ -1,5 +1,7 @@
 # Projects as a ring (circular carousel)
 
+**Replaced 2026-11-28** by a still fan of cards (`dev-plans/2026-11-28-project-posters`, P4). The ring's code is removed, and with it the "always the ring" decision. What follows is the record of R1.
+
 Status: R1 built 2026-11-28 (see changes.md). Decided since the first draft: always the ring; the **panorama** preset with **tall** cards; written in our own code instead of a port. Source: React Bits "Circular Carousel" (reactbits.dev/components/circular-carousel).
 
 ## 0. Decisions after the first draft

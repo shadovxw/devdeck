@@ -210,7 +210,7 @@ describe("workspaces page", () => {
     expect(card.getByText("3 repos · 1 run mode")).toBeTruthy();
     expect(card.getByText("de")).toBeTruthy(); // no picture: its initials
 
-    const button = screen.getAllByRole("button", { name: "Project acme-shop" })[0]; // shown on both sides of demo
+    const button = screen.getByRole("button", { name: "Project acme-shop" });
     const other = within(button);
     expect(other.getByText("Example")).toBeTruthy();
     expect(other.getByText("Stopped")).toBeTruthy();
@@ -287,22 +287,15 @@ describe("workspaces page", () => {
     expect(details.getByText("No repository matches.")).toBeTruthy();
   });
 
-  it("puts the projects on a ring: a card at the back comes to the front, the front card opens its page", async () => {
+  it("fans the projects out, and a click on any card opens its page", async () => {
     mockServer({ list: [demo, sample] });
     const router = renderAt("/workspaces");
-    const ring = await screen.findByRole("region", { name: "Projects" });
-    expect(ring.getAttribute("aria-roledescription")).toBe("carousel");
-    // Two projects: the other one shows on both sides of the card ahead.
-    const [second] = await screen.findAllByRole("button", { name: "Project acme-shop" });
-    expect(screen.queryByRole("region", { name: /Details of/ })).toBeNull(); // no details under the cards
+    const fan = within(await screen.findByRole("region", { name: "Projects" }));
+    // Each project once, in order, and no details under the cards.
+    expect(fan.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Project demo", "Project acme-shop"]);
+    expect(screen.queryByRole("region", { name: /Details of/ })).toBeNull();
 
-    // The first click turns the ring; it doesn't open anything yet.
-    fireEvent.click(second);
-    expect(router.state.location.pathname).toBe("/workspaces");
-    await waitFor(() => expect(second.closest("[data-ui=ring-slot]")?.hasAttribute("data-active")).toBe(true), { timeout: 4000 });
-    expect(within(ring).getByText("acme-shop, 2 of 2")).toBeTruthy(); // the live region
-
-    fireEvent.click(second);
+    fireEvent.click(fan.getByRole("button", { name: "Project acme-shop" }));
     expect(await screen.findByRole("region", { name: "Details of acme-shop" })).toBeTruthy();
     expect(router.state.location.pathname).toBe("/workspaces/acme-shop");
     expect(screen.getByRole("heading", { level: 1, name: "acme-shop" })).toBeTruthy();

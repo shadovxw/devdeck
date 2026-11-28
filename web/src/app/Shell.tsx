@@ -84,12 +84,7 @@ function useBareHome(): boolean {
   return bare;
 }
 
-/** Pages that use the whole width and height of the page area: the Projects ring. */
-const FULL_BLEED = new Set(["/workspaces"]);
-
 export function Shell() {
-  const { pathname } = useLocation();
-  const fullBleed = FULL_BLEED.has(pathname);
   const sidebarOpen = useUi((s) => s.sidebarOpen);
   const setSidebarOpen = useUi((s) => s.setSidebarOpen);
   const bare = useBareHome();
@@ -107,9 +102,8 @@ export function Shell() {
         <main
           id="main"
           tabIndex={-1}
-          data-full-bleed={fullBleed || undefined}
           style={bare ? { viewTransitionName: "home" } : undefined}
-          className={`page-area mx-auto w-full px-3 py-3 outline-none md:px-5 md:py-4 ${fullBleed ? "flex min-h-0 max-w-none flex-1 flex-col" : "max-w-[1440px]"}`}
+          className="page-area mx-auto w-full max-w-[1440px] px-3 py-3 outline-none md:px-5 md:py-4"
         >
           <Outlet />
         </main>
