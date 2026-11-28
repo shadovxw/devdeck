@@ -210,13 +210,13 @@ describe("workspaces page", () => {
     expect(card.getByText("3 repos · 1 run mode")).toBeTruthy();
     expect(card.getByRole("img", { name: "Repos by type: go 1, node 1, other 1" })).toBeTruthy();
 
-    const other = within(screen.getByRole("button", { name: "Project acme-shop" }));
+    const other = within(screen.getAllByRole("button", { name: "Project acme-shop" })[0]); // shown on both sides of demo
     expect(other.getByText("Example")).toBeTruthy();
     expect(other.getByText("Stopped")).toBeTruthy();
     expect(other.queryByRole("img")).toBeNull(); // no types to show
   });
 
-  it("puts New project on the title's line, and opens the drawer from it or from the tile", async () => {
+  it("puts New project on the title's line, and opens the drawer from it", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces");
     await screen.findByRole("button", { name: "Project demo" });
@@ -230,9 +230,6 @@ describe("workspaces page", () => {
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("button", { name: "Project demo" })).toBeTruthy();
-
-    fireEvent.click(within(screen.getByRole("list", { name: "Projects" })).getByRole("button", { name: /New project/ }));
-    expect(await screen.findByRole("dialog", { name: "New project" })).toBeTruthy();
   });
 
   it("opens on the Overview: the canvas of the project, with its legend", async () => {
@@ -282,11 +279,20 @@ describe("workspaces page", () => {
     expect(details.getByText("No repository matches.")).toBeTruthy();
   });
 
-  it("lists only the cards and New project; a card opens its project on its own page", async () => {
+  it("puts the projects on a ring: a card at the back comes to the front, the front card opens its page", async () => {
     mockServer({ list: [demo, sample] });
     const router = renderAt("/workspaces");
-    const second = await screen.findByRole("button", { name: "Project acme-shop" });
+    const ring = await screen.findByRole("region", { name: "Projects" });
+    expect(ring.getAttribute("aria-roledescription")).toBe("carousel");
+    // Two projects: the other one shows on both sides of the card ahead.
+    const [second] = await screen.findAllByRole("button", { name: "Project acme-shop" });
     expect(screen.queryByRole("region", { name: /Details of/ })).toBeNull(); // no details under the cards
+
+    // The first click turns the ring; it doesn't open anything yet.
+    fireEvent.click(second);
+    expect(router.state.location.pathname).toBe("/workspaces");
+    await waitFor(() => expect(second.closest("[data-ui=ring-slot]")?.hasAttribute("data-active")).toBe(true), { timeout: 4000 });
+    expect(within(ring).getByText("acme-shop, 2 of 2")).toBeTruthy(); // the live region
 
     fireEvent.click(second);
     expect(await screen.findByRole("region", { name: "Details of acme-shop" })).toBeTruthy();

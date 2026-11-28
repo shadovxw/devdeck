@@ -1111,25 +1111,29 @@
   color: var(--ink-2);
 }
 
-[data-ui="project-add"] {
-  border: 1px dashed color-mix(in srgb, var(--link) 40%, transparent);
-  color: var(--link);
-  background: transparent;
-  cursor: pointer;
-  transition: background var(--dur-quick) var(--ease-out), border-color var(--dur-quick) var(--ease-out);
+/* --- The Projects ring (design/ring/ProjectRing.tsx; dev-plans/2026-11-28-projects-ring) ------
+   The cards are placed by inline transforms from the controller; this only sets how they feel. */
+[data-ui="ring"] {
+  cursor: grab;
+  outline: none;
 }
 
-[data-ui="project-add"]:hover {
-  border-color: var(--link);
-  background: color-mix(in srgb, var(--link) 6%, transparent);
+[data-ui="ring"]:active {
+  cursor: grabbing;
 }
 
-[data-ui="project-add-label"] {
-  font-family: var(--font-code);
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink);
+[data-ui="ring-slot"] {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* The card in front doesn't lift on hover: the ring already put it forward. */
+[data-ui="ring-slot"] [data-ui="project-card"]:hover {
+  transform: none;
+}
+
+:root[data-effects="full"] [data-ui="ring-slot"][data-active] [data-ui="project-card"] {
+  filter: drop-shadow(0 0 22px color-mix(in srgb, var(--link) 26%, transparent));
 }
 
 /* --- The project page (pages/ProjectPage.tsx, project/ProjectHeader.tsx; projects plan §4.3) --- */

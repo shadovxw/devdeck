@@ -60,7 +60,7 @@ export function WorkspacesPage() {
 
       {data && data.length > 0 && (
         <div className="enter mt-4 flex flex-col gap-6" style={stagger(2)}>
-          <WorkspaceCards items={data} runs={runs.data} onSelect={open} onAdd={() => setAdding(true)} />
+          <WorkspaceCards items={data} runs={runs.data} onSelect={open} />
         </div>
       )}
 
