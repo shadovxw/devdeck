@@ -62,10 +62,6 @@ type Summary struct {
 	Repos       int    `json:"repos"`
 	Stacks      int    `json:"stacks"`
 	Flows       int    `json:"flows"`
-	// Scripts counts the ones the project file declares.
-	Scripts int `json:"scripts"`
-	// PosterURL is where the card's picture is served, when there is one that passes the checks.
-	PosterURL string `json:"poster_url,omitempty"`
 	// RepoTypes counts the repos by their type ("go": 3), with "other" for the ones that name none.
 	RepoTypes map[string]int `json:"repo_types,omitempty"`
 	Errors    int            `json:"errors"`
@@ -132,11 +128,10 @@ func (s *Manager) folders() map[string][2]string {
 	return out
 }
 
-func summarise(id, source, dir string, l *Loaded) Summary {
+func summarise(id, source string, l *Loaded) Summary {
 	sum := Summary{ID: id, Name: id, Source: source, Errors: Count(l.Issues, SeverityError), Warnings: Count(l.Issues, SeverityWarning)}
 	if w := l.Workspace; w != nil {
 		sum.Name, sum.Description, sum.Root, sum.Repos = w.Name, w.Description, w.Root, len(w.Repos)
-		sum.Scripts, sum.PosterURL = len(w.Scripts), posterURL(id, dir, w.Poster)
 		for _, r := range w.Repos {
 			if sum.RepoTypes == nil {
 				sum.RepoTypes = map[string]int{}
@@ -165,7 +160,7 @@ func (s *Manager) List() []Summary {
 			out = append(out, Summary{ID: id, Name: id, Source: source, Errors: 1})
 			continue
 		}
-		out = append(out, summarise(id, source, path, l))
+		out = append(out, summarise(id, source, l))
 	}
 	return out
 }
@@ -184,7 +179,7 @@ func (s *Manager) Get(id string) (*Detail, error) {
 		return nil, err
 	}
 	// The id comes from the folder's own name, not from the caller's string.
-	d := &Detail{Summary: summarise(filepath.Base(f[0]), f[1], f[0], l), Workspace: l.Workspace, Stacks: l.Stacks, Flows: l.Flows, Issues: l.Issues, Folder: f[0],
+	d := &Detail{Summary: summarise(filepath.Base(f[0]), f[1], l), Workspace: l.Workspace, Stacks: l.Stacks, Flows: l.Flows, Issues: l.Issues, Folder: f[0],
 		File: l.File, Databases: l.Databases, DefaultMode: l.DefaultMode}
 	if l.Workspace != nil && l.Workspace.Root != "" {
 		d.RootPath = ResolveRoot(d.Folder, l.Workspace.Root)

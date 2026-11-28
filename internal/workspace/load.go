@@ -81,7 +81,7 @@ func checkWorkspaceText(file, dir string, data []byte, opts Options) (*Workspace
 }
 
 func checkPaths(p *parsed, w *WorkspaceFile, dir string) []Issue {
-	out := checkPoster(p, w, dir)
+	var out []Issue
 	root := ResolveRoot(dir, w.Root)
 	if st, err := os.Stat(root); err != nil || !st.IsDir() {
 		return append(out, p.warn("/root", fmt.Sprintf("The folder %s doesn't exist on this machine.", filepath.ToSlash(root))))

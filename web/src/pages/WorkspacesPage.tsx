@@ -59,8 +59,8 @@ export function WorkspacesPage() {
       {isError && <p className="mt-4 text-ink-3">Could not load workspaces.</p>}
 
       {data && data.length > 0 && (
-        <div className="enter mt-4" style={stagger(2)}>
-          <WorkspaceCards items={data} runs={runs.data} onSelect={open} />
+        <div className="enter mt-4 flex flex-col gap-6" style={stagger(2)}>
+          <WorkspaceCards items={data} runs={runs.data} onSelect={open} onAdd={() => setAdding(true)} />
         </div>
       )}
 

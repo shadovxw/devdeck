@@ -27,8 +27,6 @@ describe("projectShape", () => {
     [{ repos: 1, stacks: 0, flows: 0 }, "1 repo"],
     [{ repos: 4, stacks: 3, flows: 0 }, "4 repos · 3 run modes"],
     [{ repos: 4, stacks: 1, flows: 2 }, "4 repos · 1 run mode · 2 scripts"],
-    [{ repos: 4, stacks: 0, flows: 0, scripts: 1 }, "4 repos · 1 script"], // declared in the project file
-    [{ repos: 4, stacks: 0, flows: 2, scripts: 3 }, "4 repos · 5 scripts"],
   ])("%o → %s", (shape, want) => {
     expect(projectShape(shape)).toBe(want);
   });

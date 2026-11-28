@@ -2,8 +2,6 @@
 version: 1
 name: acme-shop
 description: A demo shop made of an API, a web app and its infrastructure.
-# The picture on the project's card: a local .svg or .png, best 600 x 870.
-poster: poster.svg
 
 # The folder that holds the repositories: absolute, starting with ~, or relative to this file.
 root: ~/code/acme-shop

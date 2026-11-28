@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 import { useDebounced } from "../../lib/use-debounced";
@@ -18,6 +19,7 @@ type Base = { yaml: string; hash: string };
  * that changed on disk, and saving. The text is `edited` until it equals the saved one again.
  */
 export function useWorkspaceEditor(id: string) {
+  const qc = useQueryClient();
   const file = useWorkspaceFile(id);
   const [edited, setEdited] = useState<string | null>(null);
   const [base, setBase] = useState<Base | null>(null);
@@ -75,6 +77,8 @@ export function useWorkspaceEditor(id: string) {
       setEdited(null);
       setConflict(null);
       setSaved(true);
+      // so the next poll doesn't see an old answer and report the file as changed
+      qc.setQueryData<WorkspaceFile>(["workspaces", "disk", id], (old) => ({ path: old?.path ?? file.data?.path ?? "", ...written }));
       return "saved";
     } catch (err) {
       const c = conflictOf(err);
@@ -82,7 +86,7 @@ export function useWorkspaceEditor(id: string) {
       setConflict({ yaml: c.yaml, hash: c.hash, path: file.data?.path ?? "" });
       return "conflict";
     }
-  }, [start, save, text, file.data?.path]);
+  }, [start, save, text, qc, id, file.data?.path]);
 
   return {
     file,

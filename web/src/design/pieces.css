@@ -1015,21 +1015,17 @@
   font-size: clamp(36px, 3.2vw, 52px);
 }
 
-/* --- Project cards (pages/workspaces/WorkspaceCards.tsx; dev-plans/2026-11-28-project-posters) ---
-   A poster in the design's frame: a thin gradient edge with two cut corners, the picture (or the
-   project's initials) filling it, a mono line and the state above, the name and shape below. All
-   colours are theme tokens; glow only with Effects Full. */
+/* --- Project cards (pages/workspaces/WorkspaceCards.tsx; dev-plans/2026-11-22-projects §4.1) ---
+   From the design's Projects board: a thin gradient frame with two cut corners, a mono line, the
+   state as a chip. All colours are theme tokens; glow and scanlines only with Effects Full. */
 [data-ui="project-card"] {
   --cut: 16px;
-  /* Solid, in every theme: --fill is a see-through tint, so the frame would show through it and the fades would fade nothing. */
-  --poster-surface: color-mix(in srgb, var(--ink) 6%, var(--bg));
   position: relative;
   padding: 1px;
   border: 0;
   cursor: pointer;
   color: inherit;
-  /* Solid too: cards lie over each other, and a see-through edge would not part them. */
-  background: linear-gradient(135deg, color-mix(in srgb, var(--link) 60%, var(--bg)), color-mix(in srgb, var(--ink) 24%, var(--bg)) 45%, color-mix(in srgb, var(--ink) 18%, var(--bg)));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--link) 55%, transparent), color-mix(in srgb, var(--critical) 25%, transparent) 45%, color-mix(in srgb, var(--ink) 6%, transparent));
   clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
   transition: transform var(--dur-move) var(--ease-out), filter var(--dur-move) var(--ease-out);
 }
@@ -1046,53 +1042,16 @@
   position: relative;
   height: 100%;
   box-sizing: border-box;
-  background: var(--poster-surface);
+  background: var(--neon-panel);
   clip-path: inherit;
 }
 
-[data-ui="project-art"] {
+:root[data-effects="full"] [data-ui="project-card-in"]::after {
+  content: "";
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
   pointer-events: none;
-}
-
-/* No picture: the initials, large, on the dot grid. */
-[data-ui="project-art"][data-fallback] {
-  display: grid;
-  place-items: center;
-  container-type: inline-size;
-  background-image: radial-gradient(color-mix(in srgb, var(--ink) 14%, transparent) 1px, transparent 1px);
-  background-size: 14px 14px;
-}
-
-[data-ui="project-initials"] {
-  font-size: 34cqw;
-  line-height: 1;
-  font-weight: 900;
-  letter-spacing: -0.08em;
-  color: var(--ink);
-}
-
-[data-ui="project-initials"] i {
-  font-style: normal;
-  color: var(--link);
-}
-
-[data-ui="project-top"],
-[data-ui="project-foot"] {
-  position: relative;
-}
-
-/* Over a picture, a fade from the card's own colour keeps the words readable on any image. */
-img[data-ui="project-art"] ~ [data-ui="project-top"] {
-  background: linear-gradient(to bottom, var(--poster-surface), color-mix(in srgb, var(--poster-surface) 90%, transparent) 55%, transparent);
-}
-
-img[data-ui="project-art"] ~ [data-ui="project-foot"] {
-  background: linear-gradient(to top, var(--poster-surface), color-mix(in srgb, var(--poster-surface) 92%, transparent) 62%, transparent);
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--ink) 2.5%, transparent) 0 1px, transparent 1px 3px);
 }
 
 [data-ui="project-kicker"] {
@@ -1152,179 +1111,25 @@ img[data-ui="project-art"] ~ [data-ui="project-foot"] {
   color: var(--ink-2);
 }
 
-/* --- The card fan (design/fan/CardFan.tsx; dev-plans/2026-11-28-project-posters §4) ------------
-   Each card has a place that stays put and a pose inside it that tilts and moves aside; the card the
-   pointer rests on straightens and grows (CardFan sets the numbers), its picture draws up into a band
-   and the dossier opens under the name. */
-[data-ui="fan-card"] {
+[data-ui="project-add"] {
+  border: 1px dashed color-mix(in srgb, var(--link) 40%, transparent);
+  color: var(--link);
+  background: transparent;
   cursor: pointer;
+  transition: background var(--dur-quick) var(--ease-out), border-color var(--dur-quick) var(--ease-out);
 }
 
-[data-ui="fan-card"] [data-ui="project-card"]:hover {
-  transform: none;
+[data-ui="project-add"]:hover {
+  border-color: var(--link);
+  background: color-mix(in srgb, var(--link) 6%, transparent);
 }
 
-[data-ui="fan-pose"] {
-  transition: transform var(--dur-move) var(--ease-out);
-}
-
-[data-ui="fan-grow"] {
-  transition: inset var(--dur-move) var(--ease-out);
-}
-
-/* The bounce, and the cards bouncing in, are for Effects Full. */
-[data-ui="fan"][data-motion="full"] [data-ui="fan-pose"] {
-  transition: transform var(--dur-bounce) var(--ease-bounce);
-}
-
-[data-ui="fan"][data-motion="full"] [data-ui="fan-grow"] {
-  transition: inset var(--dur-bounce) var(--ease-bounce);
-}
-
-[data-ui="fan"][data-motion="full"] [data-ui="fan-card"] {
-  animation: fan-in var(--dur-bounce) var(--ease-bounce) backwards;
-  animation-delay: calc(var(--i, 0) * 60ms);
-}
-
-@keyframes fan-in {
-  from {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-}
-
-[data-ui="fan"] [data-ui="project-art"] {
-  bottom: auto;
-  transition: height var(--dur-move) var(--ease-out);
-}
-
-[data-ui="fan-card"][data-expanded] [data-ui="project-art"] {
-  height: 38%;
-}
-
-/* In the band the initials are smaller, and sit below the number and state. */
-[data-ui="fan-card"][data-expanded] [data-ui="project-art"][data-fallback] {
-  box-sizing: border-box;
-  padding-top: 3rem;
-}
-
-[data-ui="fan-card"][data-expanded] [data-ui="project-initials"] {
-  font-size: 22cqw;
-}
-
-/* A covered card keeps its words in the part that shows; opened, it has its whole width again. */
-[data-ui="fan-card"][data-covered]:not([data-expanded]) [data-ui="project-top"] > *,
-[data-ui="fan-card"][data-covered]:not([data-expanded]) [data-ui="project-foot"] > * {
-  max-width: calc(var(--strip) - 2.75rem);
-}
-
-/* Number over state, both on the side that always shows. */
-[data-ui="fan"] [data-ui="project-top"] {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-}
-
-[data-ui="fan"] [data-ui="project-top"] > * {
-  max-width: 100%;
-}
-
-[data-ui="fan"] [data-ui="project-name"] {
-  font-size: 20px;
-}
-
-:root[data-effects="full"] [data-ui="fan-card"][data-expanded] [data-ui="project-card"] {
-  filter: drop-shadow(0 0 22px color-mix(in srgb, var(--link) 30%, transparent));
-}
-
-/* Closed, the dossier is a row of no height. */
-[data-ui="project-dossier"] {
-  display: grid;
-  grid-template-rows: 0fr;
-  margin-top: -0.5rem; /* takes back the gap before it */
-  opacity: 0;
-  transition:
-    grid-template-rows var(--dur-move) var(--ease-out),
-    margin-top var(--dur-move) var(--ease-out),
-    opacity var(--dur-move) var(--ease-out);
-}
-
-[data-ui="project-dossier"] > span {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-height: 0;
-  overflow: hidden;
-}
-
-[data-ui="fan-card"][data-expanded] [data-ui="project-dossier"] {
-  grid-template-rows: 1fr;
-  margin-top: 0.375rem;
-  opacity: 1;
-}
-
-/* The totals say it in full. */
-[data-ui="fan-card"][data-expanded] [data-ui="project-shape"] {
-  display: none;
-}
-
-/* On a short card the dossier reaches up over the band: solid behind it. */
-[data-ui="fan-card"][data-expanded] img[data-ui="project-art"] ~ [data-ui="project-foot"],
-[data-ui="fan-card"][data-expanded] [data-ui="project-foot"] {
-  background: linear-gradient(to top, var(--poster-surface) calc(100% - 3rem), transparent);
-}
-
-[data-ui="fan"][data-motion="still"] :is([data-ui="fan-pose"], [data-ui="fan-grow"], [data-ui="project-art"], [data-ui="project-dossier"]) {
-  transition: none;
-}
-
-[data-ui="project-card-in"] {
-  container: poster / size;
-}
-
-@container poster (max-height: 350px) {
-  [data-ui="project-about"] {
-    display: none;
-  }
-}
-
-[data-ui="project-about"] {
+[data-ui="project-add-label"] {
+  font-family: var(--font-code);
   font-size: 13px;
-  line-height: 1.5;
-  color: var(--ink-2);
-}
-
-/* A type, its count, and its share of the repos as a line under them. */
-[data-ui="project-type"] {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  row-gap: 3px;
-  font-family: var(--font-code);
-  font-size: 11px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--ink-3);
-}
-
-[data-ui="project-type"] i {
-  grid-column: 1 / -1;
-  height: 3px;
-}
-
-[data-ui="project-total"] {
-  font-size: 22px;
-  line-height: 1.2;
-  font-weight: 800;
-  letter-spacing: -0.03em;
   color: var(--ink);
-}
-
-[data-ui="project-total-label"] {
-  font-family: var(--font-code);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-3);
 }
 
 /* --- The project page (pages/ProjectPage.tsx, project/ProjectHeader.tsx; projects plan §4.3) --- */

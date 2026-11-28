@@ -23,11 +23,9 @@ import (
 
 // WorkspaceFile is workspace.yaml.
 type WorkspaceFile struct {
-	Version     int    `yaml:"version" json:"version"`
-	Name        string `yaml:"name" json:"name"`
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
-	// Poster is the picture on the project's card: a local .svg or .png (poster.go).
-	Poster            string        `yaml:"poster,omitempty" json:"poster,omitempty"`
+	Version           int           `yaml:"version" json:"version"`
+	Name              string        `yaml:"name" json:"name"`
+	Description       string        `yaml:"description,omitempty" json:"description,omitempty"`
 	Root              string        `yaml:"root" json:"root"`
 	DefaultConnection string        `yaml:"default_connection,omitempty" json:"default_connection,omitempty"`
 	Repos             []Repo        `yaml:"repos,omitempty" json:"repos,omitempty"`

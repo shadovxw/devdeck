@@ -135,32 +135,6 @@ func registerWorkspaces(g *echo.Group, m *workspace.Manager, sup *supervisor.Sup
 		return c.JSON(http.StatusCreated, sum)
 	})
 
-	// GET /:id/poster is the picture the project file names. The request names a project, never a file.
-	ws.GET("/:id/poster", func(c echo.Context) error {
-		data, kind, err := m.Poster(c.Param("id"))
-		switch {
-		case errors.Is(err, workspace.ErrNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, "no such workspace")
-		case errors.Is(err, workspace.ErrNoPoster):
-			return echo.NewHTTPError(http.StatusNotFound, "no poster")
-		case err != nil:
-			c.Logger().Error(err)
-			return echo.NewHTTPError(http.StatusInternalServerError, "the poster couldn't be read")
-		}
-		h := c.Response().Header()
-		// An SVG can hold script. It never runs in <img>, but opened at this address it would run as
-		// devdeck's own origin, with the whole API. The sandbox stops that.
-		h.Set("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'")
-		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("Cross-Origin-Resource-Policy", "same-origin")
-		// The list's address carries the file's version, so that one can be kept.
-		h.Set("Cache-Control", "no-cache")
-		if c.QueryParam("v") != "" {
-			h.Set("Cache-Control", "private, max-age=31536000, immutable")
-		}
-		return c.Blob(http.StatusOK, kind, data)
-	})
-
 	// GET /:id/file is workspace.yaml as text, for the editor.
 	// GET /:id/file is workspace.yaml for the editor: the text, a hash that says which version it is, and its path.
 	ws.GET("/:id/file", func(c echo.Context) error {
