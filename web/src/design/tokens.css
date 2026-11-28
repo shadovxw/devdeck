@@ -66,6 +66,9 @@
   --dur-move: 320ms;
   --dur-scene: 700ms;
   --ease-scene: cubic-bezier(0.65, 0, 0.35, 1);
+  /* The bounce of a Projects card growing, with Effects Full: past the end by a tenth, then back. */
+  --dur-bounce: 520ms;
+  --ease-bounce: linear(0, 0.28 9%, 0.72 20%, 1.02 31%, 1.09 41%, 1.05 52%, 0.99 66%, 0.99 74%, 1.01 85%, 1);
 
   /* Brand colours (brand/README.md). Deliberately separate from the action blue
      (--primary): the logo, wordmark and loader keep these. */
@@ -105,6 +108,7 @@
     --dur-quick: 0.01ms;
     --dur-move: 0.01ms;
     --dur-scene: 0.01ms;
+    --dur-bounce: 0.01ms;
   }
 }
 
@@ -113,4 +117,5 @@
   --dur-quick: 0.01ms;
   --dur-move: 0.01ms;
   --dur-scene: 0.01ms;
+  --dur-bounce: 0.01ms;
 }

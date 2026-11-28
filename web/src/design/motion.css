@@ -51,6 +51,70 @@
   }
 }
 
+/* --- Home <-> a page ------------------------------------------------------
+   Home's page area is named "home" (app/Shell.tsx), so it never pairs with another page's
+   "page": leaving Home is a scene change. The orb screen falls away past the viewer while the page
+   rises in just after it; going back plays it in reverse. :only-child matches only when the name
+   is in one of the two states, so page-to-page changes keep the plain fade above. The sidebar has
+   its own name, so it slides in over the scene instead of being part of a flat snapshot. Durations
+   are tokens: Reduce motion makes these cuts too. */
+[data-slot="sidebar-container"] {
+  view-transition-name: sidebar;
+}
+
+::view-transition-old(home):only-child {
+  animation: home-out var(--dur-scene) var(--ease-out) both;
+}
+
+::view-transition-new(page):only-child {
+  animation: page-rise var(--dur-scene) var(--ease-out) 90ms both;
+}
+
+::view-transition-old(page):only-child {
+  animation: page-rise var(--dur-move) var(--ease-out) reverse both;
+}
+
+::view-transition-new(home):only-child {
+  animation: home-out var(--dur-scene) var(--ease-out) reverse both;
+}
+
+::view-transition-new(sidebar):only-child {
+  animation: sidebar-in var(--dur-move) var(--ease-out) 60ms both;
+}
+
+::view-transition-old(sidebar):only-child {
+  animation: sidebar-in var(--dur-quick) var(--ease-out) reverse both;
+}
+
+:root[data-input="keyboard"]::view-transition-old(home),
+:root[data-input="keyboard"]::view-transition-new(home),
+:root[data-input="keyboard"]::view-transition-old(sidebar),
+:root[data-input="keyboard"]::view-transition-new(sidebar) {
+  animation: none;
+}
+
+@keyframes home-out {
+  to {
+    opacity: 0;
+    transform: scale(1.08);
+    filter: blur(8px);
+  }
+}
+
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.98);
+  }
+}
+
+@keyframes sidebar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+}
+
 /* --- First load -----------------------------------------------------------
    Blocks rise 8px and fade in, 40ms apart in reading order. The shell sets
    data-first on <html> for the first moments only, so later page changes use

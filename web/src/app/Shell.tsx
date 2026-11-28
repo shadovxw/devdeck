@@ -98,7 +98,13 @@ export function Shell() {
       <div className="relative flex min-h-svh min-w-0 flex-1 flex-col bg-bg">
         <TopBar bare={bare} />
         <LinkStrip />
-        <main id="main" tabIndex={-1} className="page-area mx-auto w-full max-w-[1440px] px-3 py-3 outline-none md:px-5 md:py-4">
+        {/* Home has its own view-transition name, so leaving it is a scene change, not a page fade (motion.css). */}
+        <main
+          id="main"
+          tabIndex={-1}
+          style={bare ? { viewTransitionName: "home" } : undefined}
+          className="page-area mx-auto w-full max-w-[1440px] px-3 py-3 outline-none md:px-5 md:py-4"
+        >
           <Outlet />
         </main>
       </div>

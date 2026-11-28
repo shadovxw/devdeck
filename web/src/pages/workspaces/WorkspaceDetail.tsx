@@ -7,6 +7,7 @@ import { Mark } from "../../design/IssueList";
 import { useDeleteWorkspace } from "../../lib/queries";
 import type { Issue, WorkspaceDetail as Detail } from "../../lib/types";
 import { ConvertCard } from "../project/ConvertCard";
+import { PosterSetting } from "../project/PosterSetting";
 import { useWorkspaceFile } from "../../lib/workspace-file";
 
 
@@ -72,6 +73,8 @@ export function Settings({ id, d, mine, onDeleted }: Readonly<{ id: string; d: D
         {fact("Description", d.description)}
         {fact("Kind", mine ? "Yours" : "Example (read only)")}
       </dl>
+
+      {mine && <PosterSetting id={id} project={d} />}
 
       {mine && d.file !== "project.yaml" && <ConvertCard workspace={id} />}
 

@@ -200,23 +200,31 @@ describe("workspaces page", () => {
     expect(drawer.getByLabelText(/One repo, or the folder/)).toBeTruthy();
   });
 
-  it("shows each project as a card: its number and folder, its state, its shape and its mix of types", async () => {
-    mockServer({ list: [demo, sample] });
+  it("shows each project as a card: its number and folder, its state and its shape, over its picture or initials", async () => {
+    mockServer({ list: [demo, { ...sample, poster_url: "/api/v1/workspaces/acme-shop/poster?v=1" }] });
     renderAt("/workspaces");
 
     const card = within(await screen.findByRole("button", { name: "Project demo" }));
     expect(card.getByText(/PRJ_01 \/\/ ~\/code/)).toBeTruthy();
     expect(card.getByText("2 problems")).toBeTruthy();
     expect(card.getByText("3 repos · 1 run mode")).toBeTruthy();
-    expect(card.getByRole("img", { name: "Repos by type: go 1, node 1, other 1" })).toBeTruthy();
+    expect(card.getByText("de")).toBeTruthy(); // no picture: its initials
 
-    const other = within(screen.getByRole("button", { name: "Project acme-shop" }));
+    const button = screen.getByRole("button", { name: "Project acme-shop" });
+    const other = within(button);
     expect(other.getByText("Example")).toBeTruthy();
     expect(other.getByText("Stopped")).toBeTruthy();
-    expect(other.queryByRole("img")).toBeNull(); // no types to show
+    // The picture: described by the button's name, and never the browser's to drag.
+    const art = button.querySelector("img") as HTMLImageElement;
+    expect([art.getAttribute("src"), art.getAttribute("alt"), art.getAttribute("draggable")]).toEqual(["/api/v1/workspaces/acme-shop/poster?v=1", "", "false"]);
+    expect(other.queryByText("as")).toBeNull();
+    // One that can't be shown gives way to the initials.
+    fireEvent.error(art);
+    expect(button.querySelector("img")).toBeNull();
+    expect(other.getByText("as")).toBeTruthy();
   });
 
-  it("puts New project on the title's line, and opens the drawer from it or from the tile", async () => {
+  it("puts New project on the title's line, and opens the drawer from it", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces");
     await screen.findByRole("button", { name: "Project demo" });
@@ -230,9 +238,6 @@ describe("workspaces page", () => {
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("button", { name: "Project demo" })).toBeTruthy();
-
-    fireEvent.click(within(screen.getByRole("list", { name: "Projects" })).getByRole("button", { name: /New project/ }));
-    expect(await screen.findByRole("dialog", { name: "New project" })).toBeTruthy();
   });
 
   it("opens on the Overview: the canvas of the project, with its legend", async () => {
@@ -282,13 +287,15 @@ describe("workspaces page", () => {
     expect(details.getByText("No repository matches.")).toBeTruthy();
   });
 
-  it("lists only the cards and New project; a card opens its project on its own page", async () => {
+  it("fans the projects out, and a click on any card opens its page", async () => {
     mockServer({ list: [demo, sample] });
     const router = renderAt("/workspaces");
-    const second = await screen.findByRole("button", { name: "Project acme-shop" });
-    expect(screen.queryByRole("region", { name: /Details of/ })).toBeNull(); // no details under the cards
+    const fan = within(await screen.findByRole("region", { name: "Projects" }));
+    // Each project once, in order, and no details under the cards.
+    expect(fan.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Project demo", "Project acme-shop"]);
+    expect(screen.queryByRole("region", { name: /Details of/ })).toBeNull();
 
-    fireEvent.click(second);
+    fireEvent.click(fan.getByRole("button", { name: "Project acme-shop" }));
     expect(await screen.findByRole("region", { name: "Details of acme-shop" })).toBeTruthy();
     expect(router.state.location.pathname).toBe("/workspaces/acme-shop");
     expect(screen.getByRole("heading", { level: 1, name: "acme-shop" })).toBeTruthy();

@@ -61,11 +61,17 @@ export function useSaveWorkspaceFile(id: string) {
   return useMutation({
     mutationFn: ({ yaml, baseHash }: { yaml: string; baseHash: string }) =>
       api.put<SavedWorkspace>(`/workspaces/${encodeURIComponent(id)}`, { yaml, base_hash: baseHash }),
-    onSuccess: () =>
-      Promise.all([
+    onSuccess: (out, { yaml }) => {
+      // The file queries aren't refetched (below), so they are given what was written: the next save starts
+      // from this hash, and the poll doesn't report our own write as a change on disk.
+      for (const kind of ["file", "disk"]) {
+        qc.setQueryData<WorkspaceFile>(["workspaces", kind, id], (old) => old && { ...old, yaml, hash: out.hash });
+      }
+      return Promise.all([
         qc.invalidateQueries({ queryKey: ["workspaces"], predicate: (q) => q.queryKey[1] !== "file" && q.queryKey[1] !== "disk" }),
         qc.invalidateQueries({ queryKey: ["git", "repos"] }),
-      ]),
+      ]);
+    },
   });
 }
 

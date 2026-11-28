@@ -46,6 +46,7 @@ func TestConnectorGuard(t *testing.T) {
 		{"connector reads the histogram", http.MethodGet, "/api/v1/workspaces/demo/stacks/full/logs/histogram", "mcp", http.StatusNoContent},
 		{"connector reads error groups", http.MethodGet, "/api/v1/workspaces/demo/stacks/full/logs/groups", "mcp", http.StatusNoContent},
 		{"connector may not read what is captured", http.MethodGet, "/api/v1/workspaces/demo/stacks/full/logs/capture", "mcp", http.StatusForbidden},
+		{"connector may not read a poster", http.MethodGet, "/api/v1/workspaces/demo/poster", "mcp", http.StatusForbidden},
 		{"connector may not read saved filters", http.MethodGet, "/api/v1/workspaces/demo/log-filters", "mcp", http.StatusForbidden},
 		{"connector may not delete logs", http.MethodDelete, "/api/v1/workspaces/demo/stacks/full/logs", "mcp", http.StatusForbidden},
 		{"connector may not open the websocket", http.MethodGet, "/ws", "mcp", http.StatusForbidden},

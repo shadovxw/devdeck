@@ -251,6 +251,7 @@ All components use only the tokens above. shadcn components are re-skinned to ra
 | `quick` | 180 ms ease-out | tab change, toast in |
 | `move` | spring ≈ 320 ms | list reorder, sheet open, layout |
 | `scene` | 700 ms | route changes between sections (rare) |
+| `bounce` | 520 ms, `--ease-bounce` (past the end by a tenth) | a Projects card opening up, with Effects Full only |
 
 - Numbers count up only on first load. Live values ease and never jump.
 - `prefers-reduced-motion` or performance mode turns every transition into an instant cut.

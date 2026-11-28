@@ -24,8 +24,12 @@ export function projectState(w: Pick<WorkspaceSummary, "id" | "errors" | "warnin
   return { text: "Stopped", tone: "quiet" };
 }
 
-/** The project's shape in a line: "4 repos · 3 run modes · 1 script". Parts with none are left out, but repos always show. */
-export function projectShape(w: Pick<WorkspaceSummary, "repos" | "stacks" | "flows">): string {
+/**
+ * The project's shape in a line: "4 repos · 3 run modes · 1 script". Parts with none are left out, but repos
+ * always show. Scripts are the ones the project file declares and the flows, which become scripts.
+ */
+export function projectShape(w: Pick<WorkspaceSummary, "repos" | "stacks" | "flows" | "scripts">): string {
   const part = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  return [part(w.repos, "repo", "repos"), w.stacks > 0 && part(w.stacks, "run mode", "run modes"), w.flows > 0 && part(w.flows, "script", "scripts")].filter(Boolean).join(" · ");
+  const scripts = w.flows + (w.scripts ?? 0);
+  return [part(w.repos, "repo", "repos"), w.stacks > 0 && part(w.stacks, "run mode", "run modes"), scripts > 0 && part(scripts, "script", "scripts")].filter(Boolean).join(" · ");
 }
