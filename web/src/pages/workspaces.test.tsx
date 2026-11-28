@@ -235,9 +235,19 @@ describe("workspaces page", () => {
     expect(await screen.findByRole("dialog", { name: "New project" })).toBeTruthy();
   });
 
-  it("shows the first workspace's repos with their git state, and filters them", async () => {
+  it("opens on the Overview: the canvas of the project, with its legend", async () => {
     mockServer({ list: [demo] });
     renderAt("/workspaces/demo");
+    const details = within(await screen.findByRole("region", { name: "Details of demo" }));
+    expect(details.getByRole("tab", { name: /Overview/ }).getAttribute("aria-selected")).toBe("true");
+    expect(await details.findByLabelText("Canvas of demo")).toBeTruthy();
+    const legend = within(details.getByRole("list", { name: "Legend" }));
+    expect(legend.getByText("starts after")).toBeTruthy();
+  });
+
+  it("shows the first workspace's repos with their git state, and filters them", async () => {
+    mockServer({ list: [demo] });
+    renderAt("/workspaces/demo?tab=code");
     const details = within(await screen.findByRole("region", { name: "Details of demo" }));
     const table = within(await details.findByRole("table", { name: "Repositories of demo" }));
 

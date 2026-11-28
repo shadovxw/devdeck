@@ -171,3 +171,40 @@ In the browser, against a throwaway server on 7071 using the git-ignored demo da
 - Review, then Write, gave "up to date" and Open workspace.
 - After the server fix, it showed "differs", and Replace brought it back to "up to date".
 - `devdeck run status-all -w acme` printed each repo as ok and exited 0.
+
+## 2026-11-28: PJ8, the Overview canvas
+
+- **New packages (MIT):** `@xyflow/react` (React Flow) and `@dagrejs/dagre`, installed with the owner's OK. There was no separate canvas plan file, so this section records the decisions.
+- **`lib/project-graph.ts`** (table-tested):
+  - `projectGraph()` builds the project as nodes and edges:
+    - nodes: the repos, the services and compose files of one run mode, and the databases found in PJ6
+    - edges: *built from* (repo → service), *starts after* (`after:`) and *uses* (a database's `used_by`)
+    - A repo that runs as a service in that mode uses its database through the service.
+    - Edges to missing nodes and self-loops are dropped.
+  - Every node gets a one-line sub-label and a tone:
+    - repos: branch, and changes or clean
+    - services: state and port, from the run
+    - databases: engine and port, up or down
+  - `layoutGraph()` places the nodes left to right with dagre.
+- **`pages/project/ProjectOverview.tsx`:** the new first tab, and the default. The address drops `?tab=` for it, and the Code tab is now `?tab=code`.
+  - A read-only React Flow canvas with pan and zoom, dot background and controls; nodes can't be dragged or connected.
+  - Its own "Showing" mode picker, starting on the running mode. Changing the mode redraws and fits the view.
+  - A legend for the three edge kinds.
+  - Clicking a node opens its tab: Code, Run or Databases.
+  - Below the canvas, "needs a look" lists file errors, database mismatches, and failed or blocked services.
+  - Styled from tokens in `pieces.css`, using React Flow's `base.css` only:
+    - cut-corner cards with a stripe for the kind and a dot for the state
+    - React Flow's `--xy-*` variables set from theme tokens
+    - start-order edges in the accent colour, uses edges dashed in the warning colour
+    - no edge animation with reduced motion
+- `StackDef.services` in `lib/types.ts` now carries `repo` (the server already sent it).
+- Not yet: editing the file from the canvas (comes with `project.yaml`, PJ9), images as nodes (with the Images section), and hiding sections a project doesn't use.
+
+Checked: typecheck, lint, all 858 web tests and `npm run build`. The main chunk is now 1.4 MB, so it is worth splitting later.
+
+In the browser, against a throwaway server on 7071 with the demo data:
+- acme opens on Overview.
+- api-only drew the repos, api and two databases.
+- full drew web and worker started after api, and api and worker using postgres.
+- The DOM's edge list matched the databases API.
+- Clicking the shop node opened `?tab=databases`.

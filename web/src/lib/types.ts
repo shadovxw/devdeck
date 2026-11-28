@@ -112,7 +112,7 @@ export type StackDef = {
   name: string;
   description?: string;
   compose?: Array<{ id?: string; repo: string; file: string; services?: string[]; after?: string[]; optional?: boolean }>;
-  services?: Array<{ id: string; kind: string; port?: number; after?: string[] }>;
+  services?: Array<{ id: string; repo?: string; kind: string; port?: number; after?: string[] }>;
 };
 
 export type ServiceState =

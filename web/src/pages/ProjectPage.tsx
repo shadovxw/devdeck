@@ -12,14 +12,15 @@ import { useNow } from "../lib/use-now";
 import { ProjectDatabases } from "./project/ProjectDatabases";
 import { ProjectHeader } from "./project/ProjectHeader";
 import { ProjectLogs } from "./project/ProjectLogs";
+import { ProjectOverview } from "./project/ProjectOverview";
 import { ProjectScripts } from "./project/ProjectScripts";
 import { ProjectVSCode } from "./project/ProjectVSCode";
 import { StackCard } from "./StacksPage";
 import { RepoTable } from "./workspaces/RepoTable";
 import { Problems, Settings } from "./workspaces/WorkspaceDetail";
 
-/** The project's sections (dev-plans/2026-11-22-projects §4.3). Overview and Images come in later steps. */
-const TABS = ["code", "run", "databases", "logs", "scripts", "problems", "settings"] as const;
+/** The project's sections (dev-plans/2026-11-22-projects §4.3). Images comes in a later step. */
+const TABS = ["overview", "code", "run", "databases", "logs", "scripts", "problems", "settings"] as const;
 type Tab = (typeof TABS)[number];
 const isTab = (v: string | null): v is Tab => TABS.includes(v as Tab);
 
@@ -45,7 +46,7 @@ function Crumbs({ name }: Readonly<{ name: string }>) {
 
 /**
  * One project on its own page (dev-plans/2026-11-22-projects §4.3, PJ2): the design's header with
- * its state, run mode, Start/Stop and VS Code, then its sections as tabs: the code (repos and
+ * its state, run mode, Start/Stop and VS Code, then its sections as tabs: an overview canvas (PJ8), the code (repos and
  * their git state), how it runs (each run mode with its services in start order), its logs,
  * problems in its files, and settings. The open tab is in the address (?tab=run).
  */
@@ -64,7 +65,7 @@ export function ProjectPage() {
     if (project.data) setCurrent(id);
   }, [id, project.data, setCurrent]);
   const asked = params.get("tab");
-  const tab: Tab = isTab(asked) ? asked : "code";
+  const tab: Tab = isTab(asked) ? asked : "overview";
 
   if (project.isPending) return <output aria-label="Loading project…" className="skeleton mt-10 block h-40 w-full" />;
   if (project.isError || !project.data) {
@@ -80,6 +81,7 @@ export function ProjectPage() {
   const own = d.source === "local";
   const repos = d.workspace?.repos ?? [];
   const items = [
+    { value: "overview" as const, label: "Overview" },
     { value: "code" as const, label: "Code", count: repos.length },
     { value: "run" as const, label: "Run", count: d.stacks.length },
     { value: "databases" as const, label: "Databases" },
@@ -95,9 +97,11 @@ export function ProjectPage() {
       <ProjectHeader project={d} runs={runs.data ?? []} />
 
       <section aria-label={`Details of ${d.name}`} className="enter flex flex-col gap-5" style={stagger(1)}>
-        <Tabs label="Project sections" value={tab} onChange={(t) => setParams(t === "code" ? {} : { tab: t }, { replace: true })} items={items} className="project-tabs" />
+        <Tabs label="Project sections" value={tab} onChange={(t) => setParams(t === "overview" ? {} : { tab: t }, { replace: true })} items={items} className="project-tabs" />
 
         <div role="tabpanel" aria-label={tab}>
+          {tab === "overview" && <ProjectOverview project={d} runs={runs.data ?? []} onOpen={(t) => setParams({ tab: t }, { replace: true })} />}
+
           {tab === "code" && (
             <div className="flex flex-col gap-4">
               <ProjectVSCode workspace={id} example={!own} />

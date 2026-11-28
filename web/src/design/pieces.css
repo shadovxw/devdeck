@@ -1447,3 +1447,89 @@
 [data-ui="vscode-preview"] {
   background: var(--inset);
 }
+
+/* --- Overview canvas (pages/project/ProjectOverview.tsx; projects plan PJ8) ---------------- */
+[data-ui="flow-canvas"] {
+  background: var(--neon-panel);
+  --xy-background-pattern-dots-color-default: color-mix(in srgb, var(--ink) 18%, transparent);
+  --xy-edge-stroke-default: var(--ink-3);
+  --xy-edge-stroke-width-default: 1.4;
+  --xy-controls-button-background-color-default: var(--fill);
+  --xy-controls-button-background-color-hover-default: color-mix(in srgb, var(--ink) 14%, transparent);
+  --xy-controls-button-color-default: var(--ink);
+  --xy-controls-button-border-color-default: transparent;
+  --xy-controls-box-shadow-default: none;
+}
+
+[data-ui="flow-canvas"] .react-flow__node {
+  cursor: pointer;
+}
+
+[data-ui="flow-node"] {
+  --cut: 9px;
+  --tone: var(--ink-3);
+  --kind: var(--ink-3);
+  width: 196px;
+  height: 58px;
+  background: var(--bg);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+  box-shadow: inset 2px 0 0 var(--kind);
+}
+
+[data-ui="flow-node"][data-kind="service"],
+[data-ui="flow-node"][data-kind="compose"] { --kind: var(--accent); }
+[data-ui="flow-node"][data-kind="database"] { --kind: var(--warning); }
+
+[data-ui="flow-node"][data-tone="good"] { --tone: var(--good); }
+[data-ui="flow-node"][data-tone="busy"] { --tone: var(--warning); }
+[data-ui="flow-node"][data-tone="bad"] { --tone: var(--critical); }
+[data-ui="flow-node"][data-tone="none"] { --tone: transparent; }
+
+[data-ui="flow-icon"] { color: var(--kind); }
+
+[data-ui="flow-kind"] {
+  font-family: var(--font-code);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-ui="flow-dot"] {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+[data-ui="flow-node"] .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.flow-edge-after .react-flow__edge-path { stroke: var(--accent); }
+.flow-edge-uses .react-flow__edge-path { stroke: var(--warning); stroke-dasharray: 5 4; }
+
+[data-ui="flow-legend"] li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-code);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-ui="flow-legend"] li::before {
+  content: "";
+  width: 18px;
+  border-top: 1.5px solid var(--ink-3);
+}
+
+[data-ui="flow-legend"] li[data-kind="after"]::before { border-top-color: var(--accent); }
+[data-ui="flow-legend"] li[data-kind="uses"]::before { border-top: 1.5px dashed var(--warning); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ui="flow-canvas"] .react-flow__edge.animated path { animation: none; }
+}
