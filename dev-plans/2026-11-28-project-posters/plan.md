@@ -1,6 +1,6 @@
 # Project posters: a poster card that opens into a dossier
 
-Status: P1 built 2026-11-28 (see changes.md); P2 to P4 to do. Follows `dev-plans/2026-11-28-projects-ring` (R1).
+Status: P1 and P2 built 2026-11-28 (see changes.md); P3 and P4 to do. Follows `dev-plans/2026-11-28-projects-ring` (R1).
 
 ## 0. Why
 
@@ -98,7 +98,9 @@ A **Poster** block in the project's Settings tab, for your own projects (example
 - before saving, the existing validate call shows any poster warning
 - the block names the file it will write. Saving is the confirmation step, and the old file is kept as `.prev`
 
-**No new write route.** It uses the file's text and hash (`useWorkspaceFile`), `setTopLevel(text, "poster", value)`, which keeps comments, and `useSaveWorkspaceFile` with the base hash. It works for `workspace.yaml` and `project.yaml`.
+**No new write route.** It uses the file's text and hash (`useWorkspaceFile`), `setPoster(text, path)` and `useSaveWorkspaceFile` with the base hash. It works for `workspace.yaml` and `project.yaml`.
+
+`setPoster` changes only the `poster:` line (decided while building P2). The existing `setTopLevel` writes the whole document again: it keeps comments, but it respaces them and `[lists]`, and turns Windows line endings into Unix ones.
 
 **One fix it needs:** the `["workspaces","file",id]` query is never refetched (`staleTime: Infinity`), and a save leaves it alone. A second save would send the old hash and be refused. After saving, put the new text and hash into that query.
 

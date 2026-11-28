@@ -24,3 +24,24 @@
   - it still loads in `<img>`
 
 **Not covered:** the existing checks of `root` and repo folders still look up whatever path the text names, including network paths. That is outside this work and has its own task.
+
+## 2026-11-28: P2, the Settings block
+
+- **`pages/project/PosterSetting.tsx`**, in the Settings tab of your own projects:
+  - a preview in the card's shape, a path field, Save and Remove, and the name of the file they write
+  - quotes round a pasted path are removed
+  - the server checks the text before it is saved, so a bad path is said first. A warning doesn't block saving
+  - a file that changed on disk isn't overwritten: it is read again, what was typed stays, and saving again adds the line to the new version
+- **`setPoster`** (`lib/yaml-doc.ts`) changes only the `poster:` line.
+- **The save fix** (`useSaveWorkspaceFile`): after a save, the cached file gets the new text and hash, so the next save isn't refused. It also updates the copy the editor compares with, so the editor's own line for that is gone.
+
+**A change from the plan:** `setPoster` instead of `setTopLevel`, which rewrites the whole file: `[lists]` and comments get respaced, and Windows line endings become Unix ones. plan.md is updated. The editor's Form view and quick fixes still use that rewrite, although `yaml-doc.ts` says they never reformat. That isn't changed here.
+
+**Checked:**
+- typecheck, lint and 957 web tests pass. With the save fix turned off, the "one save after another" test fails.
+- In the browser, on a temporary server with a demo project whose file has Windows line endings:
+  - saving a quoted Windows path added that one line, and the picture showed
+  - a network path showed its warning before saving
+  - three saves in a row went through, and after Remove the file was the same as at the start, byte for byte
+  - Paper and Paper Dark
+  - at 375 px the block fits. The page does scroll sideways there because of the project's tab row, which was so before this change

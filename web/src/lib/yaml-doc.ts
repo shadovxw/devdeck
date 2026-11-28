@@ -1,4 +1,4 @@
-import { isMap, isScalar, isSeq, LineCounter, parseDocument, type Document, type YAMLMap } from "yaml";
+import { isMap, isNode, isScalar, isSeq, LineCounter, parseDocument, stringify, type Document, type YAMLMap } from "yaml";
 
 // Reading and editing workspace.yaml as text. Edits go through the yaml Document, which keeps comments,
 // blank lines and the order of keys, so the Form view and the quick fixes never reformat the user's file.
@@ -90,6 +90,31 @@ export function setTopLevel(text: string, key: string, value: string): string {
   if (value === "") doc.delete(key);
   else doc.set(key, value);
   return dump(doc);
+}
+
+/**
+ * Sets, changes or (with "") removes the poster line, and leaves every other character as it was. The edits
+ * above write the whole document again, which respaces comments and [lists] and turns CRLF into LF: too much
+ * for a one-line setting. Text that doesn't parse comes back unchanged.
+ */
+export function setPoster(text: string, path: string): string {
+  const { doc } = parse(text);
+  const root = doc.contents;
+  if (!isMap(root) || doc.errors.length > 0) return text;
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const line = path === "" ? "" : `poster: ${stringify(path, { singleQuote: true, lineWidth: 0 }).trimEnd()}`;
+  const pair = root.items.find((p) => isScalar(p.key) && p.key.value === "poster");
+  if (!pair || !isScalar(pair.key) || !pair.key.range) {
+    if (line === "") return text;
+    return (text.endsWith("\n") ? text : text + eol) + line + eol;
+  }
+  const from = pair.key.range[0];
+  const to = isNode(pair.value) && pair.value.range ? pair.value.range[1] : pair.key.range[1];
+  // A block value (poster: >-) ends after its line break.
+  const broke = text[to - 1] === "\n";
+  if (line !== "") return text.slice(0, from) + line + (broke ? eol : "") + text.slice(to);
+  const next = text.indexOf("\n", broke ? to - 1 : to);
+  return text.slice(0, text.lastIndexOf("\n", from) + 1) + (next < 0 ? "" : text.slice(next + 1));
 }
 
 /** Sets a field of the repo at `index`. An empty value (or false) removes the key. */

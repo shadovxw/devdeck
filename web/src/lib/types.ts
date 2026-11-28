@@ -65,10 +65,12 @@ export type WorkspaceSummary = {
   repo_types?: Record<string, number>;
   errors: number;
   warnings: number;
+  /** Where the card's picture is served, when the project names one that passes the checks. */
+  poster_url?: string;
 };
 
 export type WorkspaceDetail = Omit<WorkspaceSummary, "stacks" | "flows"> & {
-  workspace?: { name: string; root: string; repos?: Repo[] };
+  workspace?: { name: string; root: string; poster?: string; repos?: Repo[] };
   stacks: StackDef[];
   flows: Array<{ name: string; description?: string }>;
   issues: Issue[];
