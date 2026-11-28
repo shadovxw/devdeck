@@ -98,6 +98,20 @@ h2 small, .extra, .legend, #cursor, #beam { display: none; }
 .sub:is(:hover, :focus-visible) { color: var(--ink); background: color-mix(in srgb, var(--primary) 24%, transparent); outline: none; }
 .go { display: flex; gap: 3px; margin-left: 4px; }
 kbd { display: inline-block; min-width: 20px; padding: 2px 5px; border-radius: 3px; background: var(--fill); color: var(--ink-2); font: 10px var(--code); text-align: center; }
+/* Marker choices, to replace the hollow diamonds (the Marker switch). None of them keeps the
+   second diamond where the thread meets the bar. */
+:root:not([data-marker="now"]) #tip { display: none; }
+:root[data-menu="rich"]:is([data-marker="tick"], [data-marker="dot"], [data-marker="one"]) .gem { justify-self: center; border: 0; box-shadow: none; }
+/* Line: nothing on the rail but a short bright stretch beside the selected page. */
+:root[data-menu="rich"][data-marker="tick"] .gem { width: 3px; height: 0; border-radius: 3px; transform: none; background: var(--tone); transition: height 240ms var(--ease); }
+:root[data-menu="rich"][data-marker="tick"] li[data-active] .gem { height: 22px; }
+/* Dots: small round points, like the orb's. */
+:root[data-menu="rich"][data-marker="dot"] .gem { width: 5px; height: 5px; border-radius: 50%; transform: none; background: color-mix(in srgb, var(--tone) 70%, var(--bg)); transition: transform 240ms var(--ease); }
+:root[data-menu="rich"][data-marker="dot"] li[data-active] .gem { background: var(--tone); transform: scale(1.8); }
+/* One diamond: solid, and only on the selected page. */
+:root[data-menu="rich"][data-marker="one"] .gem { width: 8px; height: 8px; visibility: hidden; }
+:root[data-menu="rich"][data-marker="one"] li[data-active] .gem { visibility: visible; background: var(--tone); }
+:root[data-menu="rich"][data-dots="lens"]:is([data-marker="tick"], [data-marker="dot"], [data-marker="one"]) li[data-active] .gem { box-shadow: 0 0 10px var(--tone); }
 /* One bar that slides to the selected page; the thread from the orb ends where it starts. */
 :root[data-menu="rich"] #cursor { display: block; position: absolute; left: 0; right: 0; top: 0; height: 0; border-radius: 4px; background: linear-gradient(90deg, color-mix(in srgb, var(--cursor-tone, var(--primary)) 22%, transparent), color-mix(in srgb, var(--cursor-tone, var(--primary)) 7%, transparent) 60%, transparent); transition: transform 360ms var(--ease), height 360ms var(--ease); }
 :root[data-menu="rich"] #beam { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; fill: none; }
@@ -111,8 +125,8 @@ kbd { display: inline-block; min-width: 20px; padding: 2px 5px; border-radius: 3
 .legend kbd:not(:first-child) { margin-left: 6px; }
 .legend kbd:nth-child(2) { margin-left: 0; }
 /* The bar and the thread arrive after the rows. */
-:root[data-intro="play"] .late { opacity: 0; }
-:root[data-intro="reveal"] .late { animation: late 500ms var(--ease) both; animation-delay: 1.2s; }
+:root[data-intro="play"] :is(.late, .group ul)::before, :root[data-intro="play"] .late { opacity: 0; }
+:root[data-intro="reveal"] .late, :root[data-intro="reveal"] .group ul::before { animation: late 500ms var(--ease) both; animation-delay: 1.2s; }
 @keyframes late { from { opacity: 0; } }
 
 /* The launch intro: the logo, then the orb forms in the centre, moves left, and the page fades in. */
@@ -264,6 +278,12 @@ kbd { display: inline-block; min-width: 20px; padding: 2px 5px; border-radius: 3
     <button type="button" data-set="menu" data-value="rich">Rich</button>
     <button type="button" data-set="menu" data-value="plain">Plain</button>
   </div>
+  <div>Marker
+    <button type="button" data-set="marker" data-value="tick">Line</button>
+    <button type="button" data-set="marker" data-value="dot">Dots</button>
+    <button type="button" data-set="marker" data-value="one">One diamond</button>
+    <button type="button" data-set="marker" data-value="now">Before</button>
+  </div>
   <div>Theme
     <button type="button" data-set="theme" data-value="neon">Dark purple</button>
     <button type="button" data-set="theme" data-value="paper">Paper</button>
@@ -285,6 +305,7 @@ kbd { display: inline-block; min-width: 20px; padding: 2px 5px; border-radius: 3
   root.dataset.theme = params.get("theme") || "neon";
   root.dataset.dots = params.get("dots") || "lens";
   root.dataset.menu = params.get("menu") || "rich";
+  root.dataset.marker = params.get("marker") || "tick";
 
   const dots = document.getElementById("dots");
   const orb = document.getElementById("orb");

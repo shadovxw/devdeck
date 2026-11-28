@@ -1,6 +1,8 @@
 # Changes
 
 ## 2026-11-28: mockup
+- The owner did not like the hollow diamonds on the menu rows. Added a Marker switch: Line (new default: only the selected page is marked, by a short bright stretch of the rail), Dots, One diamond, and Before. All but Before also drop the small diamond where the thread meets the bar. The choice is still open.
+- Fixed: the group rails showed through during the intro.
 - Added a richer menu after the owner found the list too simple: selection bar and thread to the orb, group rails and blurbs, sub-pages, shortcuts and keyboard control. A Menu switch keeps the plain list for comparison. Everything it shows comes from `nav.ts` and `shortcuts.ts`.
 - Windows 901–1280px wide give the menu more room, so sub-pages don't cover a page's name.
 - Added `mockup.html`, a standalone page for the split-index Home, so it can be judged before the real Home changes.

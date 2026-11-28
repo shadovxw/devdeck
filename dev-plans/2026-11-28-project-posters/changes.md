@@ -121,3 +121,15 @@ The Bounce Cards source was pasted into the session. Its code isn't copied (lice
 - the pointer is read against where cards rest, never where they are now. Ours still let the open card's larger area cover about half of the next card's visible part (found by working out the sizes), so moving right felt stuck. Fixed hit areas over the fan replace that.
 
 **Checked:** typecheck, lint and 938 web tests pass. In the browser: the hit areas sit edge to edge on top; with one card open, moving 8 px into the next one's area opens it (one leave and one enter), it stays open, and a click opens that project. Smoothness still isn't measured.
+
+## 2026-11-28: a gap beside the open card
+
+**Asked:** a gap between the cards when one is hovered, and pictures to see the cards with.
+
+- **The gap** (`CardFan.tsx`): the others move out until at least 0.08 of a card is clear on each side, counting a tilted card's extra width. To keep everything on the page, cards are a little smaller when a fan is full, narrower pages take fewer to a fan, and the scrolling row now starts under 680 px.
+- **Hit areas:** the open card is read over all of itself and its neighbours from its edge outwards (`hitFor`). This replaces the rest-only areas of the entry above, which no longer match what is on screen once cards move that far. "Moving onto the right edge of an open card switches" is no longer so.
+- **Tests:** for each page width and number of cards, whichever card is open: the gap is there on both sides, nothing passes the edges, and each area that can open a card lies inside that card's open area (so a still pointer can't flicker between cards).
+
+**Pictures:** five hand-drawn sample SVGs for the local demo projects, in their folders under the git-ignored `.devdeck/data`, each with a `poster:` line saved through the app (which keeps a `.prev`). Nothing in the repo changed for them.
+
+**Checked:** typecheck, lint and 972 web tests pass. In the running app: all five posters load; with a middle card open there is a clear gap on both sides, nothing is cut off and the page doesn't scroll sideways. A card opening that the test hadn't pointed at was traced by logging pointer events: a real mouse was moving over the browser pane at the same time. That is likely also what caused the odd result in the entry above, which wasn't logged.

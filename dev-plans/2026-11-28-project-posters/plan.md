@@ -79,9 +79,10 @@ The image is the one new thing that crosses from the disk to the browser.
 - In Paper the panel and the page are both white, so the card gets its own surface: `--ink` mixed 6% into `--bg`. Not `--fill`: in this style it is a see-through tint, so the frame showed through the card and the fades did nothing (found while building P3).
 
 **The fan** (`design/fan/CardFan.tsx`)
-- **Up to 6 cards in a fan;** more start another fan below.
-- **Sizes:** cards are 180 to 260 px wide, covering each other by a little over a quarter, or by more when they wouldn't fit. Room is kept at both ends for a card that has moved aside.
-- **The pointer is read on fixed hit areas,** not on the cards: an unseen layer over the fan with one area for each card's visible part at rest (up to where the next card starts, and all of the last). They never move, so no card can slide from under the pointer, and the open card never covers its neighbour's area. Moving past a card's visible part opens the next one, even over the open card's right side.
+- **Up to 6 cards in a fan;** more start another fan below. A narrower page takes 5, 4 or 3 to a fan, so that an open card always has room for its gaps.
+- **Sizes:** cards are 180 to 260 px wide, covering each other by a little over a quarter, and by no more than half. Room is kept at both ends so that nothing is cut off, whichever card is open.
+- **A gap beside the open card** (asked 2026-11-28): at least 0.08 of a card's width on each side. The other cards move out far enough that even a tilted neighbour clears it.
+- **The pointer is read on hit areas over the fan,** not on the cards. They change only when the open card does, never as cards move (`hitFor`). At rest each is a card's visible part. With a card open, it is read over all of itself, and its two neighbours from its edge outwards, over the gap. Each of those lies inside the area that card gets once open, so what opens under a still pointer stays open, and moving on skips no card.
 - **Smoothness: only transforms and opacity move,** so nothing is laid out again while a card opens.
   - A card is drawn at its open size and scaled down to 1/1.18 at rest, so the open card is sharp.
   - The dossier is a sheet that slides up over the lower part of the picture. The initials move up out of its way.
@@ -96,7 +97,7 @@ The image is the one new thing that crosses from the disk to the browser.
   - Effects Full: springs that go a little past and back (`cardSpring.full`), and the cards bounce in on arrival (`--ease-bounce`).
   - Effects Reduced: springs that settle without passing.
   - Effects Off or reduced motion: instant.
-- **Narrow (under 600 px of page):** straight cards in one row that scrolls sideways inside its own box and snaps to a card. No tilt, no opening up. The page never scrolls sideways.
+- **Narrow (under 680 px of page):** straight cards in one row that scrolls sideways inside its own box and snaps to a card. No tilt, no opening up. The page never scrolls sideways.
 - **Screen readers:** a list of buttons in order. Each keeps its `Project <name>` label, and its details are tied to it with `aria-describedby`.
 
 ## 5. Settings

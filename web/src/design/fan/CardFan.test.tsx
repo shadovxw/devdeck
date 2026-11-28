@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CardFan, cardWidthFor, FAN_SIZE, poseFor, SCALE, spacingFor } from "./CardFan";
+import { CardFan, cardWidthFor, FAN_SIZE, fanSizeFor, GAP, hitFor, poseFor, SCALE, spacingFor, STRIP_BELOW, TILTED_HALF } from "./CardFan";
 
 const five = ["alpha", "beta", "gamma", "delta", "epsilon"];
 
@@ -53,14 +53,16 @@ describe("CardFan", () => {
     const places = five.map((n) => cardOf(n).style.left);
     const hits = () => five.map((n) => [hitOf(n).style.left, hitOf(n).style.width].join(" "));
     const resting = hits();
+    const restingWidth = parseFloat(hitOf("gamma").style.width);
     fireEvent.pointerEnter(hitOf("gamma"), mouse);
     expect(expanded()).toEqual(["gamma"]);
     expect(Number(cardOf("gamma").style.zIndex)).toBeGreaterThan(FAN_SIZE * 2);
-    // Neither the places nor the hit areas move, so a card can't slip out from under the pointer.
+    // The places never move. The open card is read over all of itself.
     expect(five.map((n) => cardOf(n).style.left)).toEqual(places);
-    expect(hits()).toEqual(resting);
+    expect(parseFloat(hitOf("gamma").style.width)).toBeGreaterThan(restingWidth);
     fireEvent.pointerLeave(hitOf("gamma"), mouse);
     expect(expanded()).toEqual([]);
+    expect(hits()).toEqual(resting);
     expect(cardOf("gamma").style.zIndex).toBe("3");
   });
 
@@ -131,38 +133,90 @@ describe("CardFan", () => {
 
 describe("poseFor", () => {
   const rest = 1 / SCALE;
+  const spacing = 144;
   it.each([
-    { name: "at rest: tilted, in place, scaled down", i: 0, open: -1, want: { x: 0, y: 10, rotate: -8, scale: rest } },
-    { name: "the expanded card: straight, full size and a little up", i: 2, open: 2, want: { x: 0, y: -8, rotate: 0, scale: 1 } },
-    { name: "one to its left moves left", i: 0, open: 2, want: { x: -56, y: 10, rotate: -8, scale: rest } },
-    { name: "one to its right moves right", i: 4, open: 2, want: { x: 56, y: -2, rotate: -5, scale: rest } },
-  ])("$name", ({ i, open, want }) => {
-    const got = poseFor(i, open, 5, 200);
-    expect(got.x).toBeCloseTo(want.x);
-    expect([got.y, got.rotate, got.scale]).toEqual([want.y, want.rotate, want.scale]);
+    { name: "at rest: tilted, in place, scaled down", i: 0, open: -1, side: 0, y: 10, rotate: -8, scale: rest },
+    { name: "the expanded card: straight, full size and a little up", i: 2, open: 2, side: 0, y: -8, rotate: 0, scale: 1 },
+    { name: "one to its left moves left", i: 0, open: 2, side: -1, y: 10, rotate: -8, scale: rest },
+    { name: "one to its right moves right", i: 4, open: 2, side: 1, y: -2, rotate: -5, scale: rest },
+  ])("$name", ({ i, open, side, y, rotate, scale }) => {
+    const got = poseFor(i, open, 5, 200, spacing);
+    expect(Math.sign(got.x)).toBe(side);
+    expect([got.y, got.rotate, got.scale]).toEqual([y, rotate, scale]);
   });
 
   it("stands one card straight", () => {
-    expect(poseFor(0, -1, 1, 200).rotate).toBe(0);
+    expect(poseFor(0, -1, 1, 200, 0).rotate).toBe(0);
   });
 });
 
+// Widths a fan is laid out for, with as many cards as it can hold there and fewer.
+const layouts = [STRIP_BELOW, 760, 900, 1180, 1400].flatMap((width) =>
+  [1, 2, 3, 5, 6].filter((count) => count <= fanSizeFor(width)).map((count) => ({ width, count })),
+);
+
 describe("the fan's sizes", () => {
   it.each([
-    { width: 1400, count: 5 },
-    { width: 1180, count: 6 },
-    { width: 900, count: 6 },
-    { width: 720, count: 6 },
-    { width: 600, count: 6 },
-    { width: 600, count: 2 },
-    { width: 1400, count: 1 },
-  ])("$count cards fit in $width px, with room at the ends for one that moved aside", ({ width, count }) => {
+    { width: STRIP_BELOW, want: 3 },
+    { width: 770, want: 4 },
+    { width: 900, want: 5 },
+    { width: 1024, want: FAN_SIZE },
+    { width: 2000, want: FAN_SIZE },
+  ])("takes $want cards to a fan at $width px", ({ width, want }) => {
+    expect(fanSizeFor(width)).toBe(want);
+  });
+
+  it.each(layouts)("$count cards at $width px: a clear gap beside whichever is open, and nothing past the edges", ({ width, count }) => {
     const card = cardWidthFor(width, count);
     const spacing = spacingFor(width, card, count);
-    const used = spacing * (count - 1) + card;
     expect(card).toBeGreaterThanOrEqual(180);
     expect(card).toBeLessThanOrEqual(260);
-    expect((width - used) / 2).toBeGreaterThanOrEqual(card * 0.39);
-    if (count > 1) expect(spacing).toBeGreaterThan(40); // each covered card still shows a part
+    if (count > 1) expect(spacing).toBeGreaterThanOrEqual(card * 0.5 - 0.01); // each covered card still shows a part
+    const start = -(spacing * (count - 1) + card) / 2;
+    for (let open = 0; open < count; open++) {
+      // Each card's left and right edge on screen, measured from the middle of the fan.
+      const edges = Array.from({ length: count }, (_, i) => {
+        const pose = poseFor(i, open, count, card, spacing);
+        const middle = start + i * spacing + card / 2 + pose.x;
+        const half = i === open ? (card * SCALE) / 2 : card * TILTED_HALF;
+        return [middle - half, middle + half];
+      });
+      for (const [left, right] of edges) {
+        expect(left).toBeGreaterThanOrEqual(-width / 2 - 0.01);
+        expect(right).toBeLessThanOrEqual(width / 2 + 0.01);
+      }
+      if (open > 0) expect(edges[open][0] - edges[open - 1][1]).toBeGreaterThanOrEqual(card * GAP - 0.01);
+      if (open < count - 1) expect(edges[open + 1][0] - edges[open][1]).toBeGreaterThanOrEqual(card * GAP - 0.01);
+    }
+  });
+});
+
+describe("hitFor", () => {
+  it("at rest is each card's visible part: up to the next one, and all of the last", () => {
+    expect([0, 1, 2].map((i) => hitFor(i, -1, 3, 200, 144))).toEqual([
+      { left: 0, width: 144 },
+      { left: 144, width: 144 },
+      { left: 288, width: 200 },
+    ]);
+  });
+
+  // If opening a card moved its area from under a still pointer, another would open, and so on.
+  it.each(layouts.filter((l) => l.count > 1))("$count cards at $width px: what opens under a still pointer stays open", ({ width, count }) => {
+    const card = cardWidthFor(width, count);
+    const spacing = spacingFor(width, card, count);
+    const span = (i: number, open: number) => {
+      const hit = hitFor(i, open, count, card, spacing);
+      return [hit.left, hit.left + hit.width];
+    };
+    for (let open = -1; open < count; open++) {
+      // The areas that can be under the pointer while `open` is: all of them at rest, else the three on top.
+      const reachable = Array.from({ length: count }, (_, i) => i).filter((i) => open < 0 || Math.abs(i - open) <= 1);
+      for (const next of reachable) {
+        const [from, to] = span(next, open);
+        const [heldFrom, heldTo] = span(next, next);
+        expect(from).toBeGreaterThanOrEqual(heldFrom - 0.01);
+        expect(to).toBeLessThanOrEqual(heldTo + 0.01);
+      }
+    }
   });
 });
