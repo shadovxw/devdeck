@@ -17,6 +17,7 @@ The Projects page (`/workspaces`) shows its project cards on a 3D ring instead o
 - **Autoplay** drifts slowly, and pauses on hover.
 - The card in front is the focused one. **Click** a card at the back to bring it to the front; **click** the front card to open its project.
 - The cards are today's project cards (`WorkspaceCards.tsx`): kicker, state, name, description, shape and the type bar. Nothing on them changes.
+- **Changed since:** the cards became posters (`dev-plans/2026-11-28-project-posters`, P3). That replaces "Nothing on them changes" above.
 - **New project** stays a separate button next to the ring, not a card on it. A tile spinning past is hard to hit, and the page header already has the action.
 
 ## 2. The component

@@ -1,6 +1,6 @@
 # Project posters: a poster card that opens into a dossier
 
-Status: P1 and P2 built 2026-11-28 (see changes.md); P3 and P4 to do. Follows `dev-plans/2026-11-28-projects-ring` (R1).
+Status: P1 to P3 built 2026-11-28 (see changes.md); P4 to do. Follows `dev-plans/2026-11-28-projects-ring` (R1).
 
 ## 0. Why
 
@@ -73,9 +73,9 @@ The image is the one new thing that crosses from the disk to the browser.
 
 **Rest and fallback**
 - With no poster, or one that fails to load: the project's initials, large and heavy, on the faint dot grid, drawn from theme tokens. Most projects will look like this, so it has to look finished.
-- A fade from `--bg` sits behind the text over a poster, so the name and state stay readable on any image.
+- A fade from the card's own colour sits behind the text over a poster, so the name and state stay readable on any image.
 - The image is `<img alt="" draggable="false">` with `pointer-events: none`. Without that, the browser's own image drag takes over the ring's drag.
-- In Paper the panel and the page are both white, so the card gets a `--fill` surface.
+- In Paper the panel and the page are both white, so the card gets its own surface: `--ink` mixed 6% into `--bg`. Not `--fill`: in this style it is a see-through tint, so the frame showed through the card and the fades did nothing (found while building P3).
 
 **Expanding**
 - **Size:** an element inside the slot grows its real width and height, up to about 1.2×. It doesn't use `scale`: scaled text on a 3D face blurs, and the controller already owns the slot's transform.

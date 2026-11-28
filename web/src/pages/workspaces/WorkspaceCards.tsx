@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { ProjectRing, type RingMotion } from "../../design/ring/ProjectRing";
 import { prefersReducedMotion } from "../../design/EmptyOrb";
 import type { RunStatus, WorkspaceSummary } from "../../lib/types";
@@ -14,45 +16,65 @@ export function typeMix(counts: Record<string, number> | undefined): Array<{ typ
     .map(([type, count], i) => ({ type, count, shade: SHADES[Math.min(i, SHADES.length - 1)] }));
 }
 
+/** What a card with no picture shows: the first letters of a name's first two words, else its first two characters. */
+export function initials(name: string): string {
+  const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  if (words.length > 1) return Array.from(words[0])[0] + Array.from(words[1])[0];
+  return Array.from(words[0] ?? name)
+    .slice(0, 2)
+    .join("");
+}
+
+/** The card's picture: the project's own, or its initials when it has none or it can't be shown. */
+function Art({ name, url }: Readonly<{ name: string; url?: string }>) {
+  // The address that failed; a changed file has a new one, which is tried again.
+  const [broken, setBroken] = useState<string>();
+  if (url && broken !== url) {
+    // Not draggable: the browser's own image drag would take over the ring's.
+    return <img data-ui="project-art" src={url} alt="" draggable={false} onError={() => setBroken(url)} />;
+  }
+  return (
+    <span data-ui="project-art" data-fallback aria-hidden>
+      <span data-ui="project-initials">
+        {initials(name)}
+        <i>.</i>
+      </span>
+    </span>
+  );
+}
+
 /**
- * One project, as on the design's Projects board (dev-plans/2026-11-22-projects §4.1): a mono line
- * with its number and folder, its state, its name, what it is, and its shape in a line. The frame,
- * cut corners and glow are in design/pieces.css (data-ui="project-card").
+ * One project as a poster (dev-plans/2026-11-28-project-posters §4): its picture fills the card, with
+ * its number and state above and its name and shape below. The frame, cut corners, fades and glow are
+ * in design/pieces.css (data-ui="project-card").
  */
 function Card({ w, index, state }: Readonly<{ w: WorkspaceSummary; index: number; state: ProjectState }>) {
-  const mix = typeMix(w.repo_types);
-  const mixLabel = "Repos by type: " + mix.map((m) => m.type + " " + m.count).join(", ");
   return (
     <button type="button" data-ui="project-card" aria-label={`Project ${w.name}`} title={`Open ${w.name}`} className="h-full w-full text-start">
-        <span data-ui="project-card-in" className="flex min-h-44 flex-col gap-3 p-5">
-          <span className="flex items-start justify-between gap-3">
-            <span data-ui="project-kicker" className="min-w-0 truncate">
-              PRJ_{String(index + 1).padStart(2, "0")}
-              {w.root && <> // {w.root}</>}
-            </span>
-            <span data-ui="project-state" data-tone={state.tone} className="shrink-0">
-              {state.text}
-            </span>
+      <span data-ui="project-card-in" className="flex min-h-44 flex-col justify-between">
+        {/* First, so the fades of the two blocks after it can tell a picture from the initials. */}
+        <Art name={w.name} url={w.poster_url} />
+        <span data-ui="project-top" className="flex items-start justify-between gap-3 px-5 pb-8 pt-5">
+          <span data-ui="project-kicker" className="min-w-0 truncate">
+            PRJ_{String(index + 1).padStart(2, "0")}
+            {w.root && <> // {w.root}</>}
           </span>
-          <span className="flex items-center gap-2.5">
+          <span data-ui="project-state" data-tone={state.tone} className="shrink-0">
+            {state.text}
+          </span>
+        </span>
+        <span data-ui="project-foot" className="flex flex-col gap-2 px-5 pb-5 pt-12">
+          {/* Wraps, so on a narrow card the tag moves down instead of cutting the name short. */}
+          <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
             <span data-ui="project-diamond" aria-hidden />
-            <span data-ui="project-name" className="truncate">
+            <span data-ui="project-name" className="max-w-[calc(100%-1.25rem)] truncate">
               {w.name}
             </span>
             {w.source === "example" && <span data-ui="project-tag">Example</span>}
           </span>
-          {w.description && <span className="line-clamp-5 text-[13px] leading-5 text-ink-3">{w.description}</span>}
-          <span className="mt-auto flex items-center justify-between gap-3">
-            <span data-ui="project-shape">{projectShape(w)}</span>
-            {mix.length > 0 && (
-              <span className="flex h-1 w-20 gap-px overflow-hidden" role="img" aria-label={mixLabel}>
-                {mix.map((m) => (
-                  <i key={m.type} style={{ flex: m.count, background: m.shade }} />
-                ))}
-              </span>
-            )}
-          </span>
+          <span data-ui="project-shape">{projectShape(w)}</span>
         </span>
+      </span>
     </button>
   );
 }

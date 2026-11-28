@@ -1015,17 +1015,20 @@
   font-size: clamp(36px, 3.2vw, 52px);
 }
 
-/* --- Project cards (pages/workspaces/WorkspaceCards.tsx; dev-plans/2026-11-22-projects §4.1) ---
-   From the design's Projects board: a thin gradient frame with two cut corners, a mono line, the
-   state as a chip. All colours are theme tokens; glow and scanlines only with Effects Full. */
+/* --- Project cards (pages/workspaces/WorkspaceCards.tsx; dev-plans/2026-11-28-project-posters) ---
+   A poster in the design's frame: a thin gradient edge with two cut corners, the picture (or the
+   project's initials) filling it, a mono line and the state above, the name and shape below. All
+   colours are theme tokens; glow only with Effects Full. */
 [data-ui="project-card"] {
   --cut: 16px;
+  /* Solid, in every theme: --fill is a see-through tint, so the frame would show through it and the fades would fade nothing. */
+  --poster-surface: color-mix(in srgb, var(--ink) 6%, var(--bg));
   position: relative;
   padding: 1px;
   border: 0;
   cursor: pointer;
   color: inherit;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--link) 55%, transparent), color-mix(in srgb, var(--critical) 25%, transparent) 45%, color-mix(in srgb, var(--ink) 6%, transparent));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--link) 55%, transparent), color-mix(in srgb, var(--ink) 12%, transparent) 45%, color-mix(in srgb, var(--ink) 6%, transparent));
   clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
   transition: transform var(--dur-move) var(--ease-out), filter var(--dur-move) var(--ease-out);
 }
@@ -1042,16 +1045,53 @@
   position: relative;
   height: 100%;
   box-sizing: border-box;
-  background: var(--neon-panel);
+  background: var(--poster-surface);
   clip-path: inherit;
 }
 
-:root[data-effects="full"] [data-ui="project-card-in"]::after {
-  content: "";
+[data-ui="project-art"] {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   pointer-events: none;
-  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--ink) 2.5%, transparent) 0 1px, transparent 1px 3px);
+}
+
+/* No picture: the initials, large, on the dot grid. */
+[data-ui="project-art"][data-fallback] {
+  display: grid;
+  place-items: center;
+  container-type: inline-size;
+  background-image: radial-gradient(color-mix(in srgb, var(--ink) 14%, transparent) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+[data-ui="project-initials"] {
+  font-size: 34cqw;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  color: var(--ink);
+}
+
+[data-ui="project-initials"] i {
+  font-style: normal;
+  color: var(--link);
+}
+
+[data-ui="project-top"],
+[data-ui="project-foot"] {
+  position: relative;
+}
+
+/* Over a picture, a fade from the card's own colour keeps the words readable on any image. */
+img[data-ui="project-art"] ~ [data-ui="project-top"] {
+  background: linear-gradient(to bottom, var(--poster-surface), color-mix(in srgb, var(--poster-surface) 90%, transparent) 55%, transparent);
+}
+
+img[data-ui="project-art"] ~ [data-ui="project-foot"] {
+  background: linear-gradient(to top, var(--poster-surface), color-mix(in srgb, var(--poster-surface) 92%, transparent) 62%, transparent);
 }
 
 [data-ui="project-kicker"] {
@@ -1125,6 +1165,15 @@
 [data-ui="ring-slot"] {
   will-change: transform, opacity;
   backface-visibility: hidden;
+}
+
+/* The cards beside the one ahead step back. */
+[data-ui="ring-slot"] [data-ui="project-card-in"] > * {
+  transition: opacity var(--dur-move) var(--ease-out);
+}
+
+[data-ui="ring-slot"]:not([data-active]) [data-ui="project-card-in"] > * {
+  opacity: 0.55;
 }
 
 /* The card in front doesn't lift on hover: the ring already put it forward. */

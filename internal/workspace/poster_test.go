@@ -242,8 +242,23 @@ func TestNoPosterSet(t *testing.T) {
 	if _, _, err := m.Poster("ghost"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Poster of nothing = %v", err)
 	}
-	if got := m.List(); len(got) == 0 || got[0].PosterURL != "" {
-		t.Errorf("list = %+v", got)
+	for _, s := range m.List() {
+		if s.ID == "demo" && s.PosterURL != "" {
+			t.Errorf("summary = %+v", s)
+		}
+	}
+}
+
+// The example project ships a poster, which has to pass the same checks as anyone's.
+func TestTheExamplePoster(t *testing.T) {
+	data, kind, err := readPoster("../../examples/workspaces/acme-shop", "poster.svg")
+	if err != nil || kind != "image/svg+xml" || len(data) == 0 {
+		t.Fatalf("kind %q, %d bytes, err %v", kind, len(data), err)
+	}
+	for _, s := range newManager(t).List() {
+		if s.ID == "acme-shop" && s.PosterURL == "" {
+			t.Error("the example's workspace.yaml doesn't show its poster")
+		}
 	}
 }
 

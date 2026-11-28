@@ -45,3 +45,28 @@
   - three saves in a row went through, and after Remove the file was the same as at the start, byte for byte
   - Paper and Paper Dark
   - at 375 px the block fits. The page does scroll sideways there because of the project's tab row, which was so before this change
+
+## 2026-11-28: P3, the resting poster card
+
+- **The card** (`WorkspaceCards.tsx`): the poster fills it, with the number and state above and the name and shape below. The description and the type bar are gone from it. They come back in P4's dossier, and `typeMix` stays for that.
+- **No poster, or one that fails to load:** the project's initials on the dot grid (`initials`: two words give their first letters, else the first two characters).
+- **The image** is decorative (`alt=""`) and can't be dragged or clicked, so the ring keeps its drag.
+- **The shape line** counts flows and the project file's `scripts:` together.
+- **Styles** (`pieces.css`, from tokens):
+  - fades behind the text over a picture
+  - side cards at 55%
+  - scanlines and the red in the frame's gradient removed (the project page's header keeps its own gradient)
+  - on a narrow card the Example tag wraps under the name instead of cutting it short
+- **Example:** `examples/workspaces/acme-shop/poster.svg`, written by hand, and its `poster:` line.
+- **A P1 test** assumed the user's project was first in the list. The example, listed before it, now has a poster, so the test finds its project by name.
+
+**A change from the plan:** the card's surface and fades use `--ink` mixed into `--bg`, not `--fill`. The tests couldn't see this: `--fill` is 7% see-through in this style, and the browser check showed unreadable text over the dark poster in Paper. plan.md is updated.
+
+**Checked:**
+- typecheck, lint, the web tests and `go test ./internal/...` pass.
+- In the browser, on a temporary server with the example and four demo projects (a bright poster, a square see-through logo, two without a poster):
+  - Paper and Paper Dark: the text on the card ahead reads well over each picture
+  - dragging across a poster turns the ring and opens nothing
+  - 375 px: no sideways scroll, all text inside the card
+  - a square logo loses its sides, as the plan says (§7, question 1)
+  - not checked by eye: Effects Off and Reduced, and rings of one or two projects

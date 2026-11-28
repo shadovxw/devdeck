@@ -200,20 +200,28 @@ describe("workspaces page", () => {
     expect(drawer.getByLabelText(/One repo, or the folder/)).toBeTruthy();
   });
 
-  it("shows each project as a card: its number and folder, its state, its shape and its mix of types", async () => {
-    mockServer({ list: [demo, sample] });
+  it("shows each project as a card: its number and folder, its state and its shape, over its picture or initials", async () => {
+    mockServer({ list: [demo, { ...sample, poster_url: "/api/v1/workspaces/acme-shop/poster?v=1" }] });
     renderAt("/workspaces");
 
     const card = within(await screen.findByRole("button", { name: "Project demo" }));
     expect(card.getByText(/PRJ_01 \/\/ ~\/code/)).toBeTruthy();
     expect(card.getByText("2 problems")).toBeTruthy();
     expect(card.getByText("3 repos · 1 run mode")).toBeTruthy();
-    expect(card.getByRole("img", { name: "Repos by type: go 1, node 1, other 1" })).toBeTruthy();
+    expect(card.getByText("de")).toBeTruthy(); // no picture: its initials
 
-    const other = within(screen.getAllByRole("button", { name: "Project acme-shop" })[0]); // shown on both sides of demo
+    const button = screen.getAllByRole("button", { name: "Project acme-shop" })[0]; // shown on both sides of demo
+    const other = within(button);
     expect(other.getByText("Example")).toBeTruthy();
     expect(other.getByText("Stopped")).toBeTruthy();
-    expect(other.queryByRole("img")).toBeNull(); // no types to show
+    // The picture: described by the button's name, and never the browser's to drag.
+    const art = button.querySelector("img") as HTMLImageElement;
+    expect([art.getAttribute("src"), art.getAttribute("alt"), art.getAttribute("draggable")]).toEqual(["/api/v1/workspaces/acme-shop/poster?v=1", "", "false"]);
+    expect(other.queryByText("as")).toBeNull();
+    // One that can't be shown gives way to the initials.
+    fireEvent.error(art);
+    expect(button.querySelector("img")).toBeNull();
+    expect(other.getByText("as")).toBeTruthy();
   });
 
   it("puts New project on the title's line, and opens the drawer from it", async () => {
