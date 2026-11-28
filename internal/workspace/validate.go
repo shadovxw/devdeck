@@ -34,8 +34,17 @@ var (
 	schemaErr  error
 )
 
-// SchemaJSON returns the JSON Schema for a kind of file, for editors and docs.
+// SchemaJSON returns the JSON Schema for a kind of file, for editors and docs. The project and
+// mode schemas are built from the workspace and stack ones (project.go).
 func SchemaJSON(k Kind) ([]byte, error) {
+	switch k {
+	case KindProject, kindMode:
+		mode, project, err := generatedSchemas()
+		if k == kindMode {
+			return mode, err
+		}
+		return project, err
+	}
 	return schemaFS.ReadFile("schemas/" + string(k) + ".schema.json")
 }
 
@@ -43,7 +52,8 @@ func schemas() (map[Kind]*jsonschema.Schema, error) {
 	schemaOnce.Do(func() {
 		schemaSet = map[Kind]*jsonschema.Schema{}
 		c := jsonschema.NewCompiler()
-		for _, k := range []Kind{KindWorkspace, KindStack, KindFlow, KindFeature} {
+		// mode comes before project, which refers to it.
+		for _, k := range []Kind{KindWorkspace, KindStack, KindFlow, KindFeature, kindMode, KindProject} {
 			raw, err := SchemaJSON(k)
 			if err != nil {
 				schemaErr = err

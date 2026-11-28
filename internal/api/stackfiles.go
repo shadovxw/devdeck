@@ -110,6 +110,8 @@ func stackFileError(c echo.Context, err error) error {
 		return echo.NewHTTPError(http.StatusForbidden, err.Error())
 	case errors.Is(err, workspace.ErrStackExists):
 		return echo.NewHTTPError(http.StatusConflict, err.Error())
+	case errors.Is(err, workspace.ErrInline):
+		return echo.NewHTTPError(http.StatusConflict, err.Error())
 	case errors.Is(err, workspace.ErrRename):
 		return echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error())
 	}

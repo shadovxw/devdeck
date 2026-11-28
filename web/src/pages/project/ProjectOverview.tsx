@@ -47,7 +47,7 @@ export function ProjectOverview({ project, runs, onOpen }: Readonly<{ project: W
   const modes = project.stacks.map((s) => s.name);
   const mine = runs.filter((r) => r.workspace === project.id);
   const [picked, setPicked] = useState<string>();
-  const mode = picked && modes.includes(picked) ? picked : defaultMode(modes, mine);
+  const mode = picked && modes.includes(picked) ? picked : defaultMode(modes, mine, project.default_mode);
   const run = mine.find((r) => r.stack === mode);
   const git = useGitRepos();
   const dbs = useProjectDatabases(project.id);

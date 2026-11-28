@@ -88,6 +88,9 @@ func (s *Manager) StackYAML(workspaceID, stack string) (string, error) {
 	if !ok {
 		return "", ErrStackNotFound
 	}
+	if st.File == projectYAML {
+		return "", ErrInline
+	}
 	data, err := os.ReadFile(r.path(st))
 	if err != nil {
 		return "", err
@@ -166,6 +169,9 @@ func (s *Manager) UpdateStack(workspaceID, stack, yamlText string) (*StackFile, 
 	if !ok {
 		return nil, nil, ErrStackNotFound
 	}
+	if old.File == projectYAML {
+		return nil, nil, ErrInline
+	}
 	st, issues, err := r.check(old.File, yamlText)
 	if err != nil {
 		return nil, issues, err
@@ -208,6 +214,9 @@ func (s *Manager) DeleteStack(workspaceID, stack string) error {
 	old, ok := r.find(stack)
 	if !ok {
 		return ErrStackNotFound
+	}
+	if old.File == projectYAML {
+		return ErrInline
 	}
 	path := r.path(old)
 	trash := filepath.Join(r.dir, trashDir, "stacks")

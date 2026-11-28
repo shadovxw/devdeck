@@ -20,7 +20,7 @@ const workspaceUsage = `Usage:
                               check a workspace's files the way devdeck does and list the
                               problems with file and line (exit 1 when there are errors).
                               A name is a folder in your workspaces folder.
-  devdeck schema <workspace|stack|flow|feature>
+  devdeck schema <workspace|project|stack|flow|feature>
                               print the JSON Schema of one kind of file
   devdeck feature check [--json] [--workspace <name>] <feature.yaml or plan folder>
                               check a feature file and list the problems with line numbers
@@ -117,7 +117,7 @@ func Schema(args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 	switch k := workspace.Kind(args[0]); k {
-	case workspace.KindWorkspace, workspace.KindStack, workspace.KindFlow, workspace.KindFeature:
+	case workspace.KindWorkspace, workspace.KindProject, workspace.KindStack, workspace.KindFlow, workspace.KindFeature:
 		b, err := workspace.SchemaJSON(k)
 		if err != nil {
 			_, _ = fmt.Fprintln(stderr, "devdeck: the schema can't be read:", err)

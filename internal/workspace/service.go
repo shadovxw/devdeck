@@ -80,6 +80,11 @@ type Detail struct {
 	// RootPath is the folder that holds the repos, resolved (~ and relative paths), so the page can open
 	// it in VS Code. The server only listens on 127.0.0.1, and the file editor already shows a path.
 	RootPath string `json:"root_path,omitempty"`
+	// File is the file the project is defined in: workspace.yaml or project.yaml (PJ9).
+	File string `json:"file"`
+	// Databases are the ones project.yaml names; DefaultMode is its run.default.
+	Databases   []DatabaseDecl `json:"databases,omitempty"`
+	DefaultMode string         `json:"default_mode,omitempty"`
 }
 
 func (s *Manager) plugins() []string {
@@ -174,7 +179,8 @@ func (s *Manager) Get(id string) (*Detail, error) {
 		return nil, err
 	}
 	// The id comes from the folder's own name, not from the caller's string.
-	d := &Detail{Summary: summarise(filepath.Base(f[0]), f[1], l), Workspace: l.Workspace, Stacks: l.Stacks, Flows: l.Flows, Issues: l.Issues, Folder: f[0]}
+	d := &Detail{Summary: summarise(filepath.Base(f[0]), f[1], l), Workspace: l.Workspace, Stacks: l.Stacks, Flows: l.Flows, Issues: l.Issues, Folder: f[0],
+		File: l.File, Databases: l.Databases, DefaultMode: l.DefaultMode}
 	if l.Workspace != nil && l.Workspace.Root != "" {
 		d.RootPath = ResolveRoot(d.Folder, l.Workspace.Root)
 	}
@@ -202,9 +208,8 @@ func (s *Manager) Validate(k Kind, yamlText, workspaceID string) []Issue {
 			for _, r := range d.Workspace.Repos {
 				repoIDs[r.ID] = true
 			}
-			if k == KindWorkspace && d.Source != SourceExample {
-				_, issues := checkWorkspaceText(workspaceYAML, d.Folder, []byte(yamlText), Options{KnownPlugins: s.plugins(), CheckPaths: true})
-				return tidy(issues)
+			if (k == KindWorkspace || k == KindProject) && d.Source != SourceExample {
+				return tidy(checkDefinition(d.File, d.Folder, []byte(yamlText), Options{KnownPlugins: s.plugins(), CheckPaths: true}))
 			}
 		}
 	}
@@ -249,7 +254,8 @@ func (s *Manager) YAML(id string) (string, error) {
 	if !ok {
 		return "", ErrNotFound
 	}
-	b, err := os.ReadFile(filepath.Join(f[0], workspaceYAML))
+	name, _ := FileOf(f[0])
+	b, err := os.ReadFile(filepath.Join(f[0], name))
 	if err != nil {
 		return "", err
 	}
@@ -272,17 +278,18 @@ func (s *Manager) Update(id, yamlText string) (*Summary, []Issue, error) {
 	if f[1] == SourceExample {
 		return nil, nil, ErrReadOnly
 	}
-	w, issues := checkWorkspaceText(workspaceYAML, "", []byte(yamlText), Options{})
+	name, _ := FileOf(f[0])
+	w, issues := definitionOf(name, []byte(yamlText))
 	if w == nil || HasErrors(issues) {
 		return nil, tidy(issues), ErrInvalid
 	}
 	if w.Name != id {
 		return nil, nil, ErrRenameWorkspace
 	}
-	file := filepath.Join(f[0], workspaceYAML)
+	file := filepath.Join(f[0], name)
 	if old, err := os.ReadFile(file); err == nil {
 		if err := os.WriteFile(file+".prev", old, 0o644); err != nil {
-			return nil, nil, fmt.Errorf("keep the old workspace.yaml: %w", err)
+			return nil, nil, fmt.Errorf("keep the old %s: %w", name, err)
 		}
 	}
 	tmp, err := os.CreateTemp(f[0], ".workspace-*.yaml")

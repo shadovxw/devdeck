@@ -240,7 +240,18 @@ export function StackCard({ workspace, stack, run, now, index }: { workspace: Wo
         >
           <FileText size={16} aria-hidden />
         </button>
-        {!sample && (
+        {!sample && stack.file === "project.yaml" && (
+          <Link
+            to={`/workspaces/${encodeURIComponent(workspace.id)}/edit`}
+            viewTransition
+            title="Written in project.yaml: edit it there"
+            aria-label={`Edit ${stack.name} in project.yaml`}
+            className={`${quietButton} !h-9 !px-2.5`}
+          >
+            <Pencil size={16} aria-hidden />
+          </Link>
+        )}
+        {!sample && stack.file !== "project.yaml" && (
           <>
             <button
               type="button"

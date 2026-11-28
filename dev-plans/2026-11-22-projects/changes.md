@@ -208,3 +208,44 @@ In the browser, against a throwaway server on 7071 with the demo data:
 - full drew web and worker started after api, and api and worker using postgres.
 - The DOM's edge list matched the databases API.
 - Clicking the shop node opened `?tab=databases`.
+
+## 2026-11-28: PJ9, project.yaml
+
+- **The file** (`internal/workspace/project.go`): `project.yaml` at `version: 2` holds everything `workspace.yaml` holds, plus:
+  - `run: {default, modes: [...]}`: each mode is a stack without its `version`. Big projects can still keep some as `stacks/<name>.yaml`.
+  - `databases: [{id, engine, name, port, from: {compose | local | url_env}, used_by}]`, never a password.
+  - It loads into the same `WorkspaceFile` and `StackFile`s as before, so running, scripts, databases and VS Code work the same on either file.
+- **The schemas** `project` and `mode` are built at start-up from `workspace.schema.json` and `stack.schema.json`, so they can't drift apart. They are served at `/api/v1/schema/project` and printed by `devdeck schema project`.
+- **Checks:**
+  - Each inline mode is checked as a stack, and its issues point at the right line of `project.yaml` (`/run/modes/0/services/0/repo`, line 19).
+  - Other checks: run modes or databases named twice, a `run.default` that isn't there, `used_by` naming a repo that isn't there, and `local` without a port.
+  - A folder with both files reads `project.yaml` and warns about `workspace.yaml`.
+- **The editor** opens whichever file the project uses: its name, its schema (`File.kind`), validation and saving (with `.prev`). The outline's Files list only shows stacks kept as their own files.
+- **The Stacks page:** an inline mode's edit button opens the file editor. The stack-file API answers 409 for an inline mode (`ErrInline`).
+- **Conversion** (`internal/workspace/convert.go`, `internal/api/convert.go`):
+  - Built on `yaml.Node`, so the comments and order of `workspace.yaml` and the stack files are kept.
+  - A comment above a stack's `version` moves to the next key.
+  - The databases found (PJ6) are written in: compose ones by service, ones on this machine by port. Ones on other hosts are left out.
+  - `GET /workspaces/:id/convert` returns the preview.
+  - `POST` writes it, only with `{"confirm": true}`, only for your own project, and only when the new file has no errors.
+  - The old files are kept as `workspace.yaml.v1` and `stacks.v1/`. Moving them back undoes it. Flows stay in `flows/`.
+- **Databases:** what `project.yaml` names goes on top of what is found (`databases.Merge`, table-tested). A declared database matches a found one by compose service, by port on this machine, or by the repos of its `url_env`. A match gives the found one its id, name and `used_by`; a declared one with no match is listed as "named in project.yaml".
+- **The UI:**
+  - Settings has "One file: project.yaml" (`ConvertCard`): Review shows the new file, what goes inline and any problems. Convert writes it, with errors blocking it.
+  - The project header and Overview start on `run.default` when nothing is running.
+- Not yet:
+  - a Form view for run modes and databases (they are edited in the YAML view)
+  - creating a new project straight as `project.yaml` (New project still writes `workspace.yaml`)
+  - `project.yaml` in the project's own folder (plan §13 question 4)
+  - the MCP `validate_workspace_yaml` tool does not take `project` yet
+
+Checked: `go vet ./...`, `go test ./...`, typecheck, lint, and all 866 web tests. Tests cover the project checks, the round trip, refusals, Merge/ToDeclare and the API flow.
+
+The round-trip test converts a project and checks that the repos and every run mode load exactly as before.
+
+In the browser, against a throwaway server on 7071, on a scratch copy of the demo project (removed afterwards):
+- Review showed 3 run modes going inline and 2 databases.
+- After Convert, the repos, run modes, scripts and databases from the API were identical to before.
+- `api-only` started from the new file (api ready on :18090) and stopped.
+- The editor opened `project.yaml` with the v2 schema and said "Valid".
+- The Stacks page sent the inline modes to the file editor.

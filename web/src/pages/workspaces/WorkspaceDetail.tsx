@@ -6,6 +6,7 @@ import { quietButton } from "../../design/buttons";
 import { Mark } from "../../design/IssueList";
 import { useDeleteWorkspace } from "../../lib/queries";
 import type { Issue, WorkspaceDetail as Detail } from "../../lib/types";
+import { ConvertCard } from "../project/ConvertCard";
 import { useWorkspaceFile } from "../../lib/workspace-file";
 
 
@@ -71,6 +72,8 @@ export function Settings({ id, d, mine, onDeleted }: Readonly<{ id: string; d: D
         {fact("Description", d.description)}
         {fact("Kind", mine ? "Yours" : "Example (read only)")}
       </dl>
+
+      {mine && d.file !== "project.yaml" && <ConvertCard workspace={id} />}
 
       {mine && (
         <section aria-label="Danger zone" className="flex flex-col gap-2.5 bg-surface-1 p-4">

@@ -13,6 +13,12 @@ import (
 // Loaded is a workspace folder after reading and checking it.
 type Loaded struct {
 	Workspace *WorkspaceFile
+	// File is the file the project is defined in: workspace.yaml or project.yaml.
+	File string
+	// Databases are the ones project.yaml names (workspace.yaml has none).
+	Databases []DatabaseDecl
+	// DefaultMode is project.yaml's run.default.
+	DefaultMode string
 	Stacks    []StackFile
 	Flows     []FlowFile
 	Issues    []Issue
@@ -151,6 +157,8 @@ func Check(k Kind, file string, data []byte, repoIDs map[string]bool, opts Optio
 	switch k {
 	case KindWorkspace:
 		_, issues = checkWorkspaceText(file, "", data, Options{KnownPlugins: opts.KnownPlugins})
+	case KindProject:
+		_, issues = checkProjectText(file, "", data, Options{KnownPlugins: opts.KnownPlugins})
 	case KindStack:
 		_, issues = checkStackText(file, data, repoIDs)
 	case KindFlow:
@@ -158,7 +166,7 @@ func Check(k Kind, file string, data []byte, repoIDs map[string]bool, opts Optio
 	case KindFeature:
 		_, issues = checkFeatureText(file, data, opts.Repos)
 	default:
-		issues = []Issue{{File: file, Severity: SeverityError, Message: fmt.Sprintf("Unknown kind %q: use workspace, stack, flow or feature.", k)}}
+		issues = []Issue{{File: file, Severity: SeverityError, Message: fmt.Sprintf("Unknown kind %q: use workspace, project, stack, flow or feature.", k)}}
 	}
 	return tidy(issues)
 }
@@ -173,20 +181,35 @@ func LoadDir(dir string, opts Options) (*Loaded, error) {
 	l := &Loaded{}
 	dirName := filepath.Base(dir)
 
-	data, err := os.ReadFile(filepath.Join(dir, "workspace.yaml"))
+	file, kind := FileOf(dir)
+	l.File = file
+	data, err := os.ReadFile(filepath.Join(dir, file))
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		l.Issues = append(l.Issues, Issue{File: "workspace.yaml", Severity: SeverityError, Message: "This folder has no workspace.yaml."})
+		l.Issues = append(l.Issues, Issue{File: file, Severity: SeverityError, Message: "This folder has no workspace.yaml or project.yaml."})
 	case err != nil:
 		return nil, err
+	case kind == KindProject:
+		pf, issues := checkProjectText(file, dir, data, opts)
+		l.Issues = append(l.Issues, issues...)
+		if pf != nil {
+			l.Workspace, l.Databases = &pf.WorkspaceFile, pf.Databases
+			if pf.Run != nil {
+				l.Stacks, l.DefaultMode = append(l.Stacks, pf.Run.Modes...), pf.Run.Default
+			}
+		}
+		if _, err := os.Stat(filepath.Join(dir, workspaceYAML)); err == nil {
+			l.Issues = append(l.Issues, Issue{File: workspaceYAML, Severity: SeverityWarning,
+				Message: "This folder has project.yaml too, which is the one devdeck reads. Remove workspace.yaml or rename it."})
+		}
 	default:
 		var issues []Issue
-		l.Workspace, issues = checkWorkspaceText("workspace.yaml", dir, data, opts)
+		l.Workspace, issues = checkWorkspaceText(file, dir, data, opts)
 		l.Issues = append(l.Issues, issues...)
-		if l.Workspace != nil && l.Workspace.Name != dirName {
-			l.Issues = append(l.Issues, Issue{File: "workspace.yaml", Path: "/name", Line: 1, Severity: SeverityWarning,
-				Message: fmt.Sprintf("The name %q doesn't match the folder name %q.", l.Workspace.Name, dirName)})
-		}
+	}
+	if l.Workspace != nil && l.Workspace.Name != dirName {
+		l.Issues = append(l.Issues, Issue{File: file, Path: "/name", Line: 1, Severity: SeverityWarning,
+			Message: fmt.Sprintf("The name %q doesn't match the folder name %q.", l.Workspace.Name, dirName)})
 	}
 
 	var repoIDs map[string]bool
@@ -198,6 +221,9 @@ func LoadDir(dir string, opts Options) (*Loaded, error) {
 	}
 
 	names := map[string]string{}
+	for _, s := range l.Stacks { // run modes written in project.yaml
+		names["stack:"+s.Name] = file
+	}
 	for _, name := range yamlFiles(filepath.Join(dir, "stacks")) {
 		rel := "stacks/" + name
 		raw, err := os.ReadFile(filepath.Join(dir, "stacks", name))

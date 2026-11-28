@@ -16,7 +16,7 @@ import (
 
 var (
 	// ErrConflict means workspace.yaml changed on disk after the editor read it.
-	ErrConflict = errors.New("workspace.yaml changed on disk after you opened it")
+	ErrConflict = errors.New("the file changed on disk after you opened it")
 	// ErrNoRepo means the workspace has no repo with that id.
 	ErrNoRepo = errors.New("this workspace has no repo with that id")
 	// ErrNoFolder means the repo's folder isn't on this machine.
@@ -31,6 +31,8 @@ type File struct {
 	YAML string `json:"yaml"`
 	Hash string `json:"hash"`
 	Path string `json:"path"`
+	// Kind is the schema the text follows: workspace, or project for project.yaml.
+	Kind Kind `json:"kind"`
 }
 
 // Hash says which version of a file some bytes are: the SHA-256 in hex.
@@ -48,12 +50,14 @@ func (s *Manager) File(id string) (File, error) {
 	if !ok {
 		return File{}, ErrNotFound
 	}
-	path := filepath.Join(f[0], workspaceYAML)
+	name, _ := FileOf(f[0])
+	path := filepath.Join(f[0], name)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return File{}, err
 	}
-	return File{YAML: string(b), Hash: Hash(b), Path: path}, nil
+	_, kind := FileOf(f[0])
+	return File{YAML: string(b), Hash: Hash(b), Path: path, Kind: kind}, nil
 }
 
 // UpdateIf is Update, but only when workspace.yaml is still the version the editor started from

@@ -4,7 +4,11 @@ import { api, ApiError } from "./api";
 import type { Validation, WorkspaceSummary } from "./types";
 
 /** workspace.yaml as the editor reads it: the text, which version it is (a hash), and where it lives. */
-export type WorkspaceFile = { yaml: string; hash: string; path: string };
+/** kind is the schema the text follows: workspace.yaml, or project.yaml (version 2, PJ9). */
+export type WorkspaceFile = { yaml: string; hash: string; path: string; kind?: "workspace" | "project" };
+
+/** The name of a project's own file, from the kind the server sends. */
+export const fileNameOf = (kind: WorkspaceFile["kind"]) => (kind === "project" ? "project.yaml" : "workspace.yaml");
 
 /** What a save answers: the workspace, and the hash of the file as it was written. */
 export type SavedWorkspace = WorkspaceSummary & { hash: string };
@@ -75,11 +79,11 @@ export function useGitInit(workspace: string) {
   });
 }
 
-/** The JSON Schema of workspace.yaml, the one the server checks with. It gives the editor its suggestions. */
-export function useWorkspaceSchema() {
+/** The JSON Schema of workspace.yaml or project.yaml, the one the server checks with. It gives the editor its suggestions. */
+export function useWorkspaceSchema(kind: WorkspaceFile["kind"] = "workspace") {
   return useQuery({
-    queryKey: ["schema", "workspace"],
-    queryFn: ({ signal }) => api.get<Record<string, unknown>>("/schema/workspace", signal),
+    queryKey: ["schema", kind],
+    queryFn: ({ signal }) => api.get<Record<string, unknown>>(`/schema/${kind}`, signal),
     staleTime: Infinity,
   });
 }

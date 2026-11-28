@@ -35,7 +35,7 @@ export function ReviewDialog({ open, onOpenChange, ed, onSave }: Readonly<{ open
       }}
       wide
       title="Review changes"
-      description="The old file is kept next to it as workspace.yaml.prev."
+      description="The old file is kept next to it, ending in .prev."
       footer={
         <>
           {ed.saveError && <Problem>{ed.saveError.message}</Problem>}
@@ -141,7 +141,7 @@ export function LeaveDialog({ open, stay, leave }: Readonly<{ open: boolean; sta
       open={open}
       onOpenChange={(o) => !o && stay()}
       title="Leave without saving?"
-      description="Your edits to workspace.yaml haven’t been saved."
+      description="Your edits to the file haven’t been saved."
       footer={
         <>
           <button type="button" onClick={stay} className={quietButton}>

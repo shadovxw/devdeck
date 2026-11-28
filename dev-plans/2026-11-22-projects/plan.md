@@ -238,6 +238,8 @@ What devdeck can do, from simple to more work:
 Decided in PJ7: VS Code tasks call `devdeck run <script>` (a `process` task, no shell). The `.code-workspace` goes to `<root>/<id>.code-workspace` and is written only after review and confirm. VS Code is opened with `vscode://file/` links, not the `code` CLI.
 
 Decided in PJ8: the canvas is React Flow + dagre (left to right), read-only until PJ9. It shows one run mode at a time and is the default tab. Clicking a node opens its tab.
+
+Decided in PJ9: `project.yaml` is `version: 2` with `run.modes` (stacks without `version`) and `databases`. It is read into the same shapes as `workspace.yaml` + `stacks/`, so nothing downstream changes. Its schema is generated from the workspace and stack schemas. Converting keeps comments and leaves the old files as `.v1`; it is offered in Settings and never forced. The file still lives in devdeck's data folder (§13 question 4 stays open).
 | Later | The VS Code extension | Status bar and commands work against the local server |
 
 ## 12. Open questions (for the owner)

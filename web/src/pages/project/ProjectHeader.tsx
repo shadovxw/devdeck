@@ -13,9 +13,9 @@ import { vscodeFolder } from "./vscode-links";
 
 export { vscodeFolder } from "./vscode-links";
 
-/** The run mode the picker starts on: the one running, else the first. */
-export function defaultMode(stacks: string[], runs: RunStatus[]): string | undefined {
-  return stacks.find((s) => runs.some((r) => r.stack === s && r.state !== "stopped")) ?? stacks[0];
+/** The run mode the picker starts on: the one running, else the file's default, else the first. */
+export function defaultMode(stacks: string[], runs: RunStatus[], preferred?: string): string | undefined {
+  return stacks.find((s) => runs.some((r) => r.stack === s && r.state !== "stopped")) ?? (preferred && stacks.includes(preferred) ? preferred : stacks[0]);
 }
 
 /**
@@ -27,7 +27,7 @@ export function ProjectHeader({ project, runs }: Readonly<{ project: WorkspaceDe
   const modes = project.stacks.map((s) => s.name);
   const mine = runs.filter((r) => r.workspace === project.id);
   const [picked, setPicked] = useState<string>();
-  const mode = picked && modes.includes(picked) ? picked : defaultMode(modes, mine);
+  const mode = picked && modes.includes(picked) ? picked : defaultMode(modes, mine, project.default_mode);
   const run = mine.find((r) => r.stack === mode && r.state !== "stopped");
   const state = projectState(project, mine);
   const start = useStartStack();
